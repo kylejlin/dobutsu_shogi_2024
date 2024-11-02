@@ -10,28 +10,27 @@ pub fn calculate() -> CompactSolutionMap {
 
     loop {
         let last_node = stack.last().unwrap().clone();
-        let Some(action) = last_node.clone().next_action() else {
-            stack.pop();
 
-            let solution: Solution = last_node.into();
-            solution_cache.set(solution.clone());
+        let action = match last_node.clone().next_action() {
+            Ok(action) => action,
 
-            if stack.is_empty() {
-                break;
+            Err(solution) => {
+                stack.pop();
+
+                solution_cache.set(solution.clone());
+
+                if stack.is_empty() {
+                    break;
+                }
+
+                stack.last_mut().unwrap().record_solution(solution);
+
+                continue;
             }
-
-            stack.last_mut().unwrap().record_solution(solution);
-
-            continue;
         };
 
         let last_node = stack.last_mut().unwrap();
         let new_node = last_node.explore(action);
-
-        if new_node.clone().next_action().is_none() {
-            last_node.record_solution(new_node.into());
-            continue;
-        }
 
         if let Some(solution) = solution_cache.get(new_node.clone()) {
             last_node.record_solution(solution);
@@ -154,23 +153,24 @@ impl SearchNode {
         }
     }
 
-    // TODO: Refactor to Result.
-    fn next_action(self) -> Option<Action> {
+    fn next_action(self) -> Result<Action, Solution> {
         let raw = ((self.0 >> 9) & 0b111_1111) as u8;
-        let raw = NonZeroU8::new(raw)?;
-        Some(Action(raw))
+        let Some(raw) = NonZeroU8::new(raw) else {
+            return Err(Solution(self.0));
+        };
+        Ok(Action(raw))
     }
 
     fn explore(&mut self, action: Action) -> SearchNode {
         let (new_timeless_state, next_action) =
             ACTION_HANDLERS[action.0.get() as usize](self.clone());
 
-        self.set_action(next_action);
+        self.set_next_action(next_action);
 
         new_timeless_state.into_node(self.clone().ply_count() + 1)
     }
 
-    fn set_action(&mut self, action: Option<Action>) {
+    fn set_next_action(&mut self, next_action: Option<Action>) {
         todo!()
     }
 
@@ -222,12 +222,6 @@ impl TimelessStateToNodeConverter {
         self,
     ) -> Self {
         todo!()
-    }
-}
-
-impl From<SearchNode> for Solution {
-    fn from(node: SearchNode) -> Self {
-        Solution(node.0)
     }
 }
 

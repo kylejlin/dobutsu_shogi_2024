@@ -192,17 +192,17 @@ However, we have deemed this inefficiency to be acceptable.
 
 A search node is represented by 64 bits.
 
-| state   | lowestUnexploredAction | bestDiscoveredOutcome |
-| ------- | ---------------------- | --------------------- |
-| 48 bits | 7 bits                 | 9 bits                |
+| state   | nextAction | bestDiscoveredOutcome |
+| ------- | ---------- | --------------------- |
+| 48 bits | 7 bits     | 9 bits                |
 
 ### State
 
 We described the state format [above](#state-representation).
 
-### Lowest unexplored action
+### Next action
 
-The `lowestUnexploredAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b000_0001`.
+The `nextAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b000_0001`.
 When all legal actions have been explored, it is set to `0b000_0000`.
 For terminal nodes, there are no legal actions to begin with, so the field is immediately initialized as `0b000_0000`.
 
