@@ -172,8 +172,13 @@ impl SearchNode {
         Some(new_timeless_state?.into_node(self.clone().ply_count() + 1))
     }
 
-    fn set_next_action(&mut self, _next_action: Option<Action>) {
-        todo!()
+    fn set_next_action(&mut self, next_action: Option<Action>) {
+        let raw: u64 = match next_action {
+            None => 0,
+            Some(n) => n.0.get() as u64,
+        };
+
+        self.0 = (self.0 & !(0b111_1111 << 9)) | (raw << 9);
     }
 
     fn ply_count(self) -> u64 {
