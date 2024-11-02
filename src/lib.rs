@@ -1,3 +1,5 @@
+use std::os::macos::raw;
+
 pub const PLY_LIMIT: u8 = 200;
 
 pub fn calculate() -> SolutionMap {
@@ -51,7 +53,7 @@ pub struct SolutionMap {
     raw: Vec<Solution>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Solution(pub u64);
 
 // We could easily make this `Copy`,
@@ -222,8 +224,118 @@ impl SolutionCache {
 }
 
 impl From<SolutionCache> for SolutionMap {
-    fn from(_cache: SolutionCache) -> Self {
-        todo!()
+    fn from(cache: SolutionCache) -> Self {
+        let mut raw = Vec::new();
+
+        cache.write(&mut raw);
+
+        raw.sort_unstable();
+
+        SolutionMap { raw }
+    }
+}
+
+impl SolutionCache {
+    fn write(&self, out: &mut Vec<Solution>) {
+        for (i0, bin0) in self.raw.iter().enumerate() {
+            let Some(bin0) = bin0 else {
+                continue;
+            };
+            let prefix = (i0 as u64) << 48;
+            self.write_bin0(prefix, bin0, out);
+        }
+    }
+
+    fn write_bin0(
+        &self,
+        prefix: u64,
+        bin0: &Box<
+            CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
+        >,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i1, bin1) in bin0.iter().enumerate() {
+            let Some(bin1) = bin1 else {
+                continue;
+            };
+            let prefix = prefix | ((i1 as u64) << (48 - 1 * 4));
+            self.write_bin1(prefix, bin1, out);
+        }
+    }
+
+    fn write_bin1(
+        &self,
+        prefix: u64,
+        bin1: &Box<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i2, bin2) in bin1.iter().enumerate() {
+            let Some(bin2) = bin2 else {
+                continue;
+            };
+            let prefix = prefix | ((i2 as u64) << (48 - 2 * 4));
+            self.write_bin2(prefix, bin2, out);
+        }
+    }
+
+    fn write_bin2(
+        &self,
+        prefix: u64,
+        bin2: &Box<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i3, bin3) in bin2.iter().enumerate() {
+            let Some(bin3) = bin3 else {
+                continue;
+            };
+            let prefix = prefix | ((i3 as u64) << (48 - 3 * 4));
+            self.write_bin3(prefix, bin3, out);
+        }
+    }
+
+    fn write_bin3(
+        &self,
+        prefix: u64,
+        bin3: &Box<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i4, bin4) in bin3.iter().enumerate() {
+            let Some(bin4) = bin4 else {
+                continue;
+            };
+            let prefix = prefix | ((i4 as u64) << (48 - 4 * 4));
+            self.write_bin4(prefix, bin4, out);
+        }
+    }
+
+    fn write_bin4(
+        &self,
+        prefix: u64,
+        bin4: &Box<CacheBin<[OptionalCachedEvaluation; 16]>>,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i5, bin5) in bin4.iter().enumerate() {
+            let Some(bin5) = bin5 else {
+                continue;
+            };
+            let prefix = prefix | ((i5 as u64) << (48 - 5 * 4));
+            self.write_bin5(prefix, bin5, out);
+        }
+    }
+
+    fn write_bin5(
+        &self,
+        prefix: u64,
+        bin5: &Box<[OptionalCachedEvaluation; 16]>,
+        out: &mut Vec<Solution>,
+    ) {
+        for (i6, raw) in bin5.iter().enumerate() {
+            let Some(outcome_score) = raw.into_zero_padded_i9() else {
+                continue;
+            };
+            let solution = prefix | ((i6 as u64) << (48 - 6 * 4)) | outcome_score;
+            out.push(Solution(solution));
+        }
     }
 }
 
