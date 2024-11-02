@@ -61,12 +61,19 @@ pub struct Solution(pub u64);
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SearchNode(pub u64);
 
+/// The **most** significant 48 bits are used.
+/// This allows us to create a `TimelessState`
+/// from a `SearchNode` without any additional bit manipulation--simply
+/// write `TimelessState(node.0)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TimelessState(pub u64);
 
+/// The **most** significant 48 bits are used.
+/// See `TimelessState` for more information regarding why.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TimelessStateToNodeConverter(pub u64);
 
+/// The **least** significant 7 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Action(NonZeroU8);
 
@@ -165,7 +172,7 @@ impl SearchNode {
 
     fn explore(&mut self, action: Action) -> Option<SearchNode> {
         let (new_timeless_state, next_action) =
-            ACTION_HANDLERS[action.0.get() as usize](self.clone());
+            ACTION_HANDLERS[action.0.get() as usize](TimelessState(self.0));
 
         self.set_next_action(next_action);
 
@@ -465,7 +472,7 @@ const NEGATIVE_200_I9: u64 = 0b100111000;
 /// Regardless of the legality of the action,
 /// the handler will return an `Option<Action>`
 /// that represents the next (possibly illegal) action to be explored.
-const ACTION_HANDLERS: [fn(SearchNode) -> (Option<TimelessState>, Option<Action>); 128] = [
+const ACTION_HANDLERS: [fn(TimelessState) -> (Option<TimelessState>, Option<Action>); 128] = [
     // illegal: 0b000_0000 to 0b000_1111
     handle_bad_action,
     handle_bad_action,
@@ -604,24 +611,36 @@ const ACTION_HANDLERS: [fn(SearchNode) -> (Option<TimelessState>, Option<Action>
     todo_dummy,
 ];
 
+fn handle_bad_action(_: TimelessState) -> (Option<TimelessState>, Option<Action>) {
+    panic!("Illegal action");
+}
+
 const CHICK_0_ALLEGIANCE_MASK: u64 = 0b1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6 + 5);
 
-fn handle_chick0_row00_col00(node: SearchNode) -> (Option<TimelessState>, Option<Action>) {
-    let node = node.0;
-
+fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Option<Action>) {
     // If chick0 is allegiant to the passive player, we cannot move it.
-    if node & CHICK_0_ALLEGIANCE_MASK != 0 {
+    if state.0 & CHICK_0_ALLEGIANCE_MASK != 0 {
         const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b010_0000) };
         return (None, Some(Action(C)));
     }
 
+    let Some(state) = vacate_row00_col00(state) else {
+        const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b001_0001) };
+        return (None, Some(Action(C)));
+    };
+
     todo!()
 }
 
-fn handle_bad_action(_: SearchNode) -> (Option<TimelessState>, Option<Action>) {
-    panic!("Illegal action");
+/// - If row 0, column 0 is empty, we return the original state.
+/// - If it is occupied by a passive piece, we move that piece
+///   to the active player's hand, and return the new state.
+/// - If it is occupied by an active piece, return `None`.
+#[inline]
+fn vacate_row00_col00(state: TimelessState) -> Option<SearchNode> {
+    todo!()
 }
 
-fn todo_dummy(_node: SearchNode) -> (Option<TimelessState>, Option<Action>) {
+fn todo_dummy(_: TimelessState) -> (Option<TimelessState>, Option<Action>) {
     todo!()
 }
