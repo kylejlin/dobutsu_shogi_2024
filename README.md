@@ -94,7 +94,7 @@ The objective function `F` is defined as follows:
 
 More intuitively, it means players will try to win as quickly as possible, and if they can't win, they will try to delay the opponent's win as long as possible.
 
-## State representation
+## State representation (48 bits total)
 
 A given game state is represented by 48 bits,
 which store the positions and allegiances of the 8 pieces. The 2 lions do not have an allegiance stored, since they do not change allegiance (because if they are captured, the game is over).
@@ -102,9 +102,15 @@ The 2 chicks have an additional bit to store their promotion status.
 
 ### State format (48 bits total)
 
-| chick0 | chick1 | elephant0 | elephant1 | giraffe0 | giraffe1 | lionActive | lionPassive | plyCount |
-| ------ | ------ | --------- | --------- | -------- | -------- | ---------- | ----------- | -------- |
-| 6 bits | 6 bits | 5 bits    | 5 bits    | 5 bits   | 5 bits   | 4 bit      | 4 bit       | 8 bits   |
+| pieces  | plyCount |
+| ------- | -------- |
+| 40 bits | 8 bits   |
+
+### Pieces format (40 bits total)
+
+| chick0 | chick1 | elephant0 | elephant1 | giraffe0 | giraffe1 | lionActive | lionPassive |
+| ------ | ------ | --------- | --------- | -------- | -------- | ---------- | ----------- |
+| 6 bits | 6 bits | 5 bits    | 5 bits    | 5 bits   | 5 bits   | 4 bit      | 4 bit       |
 
 Most significant bits are on the left.
 
@@ -171,7 +177,7 @@ Note that action representation is **not** unique.
 For example, if the active player has two chicks in hand, then dropping `chick0` in square `(0, 0)` and dropping `chick1` in the same square would have to distinct representations, even though they are the same action.
 However, we have deemed this inefficiency to be acceptable.
 
-## Search node representation
+## Search node representation (64 bits total)
 
 A search node is represented by 64 bits.
 Search nodes represent **non-terminal** states in the game tree.
@@ -198,3 +204,23 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 - If the value is `n` for `n < 0`, it means the best discovered outcome is a forced win for the passive player in `201 + n` plies from the current state.
 
 "Best" is relative to the active player.
+
+## Solution representation (64 bits total)
+
+| pieces  | dontCare | bestOutcome |
+| ------- | -------- | ----------- |
+| 40 bits | 15 bits  | 9 bits      |
+
+## Search quasinode representation (64 bits total)
+
+After we apply an action, it will either result in a terminal state or a non-terminal state.
+
+Since search nodes may only represent non-terminal states, we need a way to temporarily represent terminal states.
+
+So, we use 64-bit _quasinodes_, which have the following format:
+
+| state   | TERMINAL_MAGIC_NUMBER | bestDiscoveredOutcome |
+| ------- | --------------------- | --------------------- |
+| 48 bits | 7 bits                | 9 bits                |
+
+where TERMINAL_MAGIC_NUMBER is `0b111_1111`.

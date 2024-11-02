@@ -1,11 +1,58 @@
+pub const PLY_LIMIT: u8 = 200;
+
+pub fn calculate() -> SolutionMap {
+    let mut solution_cache = SolutionCache::new();
+
+    let mut stack: Vec<SearchNode> = Vec::with_capacity(PLY_LIMIT as usize);
+    stack.push(SearchNode::initial());
+
+    loop {
+        let last_node = stack.last().unwrap().clone();
+        let explorer_index = last_node.clone().explorer_index();
+
+        if explorer_index == 0 {
+            stack.pop();
+
+            let solution: Solution = last_node.into();
+            solution_cache.set(solution.clone());
+
+            if stack.is_empty() {
+                break;
+            }
+
+            stack.last_mut().unwrap().record_solution(solution);
+
+            continue;
+        }
+
+        let last_node = stack.last_mut().unwrap();
+        let new_quasinode = last_node.explore(explorer_index);
+
+        if new_quasinode.clone().is_terminal() {
+            last_node.record_solution(new_quasinode.into());
+            continue;
+        }
+
+        let new_node: SearchNode = new_quasinode.into();
+
+        if let Some(solution) = solution_cache.get(new_node.clone()) {
+            last_node.record_solution(solution);
+            continue;
+        }
+
+        stack.push(new_node);
+    }
+
+    solution_cache.into()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SolutionMap {
+    raw: Vec<Solution>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Solution(pub u64);
-
-const PLY_LIMIT: u8 = 200;
-
-/// -200 in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const NEGATIVE_200_I9: u64 = 0b100111000;
 
 // We could easily make this `Copy`,
 // but we intentionally choose not to.
@@ -29,56 +76,6 @@ type CacheBin<T> = [Option<Box<T>>; 16];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalCachedEvaluation(i16);
-
-impl OptionalCachedEvaluation {
-    const NONE: Self = OptionalCachedEvaluation(i16::MIN);
-
-    fn into_zero_padded_i9(self) -> Option<u64> {
-        if self == Self::NONE {
-            return None;
-        }
-
-        if self.0 < 0 {
-            return Some(((1 << 9) + self.0) as u64);
-        }
-
-        Some(self.0 as u64)
-    }
-}
-
-trait FromZeroPaddedI9<T> {
-    fn from_zero_padded_i9(value: T) -> Self;
-}
-
-impl FromZeroPaddedI9<u64> for OptionalCachedEvaluation {
-    fn from_zero_padded_i9(value: u64) -> OptionalCachedEvaluation {
-        OptionalCachedEvaluation(i16::from_zero_padded_i9(value))
-    }
-}
-
-impl FromZeroPaddedI9<u64> for i16 {
-    fn from_zero_padded_i9(value: u64) -> i16 {
-        // Handle negative values
-        if (value & (1 << 9)) != 0 {
-            const C: i16 = -(1 << 8);
-            let v8 = (value & 0b1111_1111) as i16;
-            return C + v8;
-        }
-
-        value as i16
-    }
-}
-
-impl Default for OptionalCachedEvaluation {
-    fn default() -> Self {
-        Self::NONE
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SolutionMap {
-    raw: Vec<Solution>,
-}
 
 impl SearchNode {
     const fn initial() -> SearchNode {
@@ -148,7 +145,8 @@ impl SearchNode {
 
 impl SearchQuasinode {
     fn is_terminal(self) -> bool {
-        todo!()
+        const TERMINAL_MAGIC_NUMBER_MASK: u64 = 0b111_1111 << 9;
+        (self.0 & TERMINAL_MAGIC_NUMBER_MASK) == TERMINAL_MAGIC_NUMBER_MASK
     }
 }
 
@@ -221,59 +219,62 @@ impl SolutionCache {
 }
 
 impl From<SolutionCache> for SolutionMap {
-    fn from(cache: SolutionCache) -> Self {
+    fn from(_cache: SolutionCache) -> Self {
         todo!()
     }
 }
 
-pub fn calculate() -> SolutionMap {
-    let mut solution_cache = SolutionCache::new();
+impl OptionalCachedEvaluation {
+    const NONE: Self = OptionalCachedEvaluation(i16::MIN);
 
-    let mut stack: Vec<SearchNode> = Vec::with_capacity(PLY_LIMIT as usize);
-    stack.push(SearchNode::initial());
-
-    loop {
-        let last_node = stack.last().unwrap().clone();
-        let explorer_index = last_node.clone().explorer_index();
-
-        if explorer_index == 0 {
-            stack.pop();
-
-            let solution: Solution = last_node.into();
-            solution_cache.set(solution.clone());
-
-            if stack.is_empty() {
-                break;
-            }
-
-            stack.last_mut().unwrap().record_solution(solution);
-
-            continue;
+    fn into_zero_padded_i9(self) -> Option<u64> {
+        if self == Self::NONE {
+            return None;
         }
 
-        let last_node = stack.last_mut().unwrap();
-        let new_quasinode = last_node.explore(explorer_index);
-
-        if new_quasinode.clone().is_terminal() {
-            last_node.record_solution(new_quasinode.into());
-            continue;
+        if self.0 < 0 {
+            return Some(((1 << 9) + self.0) as u64);
         }
 
-        let new_node: SearchNode = new_quasinode.into();
-
-        if let Some(solution) = solution_cache.get(new_node.clone()) {
-            last_node.record_solution(solution);
-            continue;
-        }
-
-        stack.push(new_node);
+        Some(self.0 as u64)
     }
-
-    solution_cache.into()
 }
 
-pub const EXPLORERS: [fn(&mut SearchNode) -> SearchQuasinode; 128] = [todo_dummy; 128];
+trait FromZeroPaddedI9<T> {
+    fn from_zero_padded_i9(value: T) -> Self;
+}
 
-fn todo_dummy(node: &mut SearchNode) -> SearchQuasinode {
+impl FromZeroPaddedI9<u64> for OptionalCachedEvaluation {
+    fn from_zero_padded_i9(value: u64) -> OptionalCachedEvaluation {
+        OptionalCachedEvaluation(i16::from_zero_padded_i9(value))
+    }
+}
+
+impl FromZeroPaddedI9<u64> for i16 {
+    fn from_zero_padded_i9(value: u64) -> i16 {
+        // Handle negative values
+        if (value & (1 << 9)) != 0 {
+            const C: i16 = -(1 << 8);
+            let v8 = (value & 0b1111_1111) as i16;
+            return C + v8;
+        }
+
+        value as i16
+    }
+}
+
+impl Default for OptionalCachedEvaluation {
+    fn default() -> Self {
+        Self::NONE
+    }
+}
+
+/// -200 in 9-bit two's complement, left-padded with zeros
+/// to fill the 64-bit integer.
+const NEGATIVE_200_I9: u64 = 0b100111000;
+
+const EXPLORERS: [fn(&mut SearchNode) -> SearchQuasinode; 128] = [todo_dummy; 128];
+
+fn todo_dummy(_node: &mut SearchNode) -> SearchQuasinode {
     todo!()
 }
