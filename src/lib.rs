@@ -1,6 +1,6 @@
 pub const PLY_LIMIT: u8 = 200;
 
-pub fn calculate() -> SolutionMap {
+pub fn calculate() -> CompactSolutionMap {
     let mut solution_cache = SolutionCache::new();
 
     let mut stack: Vec<SearchNode> = Vec::with_capacity(PLY_LIMIT as usize);
@@ -47,7 +47,7 @@ pub fn calculate() -> SolutionMap {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SolutionMap {
+pub struct CompactSolutionMap {
     raw: Vec<Solution>,
 }
 
@@ -76,6 +76,19 @@ type CacheBin<T> = [Option<Box<T>>; 16];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalCachedEvaluation(i16);
+
+impl CompactSolutionMap {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(self.raw.len() * 8);
+
+        for solution in &self.raw {
+            let solution = solution.0.to_le_bytes();
+            bytes.extend_from_slice(&solution);
+        }
+
+        bytes
+    }
+}
 
 impl SearchNode {
     const fn initial() -> SearchNode {
@@ -221,7 +234,7 @@ impl SolutionCache {
     }
 }
 
-impl From<SolutionCache> for SolutionMap {
+impl From<SolutionCache> for CompactSolutionMap {
     fn from(cache: SolutionCache) -> Self {
         let mut raw = Vec::new();
 
@@ -229,7 +242,7 @@ impl From<SolutionCache> for SolutionMap {
 
         raw.sort_unstable();
 
-        SolutionMap { raw }
+        CompactSolutionMap { raw }
     }
 }
 
