@@ -633,7 +633,6 @@ fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Op
 }
 
 impl TimelessState {
-    #[inline]
     fn is_chick0_passive(self) -> bool {
         self.0 & CHICK_0_ALLEGIANCE_MASK != 0
     }
@@ -642,7 +641,6 @@ impl TimelessState {
     /// - If it is occupied by a passive piece, we move that piece
     ///   to the active player's hand, and return the new state.
     /// - If it is occupied by an active piece, return `None`.
-    #[inline]
     fn vacate_row00_col00(self) -> Option<SearchNode> {
         todo!()
     }
