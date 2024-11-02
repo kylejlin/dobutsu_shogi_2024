@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    let tree = dobutsu_shogi_2024::calculate();
 }
