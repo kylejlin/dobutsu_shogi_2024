@@ -617,14 +617,14 @@ fn handle_bad_action(_: TimelessState) -> (Option<TimelessState>, Option<Action>
 
 const CHICK_0_ALLEGIANCE_MASK: u64 = 0b1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6 + 5);
 
+const CHICK1_STARTING_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b010_0000) });
+
 fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Option<Action>) {
-    // If chick0 is allegiant to the passive player, we cannot move it.
-    if state.0 & CHICK_0_ALLEGIANCE_MASK != 0 {
-        const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b010_0000) };
-        return (None, Some(Action(C)));
+    if state.is_chick0_passive() {
+        return (None, Some(CHICK1_STARTING_ACTION));
     }
 
-    let Some(state) = vacate_row00_col00(state) else {
+    let Some(state) = state.vacate_row00_col00() else {
         const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b001_0001) };
         return (None, Some(Action(C)));
     };
@@ -632,13 +632,20 @@ fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Op
     todo!()
 }
 
-/// - If row 0, column 0 is empty, we return the original state.
-/// - If it is occupied by a passive piece, we move that piece
-///   to the active player's hand, and return the new state.
-/// - If it is occupied by an active piece, return `None`.
-#[inline]
-fn vacate_row00_col00(state: TimelessState) -> Option<SearchNode> {
-    todo!()
+impl TimelessState {
+    #[inline]
+    fn is_chick0_passive(self) -> bool {
+        self.0 & CHICK_0_ALLEGIANCE_MASK != 0
+    }
+
+    /// - If row 0, column 0 is empty, we return the original state.
+    /// - If it is occupied by a passive piece, we move that piece
+    ///   to the active player's hand, and return the new state.
+    /// - If it is occupied by an active piece, return `None`.
+    #[inline]
+    fn vacate_row00_col00(self) -> Option<SearchNode> {
+        todo!()
+    }
 }
 
 fn todo_dummy(_: TimelessState) -> (Option<TimelessState>, Option<Action>) {
