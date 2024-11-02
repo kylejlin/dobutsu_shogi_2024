@@ -641,7 +641,7 @@ impl TimelessState {
     /// - If it is occupied by a passive piece, we move that piece
     ///   to the active player's hand, and return the new state.
     /// - If it is occupied by an active piece, return `None`.
-    fn vacate_row00_col00(self) -> Option<SearchNode> {
+    fn vacate_row00_col00(self) -> Option<Self> {
         todo!()
     }
 }
