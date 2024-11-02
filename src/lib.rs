@@ -202,8 +202,9 @@ impl TimelessStateToNodeConverter {
         SearchNode(raw)
     }
 
-    fn set_ply_count(self, _ply_count: u64) -> Self {
-        todo!()
+    fn set_ply_count(self, ply_count: u64) -> Self {
+        let out = (self.0 & !(0b1111_1111 << (0 + 9 + 7))) | (ply_count << (0 + 9 + 7));
+        Self(out)
     }
 
     fn horizontally_normalize(self) -> Self {
