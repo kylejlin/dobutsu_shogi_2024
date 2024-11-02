@@ -20,9 +20,12 @@ struct SearchQuasinode(pub u64);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SolutionCache {
-    raw: [CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>;
-        256 * 256],
+    raw: [Option<
+        Box<CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>>,
+    >; 256 * 256],
 }
+
+type CacheBin<T> = [Option<Box<T>>; 16];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalCachedEvaluation(i16);
@@ -71,8 +74,6 @@ impl Default for OptionalCachedEvaluation {
         Self::NONE
     }
 }
-
-type CacheBin<T> = [Option<Box<T>>; 16];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SolutionMap {
@@ -171,8 +172,8 @@ impl From<SearchQuasinode> for SearchNode {
 
 impl SolutionCache {
     fn new() -> SolutionCache {
-        let empty: CacheBin<
-            CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
+        let empty: Option<
+            Box<CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>>,
         > = Default::default();
 
         let mut v = Vec::with_capacity(256 * 256);
@@ -187,7 +188,7 @@ impl SolutionCache {
     }
 
     fn get(&self, node: SearchNode) -> Option<Solution> {
-        let bin0 = &self.raw[(node.0 >> 48) as usize];
+        let bin0 = &self.raw[(node.0 >> 48) as usize].as_ref()?;
         let bin1 = bin0[((node.0 >> (48 - 1 * 4)) & 0b1111) as usize].as_ref()?;
         let bin2 = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref()?;
         let bin3 = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref()?;
@@ -201,7 +202,8 @@ impl SolutionCache {
     }
 
     fn set(&mut self, solution: Solution) {
-        let bin0 = &mut self.raw[(solution.0 >> 48) as usize];
+        let bin0 =
+            (&mut self.raw[(solution.0 >> 48) as usize]).get_or_insert_with(Default::default);
         let bin1 = (&mut bin0[((solution.0 >> (48 - 1 * 4)) & 0b1111) as usize])
             .get_or_insert_with(Default::default);
         let bin2 = (&mut bin1[((solution.0 >> (48 - 2 * 4)) & 0b1111) as usize])
