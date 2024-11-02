@@ -126,11 +126,14 @@ impl SearchNode {
     fn record_solution(&mut self, solution: Solution) {
         let incumbent_score = i16::from_zero_padded_i9(self.0 & 0b1_1111_1111);
 
-        let raw_challenger_score = solution.0 & 0b1_1111_1111;
-        let challenger_score = i16::from_zero_padded_i9(raw_challenger_score);
+        // We need to invert the solution's score, since the solution is from one ply in the future.
+        // A win for the next ply's active player
+        // is a loss for the current ply's active player, and vice-versa.
+        // Therefore, we must invert.
+        let challenger_score = -i16::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
 
         if challenger_score > incumbent_score {
-            self.0 = (self.0 & !0b1_1111_1111) | raw_challenger_score;
+            self.0 = (self.0 & !0b1_1111_1111) | challenger_score.into_zero_padded_i9_unchecked();
         }
     }
 
@@ -232,11 +235,7 @@ impl OptionalCachedEvaluation {
             return None;
         }
 
-        if self.0 < 0 {
-            return Some(((1 << 9) + self.0) as u64);
-        }
-
-        Some(self.0 as u64)
+        Some(self.0.into_zero_padded_i9_unchecked())
     }
 }
 
@@ -260,6 +259,23 @@ impl FromZeroPaddedI9<u64> for i16 {
         }
 
         value as i16
+    }
+}
+
+trait IntoZeroPaddedI9Unchecked<T> {
+    /// If `self` does not fit into a 9-bit
+    /// two's complement signed integer,
+    /// then the behavior is undefined.
+    fn into_zero_padded_i9_unchecked(self) -> T;
+}
+
+impl IntoZeroPaddedI9Unchecked<u64> for i16 {
+    fn into_zero_padded_i9_unchecked(self) -> u64 {
+        if self < 0 {
+            return ((1 << 9) + self) as u64;
+        }
+
+        self as u64
     }
 }
 
