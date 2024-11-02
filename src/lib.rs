@@ -602,6 +602,15 @@ const ACTION_HANDLERS: [fn(SearchNode) -> (Option<TimelessState>, Option<Action>
 ];
 
 fn handle_chick0_row00_col00(node: SearchNode) -> (Option<TimelessState>, Option<Action>) {
+    let node = node.0;
+    const CHICK_0_ALLEGIANCE_MASK: u64 = 1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6 + 5);
+
+    // If chick0 is allegiant to the passive player, we cannot move it.
+    if node & CHICK_0_ALLEGIANCE_MASK != 0 {
+        const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b010_0000) };
+        return (None, Some(Action(C)));
+    }
+
     todo!()
 }
 
