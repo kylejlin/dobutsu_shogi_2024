@@ -620,21 +620,37 @@ const CHICK_0_ALLEGIANCE_MASK: u64 = 0b1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 +
 const CHICK1_STARTING_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b010_0000) });
 
 fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Option<Action>) {
-    if state.is_chick0_passive() {
-        return (None, Some(CHICK1_STARTING_ACTION));
+    const THIS_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b001_0000) });
+    const NEXT_BOUND: Action = unsafe { THIS_ACTION.increment_unchecked() };
+    const NEXT_PIECE_ACTION: Option<Action> = Some(CHICK1_STARTING_ACTION);
+
+    let min_reachable = state.get_minimum_reachable_chick0_action(THIS_ACTION);
+    if min_reachable != Some(THIS_ACTION) {
+        return (None, min_reachable.or(NEXT_PIECE_ACTION));
     }
 
     let Some(state) = state.vacate_row00_col00() else {
-        const C: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(0b001_0001) };
-        return (None, Some(Action(C)));
+        return (None, NEXT_PIECE_ACTION);
     };
 
-    todo!()
+    let state = state
+        .set_chick0_position_and_normalize(0b00_00)
+        .flip_active_player();
+    let min_reachable = state.get_minimum_reachable_chick0_action(NEXT_BOUND);
+    (Some(state), min_reachable.or(NEXT_PIECE_ACTION))
 }
 
 impl TimelessState {
+    fn flip_active_player(self) -> Self {
+        todo!()
+    }
+
     fn is_chick0_passive(self) -> bool {
         self.0 & CHICK_0_ALLEGIANCE_MASK != 0
+    }
+
+    fn set_chick0_position_and_normalize(self, position: u64) -> Self {
+        todo!()
     }
 
     /// - If row 0, column 0 is empty, we return the original state.
@@ -643,6 +659,33 @@ impl TimelessState {
     /// - If it is occupied by an active piece, return `None`.
     fn vacate_row00_col00(self) -> Option<Self> {
         todo!()
+    }
+}
+
+// An action is "reachable" by a certain piece
+// if the piece is allegiant to the active player,
+// and the piece's move pattern allows it to move to the target square.
+// The target square may contain an active piece.
+// As a corollary, a reachable action is not necessarily legal.
+impl TimelessState {
+    fn get_minimum_reachable_chick0_action(self, lower_bound: Action) -> Option<Action> {
+        if self.is_chick0_passive() {
+            return None;
+        }
+
+        todo!()
+    }
+}
+
+impl Action {
+    const unsafe fn increment_unchecked(self) -> Action {
+        let raw = self.0.get();
+
+        if raw & 0b11 == 0b10 {
+            return Action(unsafe { NonZeroU8::new_unchecked(raw) });
+        }
+
+        Action(unsafe { NonZeroU8::new_unchecked(raw + 1) })
     }
 }
 
