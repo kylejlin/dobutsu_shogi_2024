@@ -192,8 +192,7 @@ impl TimelessStateToNodeConverter {
         let raw = self
             .set_ply_count(ply_count)
             .horizontally_normalize()
-            .init_best_discovered_outcome()
-            .init_lowest_unexplored_action_assuming_best_discovered_outcome_was_initialized()
+            .init_best_discovered_outcome_and_next_action()
             .0;
         SearchNode(raw)
     }
@@ -216,13 +215,11 @@ impl TimelessStateToNodeConverter {
         todo!()
     }
 
-    fn init_best_discovered_outcome(self) -> Self {
-        todo!()
-    }
-
-    fn init_lowest_unexplored_action_assuming_best_discovered_outcome_was_initialized(
-        self,
-    ) -> Self {
+    /// If the this is terminal, then we set the best discovered outcome
+    /// to the outcome of the game, and we set the next action to `None`.
+    /// Otherwise, we set the best discovered outcome to `-200`,
+    /// and we set the next action `to Action(0b001_0000)`.
+    fn init_best_discovered_outcome_and_next_action(self) -> Self {
         todo!()
     }
 }
