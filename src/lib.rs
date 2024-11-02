@@ -10,10 +10,10 @@ struct SearchNode(pub u64);
 struct SearchQuasinode(pub u64);
 
 struct SolutionCache {
-    raw: [CacheNode<CacheNode<CacheNode<CacheNode<CacheNode<[u64; 16]>>>>>; 256 * 256],
+    raw: [CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[u64; 16]>>>>>; 256 * 256],
 }
 
-type CacheNode<T> = [Option<Box<T>>; 16];
+type CacheBin<T> = [Option<Box<T>>; 16];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SolutionMap {
@@ -64,8 +64,7 @@ impl From<SearchQuasinode> for SearchNode {
 
 impl SolutionCache {
     fn new() -> SolutionCache {
-        let empty: CacheNode<CacheNode<CacheNode<CacheNode<CacheNode<[u64; 16]>>>>> =
-            Default::default();
+        let empty: CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[u64; 16]>>>>> = Default::default();
         let mut v = Vec::with_capacity(256 * 256);
         for _ in 0..256 * 256 {
             v.push(empty.clone());
@@ -76,6 +75,22 @@ impl SolutionCache {
     }
 
     fn get(&self, node: SearchNode) -> Option<Solution> {
+        let bin0 = &self.raw[(node.0 >> 48) as usize];
+        let bin1 = bin0[((node.0 >> (48 - 1 * 4)) & 0b1111) as usize].as_ref()?;
+        let bin2 = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref()?;
+        let bin3 = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref()?;
+        let bin4 = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref()?;
+        let bin5 = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref()?;
+        let raw = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize];
+
+        if raw == 0 {
+            return None;
+        }
+
+        Some(Solution(raw))
+    }
+
+    fn add(&mut self, solution: Solution) {
         todo!()
     }
 }
@@ -99,11 +114,14 @@ pub fn calculate() -> SolutionMap {
         if explorer_index == 0 {
             stack.pop();
 
+            let solution: Solution = last_node.into();
+            solution_cache.add(solution.clone());
+
             if stack.is_empty() {
                 break;
             }
 
-            stack.last_mut().unwrap().record_solution(last_node.into());
+            stack.last_mut().unwrap().record_solution(solution);
 
             continue;
         }
