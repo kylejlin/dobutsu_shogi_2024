@@ -137,7 +137,7 @@ impl SearchNode {
     }
 
     fn explorer_index(self) -> usize {
-        todo!()
+        return ((self.0 >> 9) & 0b111_1111) as usize;
     }
 
     fn explore(&mut self, explorer_index: usize) -> SearchQuasinode {
