@@ -37,6 +37,17 @@ impl OptionalCachedEvaluation {
 
         Some(self.0 as u64)
     }
+
+    fn from_zero_padded_i9(value: u64) -> Self {
+        // Handle negative values
+        if (value & (1 << 9)) != 0 {
+            const C: i16 = -(1 << 8);
+            let v8 = (value & 0b1111_1111) as i16;
+            return Self(C + v8);
+        }
+
+        Self(value as i16)
+    }
 }
 
 impl Default for OptionalCachedEvaluation {
@@ -125,8 +136,21 @@ impl SolutionCache {
         Some(Solution(left | right))
     }
 
-    fn add(&mut self, solution: Solution) {
-        todo!()
+    fn set(&mut self, solution: Solution) {
+        let bin0 = &mut self.raw[(solution.0 >> 48) as usize];
+        let bin1 = (&mut bin0[((solution.0 >> (48 - 1 * 4)) & 0b1111) as usize])
+            .get_or_insert_with(Default::default);
+        let bin2 = (&mut bin1[((solution.0 >> (48 - 2 * 4)) & 0b1111) as usize])
+            .get_or_insert_with(Default::default);
+        let bin3 = (&mut bin2[((solution.0 >> (48 - 3 * 4)) & 0b1111) as usize])
+            .get_or_insert_with(Default::default);
+        let bin4 = (&mut bin3[((solution.0 >> (48 - 4 * 4)) & 0b1111) as usize])
+            .get_or_insert_with(Default::default);
+        let bin5 = (&mut bin4[((solution.0 >> (48 - 5 * 4)) & 0b1111) as usize])
+            .get_or_insert_with(Default::default);
+        let raw = &mut bin5[((solution.0 >> (48 - 6 * 4)) & 0b1111) as usize];
+
+        *raw = OptionalCachedEvaluation::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
     }
 }
 
@@ -150,7 +174,7 @@ pub fn calculate() -> SolutionMap {
             stack.pop();
 
             let solution: Solution = last_node.into();
-            solution_cache.add(solution.clone());
+            solution_cache.set(solution.clone());
 
             if stack.is_empty() {
                 break;
