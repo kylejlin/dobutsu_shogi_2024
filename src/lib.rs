@@ -3,6 +3,10 @@ pub struct Solution(pub u64);
 
 const PLY_LIMIT: u8 = 200;
 
+/// -200 in 9-bit two's complement, left-padded with zeros
+/// to fill the 64-bit integer.
+const NEGATIVE_200_I9: u64 = 0b100111000;
+
 // We could easily make this `Copy`,
 // but we intentionally choose not to.
 // This is to prevent unintended copying,
@@ -64,8 +68,49 @@ pub struct SolutionMap {
 }
 
 impl SearchNode {
-    fn initial() -> SearchNode {
-        todo!()
+    const fn initial() -> SearchNode {
+        const fn ascending(a: u64, b: u64) -> (u64, u64) {
+            if a <= b {
+                (a, b)
+            } else {
+                (b, a)
+            }
+        }
+
+        let active_chick: u64 = 0b0_01_01_0;
+        let passive_chick: u64 = 0b1_10_01_0;
+        let (chick0, chick1) = ascending(active_chick, passive_chick);
+
+        let active_elephant: u64 = 0b0_00_00;
+        let passive_elephant: u64 = 0b1_11_10;
+        let (elephant0, elephant1) = ascending(active_elephant, passive_elephant);
+
+        let active_giraffe: u64 = 0b0_00_10;
+        let passive_giraffe: u64 = 0b1_11_00;
+        let (giraffe0, giraffe1) = ascending(active_giraffe, passive_giraffe);
+
+        let active_lion: u64 = 0b00_01;
+        let passive_lion: u64 = 0b11_01;
+
+        let ply_count: u64 = 0;
+
+        let lowest_unexplored_action: u64 = 0;
+
+        let best_discovered_evaluation: u64 = NEGATIVE_200_I9;
+
+        SearchNode(
+            (chick0 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6))
+                | (chick1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5))
+                | (elephant0 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5))
+                | (elephant1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5))
+                | (giraffe0 << (0 + 9 + 7 + 8 + 4 + 4 + 5))
+                | (giraffe1 << (0 + 9 + 7 + 8 + 4 + 4))
+                | (active_lion << (0 + 9 + 7 + 8 + 4))
+                | (passive_lion << (0 + 9 + 7 + 8))
+                | (ply_count << (0 + 9 + 7))
+                | (lowest_unexplored_action << (0 + 9))
+                | (best_discovered_evaluation << 0),
+        )
     }
 
     fn record_solution(&mut self, solution: Solution) {
