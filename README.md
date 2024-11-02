@@ -176,13 +176,18 @@ However, we have deemed this inefficiency to be acceptable.
 A search node is represented by 64 bits.
 Search nodes represent **non-terminal** states in the game tree.
 
-| state   | bestDiscoveredOutcome | lowestUnexploredAction |
-| ------- | --------------------- | ---------------------- |
-| 48 bits | 9 bits                | 7 bits                 |
+| state   | lowestUnexploredAction | bestDiscoveredOutcome |
+| ------- | ---------------------- | --------------------- |
+| 48 bits | 7 bits                 | 9 bits                |
 
 ### State
 
 We described the state format [above](#state-representation).
+
+### Lowest unexplored action
+
+The `lowestUnexploredAction` field is a 7-bit unsigned integer. It is initialized to `0b000_0001`.
+When all legal actions have been explored, it is set to `0b000_0000`.
 
 ### Best discovered outcome
 
@@ -193,8 +198,3 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 - If the value is `n` for `n < 0`, it means the best discovered outcome is a forced win for the passive player in `201 + n` plies from the current state.
 
 "Best" is relative to the active player.
-
-### Lowest unexplored action
-
-The `lowestUnexploredAction` field is a 7-bit unsigned integer. It is initialized to `0b000_0001`.
-When all legal actions have been explored, it is set to `0b000_0000`.
