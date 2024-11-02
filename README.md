@@ -97,16 +97,27 @@ More intuitively, it means players will try to win as quickly as possible, and i
 ## State representation (48 bits total)
 
 A given game state is represented by 48 bits,
-which store the positions and allegiances of the 8 pieces. The 2 lions do not have an allegiance stored, since they do not change allegiance (because if they are captured, the game is over).
-The 2 chicks have an additional bit to store their promotion status.
+which stores the _timeless state_ and the number of plies played.
+
+The _timeless state_ is a 40-bit integer that stores the positions and allegiances of the 8 pieces.
+Normally, one might use the term "board" instead, especially in
+chess contexts.
+However, the "board" does not capture all the piece information
+in Dobutsu Shogi, since pieces can also be in the _hand_.
+So, we use the term "timeless state" to collectively refer to
+both the board and the players' hands.
 
 ### State format (48 bits total)
 
-| pieces  | plyCount |
-| ------- | -------- |
-| 40 bits | 8 bits   |
+| timelessState | plyCount |
+| ------------- | -------- |
+| 40 bits       | 8 bits   |
 
-### Pieces format (40 bits total)
+### Timeless state format (40 bits total)
+
+The timeless state is a 40-bit integer that stores the positions and allegiances of the 8 pieces.
+The 2 lions do not have an allegiance stored, since they do not change allegiance (because if they are captured, the game is over).
+The 2 chicks have an additional bit to store their promotion status.
 
 | chick0 | chick1 | elephant0 | elephant1 | giraffe0 | giraffe1 | lionActive | lionPassive |
 | ------ | ------ | --------- | --------- | -------- | -------- | ---------- | ----------- |
@@ -180,7 +191,6 @@ However, we have deemed this inefficiency to be acceptable.
 ## Search node representation (64 bits total)
 
 A search node is represented by 64 bits.
-Search nodes represent **non-terminal** states in the game tree.
 
 | state   | lowestUnexploredAction | bestDiscoveredOutcome |
 | ------- | ---------------------- | --------------------- |
@@ -192,8 +202,9 @@ We described the state format [above](#state-representation).
 
 ### Lowest unexplored action
 
-The `lowestUnexploredAction` field is a 7-bit unsigned integer. It is initialized to `0b000_0001`.
+The `lowestUnexploredAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b000_0001`.
 When all legal actions have been explored, it is set to `0b000_0000`.
+For terminal nodes, there are no legal actions to begin with, so the field is immediately initialized as `0b000_0000`.
 
 ### Best discovered outcome
 
@@ -207,20 +218,6 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 
 ## Solution representation (64 bits total)
 
-| pieces  | dontCare | bestOutcome |
-| ------- | -------- | ----------- |
-| 40 bits | 15 bits  | 9 bits      |
-
-## Search quasinode representation (64 bits total)
-
-After we apply an action, it will either result in a terminal state or a non-terminal state.
-
-Since search nodes may only represent non-terminal states, we need a way to temporarily represent terminal states.
-
-So, we use 64-bit _quasinodes_, which have the following format:
-
-| state   | TERMINAL_MAGIC_NUMBER | bestDiscoveredOutcome |
-| ------- | --------------------- | --------------------- |
-| 48 bits | 7 bits                | 9 bits                |
-
-where TERMINAL_MAGIC_NUMBER is `0b111_1111`.
+| timelessState | dontCare | bestOutcome |
+| ------------- | -------- | ----------- |
+| 40 bits       | 15 bits  | 9 bits      |

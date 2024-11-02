@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 pub const PLY_LIMIT: u8 = 200;
 
 pub fn calculate() -> CompactSolutionMap {
@@ -8,9 +10,7 @@ pub fn calculate() -> CompactSolutionMap {
 
     loop {
         let last_node = stack.last().unwrap().clone();
-        let explorer_index = last_node.clone().explorer_index();
-
-        if explorer_index == 0 {
+        let Some(action) = last_node.clone().next_action() else {
             stack.pop();
 
             let solution: Solution = last_node.into();
@@ -23,17 +23,15 @@ pub fn calculate() -> CompactSolutionMap {
             stack.last_mut().unwrap().record_solution(solution);
 
             continue;
-        }
+        };
 
         let last_node = stack.last_mut().unwrap();
-        let new_quasinode = last_node.explore(explorer_index);
+        let new_node = last_node.explore(action);
 
-        if new_quasinode.clone().is_terminal() {
-            last_node.record_solution(new_quasinode.into());
+        if new_node.clone().next_action().is_none() {
+            last_node.record_solution(new_node.into());
             continue;
         }
-
-        let new_node: SearchNode = new_quasinode.into();
 
         if let Some(solution) = solution_cache.get(new_node.clone()) {
             last_node.record_solution(solution);
@@ -63,7 +61,13 @@ pub struct Solution(pub u64);
 struct SearchNode(pub u64);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct SearchQuasinode(pub u64);
+struct TimelessState(pub u64);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TimelessStateToNodeConverter(pub u64);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Action(NonZeroU8);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SolutionCache {
@@ -150,22 +154,49 @@ impl SearchNode {
         }
     }
 
-    fn explorer_index(self) -> usize {
-        return ((self.0 >> 9) & 0b111_1111) as usize;
+    // TODO: Refactor to Result.
+    fn next_action(self) -> Option<Action> {
+        let raw = ((self.0 >> 9) & 0b111_1111) as u8;
+        let raw = NonZeroU8::new(raw)?;
+        Some(Action(raw))
     }
 
-    fn explore(&mut self, explorer_index: usize) -> SearchQuasinode {
-        EXPLORERS[explorer_index](self).horizontally_normalize()
+    fn explore(&mut self, action: Action) -> SearchNode {
+        let (new_timeless_state, next_action) =
+            ACTION_HANDLERS[action.0.get() as usize](self.clone());
+
+        self.set_action(next_action);
+
+        new_timeless_state.into_node(self.clone().ply_count() + 1)
+    }
+
+    fn set_action(&mut self, action: Option<Action>) {
+        todo!()
+    }
+
+    fn ply_count(self) -> u64 {
+        (self.0 >> (0 + 9 + 7)) & 0b1111_1111
     }
 }
 
-impl SearchQuasinode {
-    fn is_terminal(self) -> bool {
-        const TERMINAL_MAGIC_NUMBER_MASK: u64 = 0b111_1111 << 9;
-        (self.0 & TERMINAL_MAGIC_NUMBER_MASK) == TERMINAL_MAGIC_NUMBER_MASK
+impl TimelessState {
+    fn into_node(self, ply_count: u64) -> SearchNode {
+        TimelessStateToNodeConverter(self.0).into_node(ply_count)
+    }
+}
+
+impl TimelessStateToNodeConverter {
+    fn into_node(self, ply_count: u64) -> SearchNode {
+        let raw = self
+            .set_ply_count(ply_count)
+            .horizontally_normalize()
+            .init_best_discovered_outcome()
+            .init_lowest_unexplored_action_assuming_best_discovered_outcome_was_initialized()
+            .0;
+        SearchNode(raw)
     }
 
-    fn horizontally_flip(self) -> Self {
+    fn set_ply_count(self, ply_count: u64) -> Self {
         todo!()
     }
 
@@ -178,23 +209,25 @@ impl SearchQuasinode {
 
         self
     }
+
+    fn horizontally_flip(self) -> Self {
+        todo!()
+    }
+
+    fn init_best_discovered_outcome(self) -> Self {
+        todo!()
+    }
+
+    fn init_lowest_unexplored_action_assuming_best_discovered_outcome_was_initialized(
+        self,
+    ) -> Self {
+        todo!()
+    }
 }
 
 impl From<SearchNode> for Solution {
     fn from(node: SearchNode) -> Self {
         Solution(node.0)
-    }
-}
-
-impl From<SearchQuasinode> for Solution {
-    fn from(quasinode: SearchQuasinode) -> Self {
-        Solution(quasinode.0)
-    }
-}
-
-impl From<SearchQuasinode> for SearchNode {
-    fn from(quasinode: SearchQuasinode) -> Self {
-        SearchNode(quasinode.0)
     }
 }
 
@@ -426,12 +459,8 @@ impl Default for OptionalCachedEvaluation {
 /// to fill the 64-bit integer.
 const NEGATIVE_200_I9: u64 = 0b100111000;
 
-const EXPLORERS: [fn(&mut SearchNode) -> SearchQuasinode; 128] = [todo_dummy; 128];
+const ACTION_HANDLERS: [fn(SearchNode) -> (TimelessState, Option<Action>); 128] = [todo_dummy; 128];
 
-fn todo_dummy(_node: &mut SearchNode) -> SearchQuasinode {
-    // TODO: Make sure to update the lowest unexplored action field.
-
-    // TODO: Make sure to sayu-normalize the quasinode.
-
+fn todo_dummy(_node: SearchNode) -> (TimelessState, Option<Action>) {
     todo!()
 }
