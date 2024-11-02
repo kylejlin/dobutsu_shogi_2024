@@ -202,7 +202,7 @@ We described the state format [above](#state-representation).
 
 ### Next action
 
-The `nextAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b000_0001`.
+The `nextAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b001_0000`.
 When all legal actions have been explored, it is set to `0b000_0000`.
 For terminal nodes, there are no legal actions to begin with, so the field is immediately initialized as `0b000_0000`.
 
