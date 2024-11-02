@@ -170,7 +170,7 @@ impl SearchNode {
         new_timeless_state.into_node(self.clone().ply_count() + 1)
     }
 
-    fn set_next_action(&mut self, next_action: Option<Action>) {
+    fn set_next_action(&mut self, _next_action: Option<Action>) {
         todo!()
     }
 
@@ -196,7 +196,7 @@ impl TimelessStateToNodeConverter {
         SearchNode(raw)
     }
 
-    fn set_ply_count(self, ply_count: u64) -> Self {
+    fn set_ply_count(self, _ply_count: u64) -> Self {
         todo!()
     }
 
