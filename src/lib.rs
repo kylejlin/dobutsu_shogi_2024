@@ -155,7 +155,7 @@ impl SearchNode {
     }
 
     fn explore(&mut self, explorer_index: usize) -> SearchQuasinode {
-        EXPLORERS[explorer_index](self)
+        EXPLORERS[explorer_index](self).horizontally_normalize()
     }
 }
 
@@ -163,6 +163,20 @@ impl SearchQuasinode {
     fn is_terminal(self) -> bool {
         const TERMINAL_MAGIC_NUMBER_MASK: u64 = 0b111_1111 << 9;
         (self.0 & TERMINAL_MAGIC_NUMBER_MASK) == TERMINAL_MAGIC_NUMBER_MASK
+    }
+
+    fn horizontally_flip(self) -> Self {
+        todo!()
+    }
+
+    fn horizontally_normalize(self) -> Self {
+        let flipped = self.horizontally_flip();
+
+        if flipped.0 < self.0 {
+            return flipped;
+        }
+
+        self
     }
 }
 
