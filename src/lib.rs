@@ -30,7 +30,9 @@ pub fn calculate() -> CompactSolutionMap {
         };
 
         let last_node = stack.last_mut().unwrap();
-        let new_node = last_node.explore(action);
+        let Some(new_node) = last_node.explore(action) else {
+            continue;
+        };
 
         if let Some(solution) = solution_cache.get(new_node.clone()) {
             last_node.record_solution(solution);
@@ -161,13 +163,13 @@ impl SearchNode {
         Ok(Action(raw))
     }
 
-    fn explore(&mut self, action: Action) -> SearchNode {
+    fn explore(&mut self, action: Action) -> Option<SearchNode> {
         let (new_timeless_state, next_action) =
             ACTION_HANDLERS[action.0.get() as usize](self.clone());
 
         self.set_next_action(next_action);
 
-        new_timeless_state.into_node(self.clone().ply_count() + 1)
+        Some(new_timeless_state?.into_node(self.clone().ply_count() + 1))
     }
 
     fn set_next_action(&mut self, _next_action: Option<Action>) {
@@ -453,8 +455,16 @@ impl Default for OptionalCachedEvaluation {
 /// to fill the 64-bit integer.
 const NEGATIVE_200_I9: u64 = 0b100111000;
 
-const ACTION_HANDLERS: [fn(SearchNode) -> (TimelessState, Option<Action>); 128] = [todo_dummy; 128];
+/// An action handler will return the result of applying an action
+/// to the input state, assuming the action is legal.
+/// If the action is illegal, then the handler will return `None`
+/// instead of the resulting timeless state.
+/// Regardless of the legality of the action,
+/// the handler will return an `Option<Action>`
+/// that represents the next (possibly illegal) action to be explored.
+const ACTION_HANDLERS: [fn(SearchNode) -> (Option<TimelessState>, Option<Action>); 128] =
+    [todo_dummy; 128];
 
-fn todo_dummy(_node: SearchNode) -> (TimelessState, Option<Action>) {
+fn todo_dummy(_node: SearchNode) -> (Option<TimelessState>, Option<Action>) {
     todo!()
 }
