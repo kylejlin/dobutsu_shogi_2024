@@ -41,16 +41,28 @@ impl OptionalCachedEvaluation {
 
         Some(self.0 as u64)
     }
+}
 
-    fn from_zero_padded_i9(value: u64) -> Self {
+trait FromZeroPaddedI9<T> {
+    fn from_zero_padded_i9(value: T) -> Self;
+}
+
+impl FromZeroPaddedI9<u64> for OptionalCachedEvaluation {
+    fn from_zero_padded_i9(value: u64) -> OptionalCachedEvaluation {
+        OptionalCachedEvaluation(i16::from_zero_padded_i9(value))
+    }
+}
+
+impl FromZeroPaddedI9<u64> for i16 {
+    fn from_zero_padded_i9(value: u64) -> i16 {
         // Handle negative values
         if (value & (1 << 9)) != 0 {
             const C: i16 = -(1 << 8);
             let v8 = (value & 0b1111_1111) as i16;
-            return Self(C + v8);
+            return C + v8;
         }
 
-        Self(value as i16)
+        value as i16
     }
 }
 
@@ -114,7 +126,14 @@ impl SearchNode {
     }
 
     fn record_solution(&mut self, solution: Solution) {
-        todo!()
+        let incumbent_score = i16::from_zero_padded_i9(self.0 & 0b1_1111_1111);
+
+        let raw_challenger_score = solution.0 & 0b1_1111_1111;
+        let challenger_score = i16::from_zero_padded_i9(raw_challenger_score);
+
+        if challenger_score > incumbent_score {
+            self.0 = (self.0 & !0b1_1111_1111) | raw_challenger_score;
+        }
     }
 
     fn explorer_index(self) -> usize {
