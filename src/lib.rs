@@ -1,16 +1,48 @@
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Solution(pub u64);
 
 const PLY_LIMIT: u8 = 200;
 
+// We could easily make this `Copy`,
+// but we intentionally choose not to.
+// This is to prevent unintended copying,
+// since there are times we want to mutate a `SearchNode`.
+// in-place.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SearchNode(pub u64);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct SearchQuasinode(pub u64);
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct SolutionCache {
-    raw: [CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[u64; 16]>>>>>; 256 * 256],
+    raw: [CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>;
+        256 * 256],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OptionalCachedEvaluation(i16);
+
+impl OptionalCachedEvaluation {
+    const NONE: Self = OptionalCachedEvaluation(i16::MIN);
+
+    fn into_zero_padded_i9(self) -> Option<u64> {
+        if self == Self::NONE {
+            return None;
+        }
+
+        if self.0 < 0 {
+            return Some(((1 << 9) + self.0) as u64);
+        }
+
+        Some(self.0 as u64)
+    }
+}
+
+impl Default for OptionalCachedEvaluation {
+    fn default() -> Self {
+        Self::NONE
+    }
 }
 
 type CacheBin<T> = [Option<Box<T>>; 16];
@@ -64,11 +96,16 @@ impl From<SearchQuasinode> for SearchNode {
 
 impl SolutionCache {
     fn new() -> SolutionCache {
-        let empty: CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[u64; 16]>>>>> = Default::default();
+        let empty: CacheBin<
+            CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
+        > = Default::default();
+
         let mut v = Vec::with_capacity(256 * 256);
+
         for _ in 0..256 * 256 {
             v.push(empty.clone());
         }
+
         SolutionCache {
             raw: v.try_into().unwrap(),
         }
@@ -81,13 +118,11 @@ impl SolutionCache {
         let bin3 = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref()?;
         let bin4 = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref()?;
         let bin5 = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref()?;
-        let raw = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize];
+        let raw = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].into_zero_padded_i9()?;
 
-        if raw == 0 {
-            return None;
-        }
-
-        Some(Solution(raw))
+        let left = node.0 & 0xFFFF_FFFF_FF00_0000;
+        let right = raw;
+        Some(Solution(left | right))
     }
 
     fn add(&mut self, solution: Solution) {
