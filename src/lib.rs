@@ -691,13 +691,13 @@ fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     panic!("Illegal action");
 }
 
-macro_rules! handle_chick_drop {
+macro_rules! handle_chick_drop_assuming_active_allegiance {
     ($ACTION:expr, $state:expr) => {{
         todo!()
     }};
 }
 
-macro_rules! handle_chick_move {
+macro_rules! handle_chick_move_assuming_active_allegiance {
     ($ACTION:expr, $state:expr) => {{
         todo!()
     }};
@@ -710,10 +710,10 @@ macro_rules! handle_chick_action {
         }
 
         if $state.0 & $ACTION.hand_mask() == $ACTION.hand_mask() {
-            return handle_chick_drop!($ACTION, $state);
+            return handle_chick_drop_assuming_active_allegiance!($ACTION, $state);
         }
 
-        return handle_chick_move!($ACTION, $state);
+        return handle_chick_move_assuming_active_allegiance!($ACTION, $state);
     }};
 }
 
