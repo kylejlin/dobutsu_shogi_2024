@@ -234,7 +234,30 @@ impl SearchNode {
 
 impl NodeBuilder {
     fn invert_active_player(self) -> Self {
-        todo!()
+        const ALLEGIANCE_INVERSION_MASK: u64 = (1 << offsets::CHICK0_ALLEGIANCE)
+            | (1 << offsets::CHICK1_ALLEGIANCE)
+            | (1 << offsets::ELEPHANT0_ALLEGIANCE)
+            | (1 << offsets::ELEPHANT1_ALLEGIANCE)
+            | (1 << offsets::GIRAFFE0_ALLEGIANCE)
+            | (1 << offsets::GIRAFFE1_ALLEGIANCE);
+
+        const ACTIVE_LION_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
+        const PASSIVE_LION_MASK: u64 = 0b1111 << offsets::PASSIVE_LION;
+
+        let active_lion_bits_in_original_position = self.0 & ACTIVE_LION_MASK;
+        let passive_lion_bits_in_original_position = self.0 & PASSIVE_LION_MASK;
+
+        let out = self.0 ^ ALLEGIANCE_INVERSION_MASK;
+
+        let out = (out & !ACTIVE_LION_MASK)
+            | (passive_lion_bits_in_original_position
+                << (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
+
+        let out = (out & !PASSIVE_LION_MASK)
+            | (active_lion_bits_in_original_position
+                >> (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
+
+        Self(out)
     }
 
     fn increment_ply_count(self) -> Self {
@@ -896,6 +919,7 @@ fn todo_dummy(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     todo!()
 }
 
+/// All offsets are given relative to the right (i.e., least significant) bit.
 mod offsets {
     pub const CHICK0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6;
     pub const CHICK1: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5;
