@@ -1,4 +1,7 @@
-use std::num::NonZeroU8;
+// A note about fileds with the comment "This must be non-zero":
+// I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
+// but that would clutter the code with a bunch of unwraps,
+// which hurts readability and performance.
 
 pub const PLY_LIMIT: u8 = 200;
 
@@ -9,15 +12,15 @@ pub fn calculate() -> CompactSolutionMap {
     stack.push(SearchNode::initial());
 
     loop {
-        let last_node = stack.last().unwrap().clone();
+        let last_node = *stack.last().unwrap();
 
-        let action = match last_node.clone().next_action() {
+        let action = match last_node.next_action() {
             Ok(action) => action,
 
             Err(solution) => {
                 stack.pop();
 
-                solution_cache.set(solution.clone());
+                solution_cache.set(solution);
 
                 if stack.is_empty() {
                     break;
@@ -29,17 +32,22 @@ pub fn calculate() -> CompactSolutionMap {
             }
         };
 
-        let last_node = stack.last_mut().unwrap();
-        let Some(new_node) = last_node.explore(action) else {
-            continue;
-        };
+        let last_node_mut = stack.last_mut().unwrap();
+        let (new_parent, child) = last_node_mut.explore(action);
+        *last_node_mut = new_parent;
 
-        if let Some(solution) = solution_cache.get(new_node.clone()) {
-            last_node.record_solution(solution);
+        if child.is_none() {
+            continue;
+        }
+        let child = child.unchecked_unwrap();
+
+        let solution = solution_cache.get(child);
+        if solution.is_some() {
+            *last_node_mut = last_node_mut.record_solution(solution.unchecked_unwrap());
             continue;
         }
 
-        stack.push(new_node);
+        stack.push(child);
     }
 
     solution_cache.into()
@@ -51,31 +59,53 @@ pub struct CompactSolutionMap {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Solution(pub u64);
+pub struct Solution(
+    /// This must be non-zero.
+    pub u64,
+);
 
-// We could easily make this `Copy`,
-// but we intentionally choose not to.
-// This is to prevent unintended copying,
-// since there are times we want to mutate a `SearchNode`.
-// in-place.
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct SearchNode(pub u64);
+/// An optional solution `o` represents None if and only if `o.0 == 0`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OptionalSolution(pub u64);
 
-/// The **most** significant 48 bits are used.
-/// This allows us to create a `TimelessState`
-/// from a `SearchNode` without any additional bit manipulation--simply
-/// write `TimelessState(node.0)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct TimelessState(pub u64);
+struct SearchNode(
+    // This must be non-zero.
+    u64,
+);
 
-/// The **most** significant 48 bits are used.
-/// See `TimelessState` for more information regarding why.
+/// An optional node `o` represents None if and only if `o.0 == 0`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct TimelessStateToNodeConverter(pub u64);
+struct OptionalSearchNode(u64);
+
+/// This is like a `SearchNode`,
+/// but with the `chick0 <= chick1` invariant
+/// (and all similar invariants) removed.
+/// In other words, `NodeBuilder` represents a
+/// possibly "corrupted" node,
+/// and `SearchNode` is the subset of `NodeBuilder`
+/// representing "valid" nodes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct NodeBuilder(
+    /// This must be non-zero.
+    u64,
+);
+
+/// An optional node builder `o` represents None if and only if `o.0 == 0`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OptionalNodeBuilder(u64);
 
 /// The **least** significant 7 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Action(NonZeroU8);
+struct Action(
+    /// This must be non-zero.
+    u8,
+);
+
+/// The **least** significant 7 bits are used.
+/// An optional action `o` represents None if and only if `o.0 == 0`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OptionalAction(u8);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SolutionCache {
@@ -148,7 +178,7 @@ impl SearchNode {
         )
     }
 
-    fn record_solution(&mut self, solution: Solution) {
+    fn record_solution(self, solution: Solution) -> Self {
         let incumbent_score = i16::from_zero_padded_i9(self.0 & 0b1_1111_1111);
 
         // We need to invert the solution's score, since the solution is from one ply in the future.
@@ -158,34 +188,43 @@ impl SearchNode {
         let challenger_score = -i16::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
 
         if challenger_score > incumbent_score {
-            self.0 = (self.0 & !0b1_1111_1111) | challenger_score.into_zero_padded_i9_unchecked();
+            return Self(
+                (self.0 & !0b1_1111_1111) | challenger_score.into_zero_padded_i9_unchecked(),
+            );
         }
+
+        self
     }
 
     fn next_action(self) -> Result<Action, Solution> {
         let raw = ((self.0 >> 9) & 0b111_1111) as u8;
-        let Some(raw) = NonZeroU8::new(raw) else {
+        if raw == 0 {
             return Err(Solution(self.0));
-        };
+        }
         Ok(Action(raw))
     }
 
-    fn explore(&mut self, action: Action) -> Option<SearchNode> {
-        let (new_timeless_state, next_action) =
-            ACTION_HANDLERS[action.0.get() as usize](TimelessState(self.0));
+    fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
+        let (child_builder, next_action) = ACTION_HANDLERS[action.0 as usize](self);
 
-        self.set_next_action(next_action);
-
-        Some(new_timeless_state?.into_node(self.clone().ply_count() + 1))
+        let new_self = self.set_next_action(next_action);
+        let child = if child_builder.is_none() {
+            OptionalSearchNode::NONE
+        } else {
+            let built = child_builder
+                .unchecked_unwrap()
+                .invert_active_player()
+                .increment_ply_count()
+                .horizontally_normalize()
+                .init_best_discovered_outcome_and_next_action();
+            OptionalSearchNode(built.0)
+        };
+        (new_self, child)
     }
 
-    fn set_next_action(&mut self, next_action: Option<Action>) {
-        let raw: u64 = match next_action {
-            None => 0,
-            Some(n) => n.0.get() as u64,
-        };
-
-        self.0 = (self.0 & !(0b111_1111 << 9)) | (raw << 9);
+    fn set_next_action(self, next_action: OptionalAction) -> Self {
+        let raw = next_action.0 as u64;
+        Self((self.0 & !(0b111_1111 << 9)) | (raw << 9))
     }
 
     fn ply_count(self) -> u64 {
@@ -193,25 +232,13 @@ impl SearchNode {
     }
 }
 
-impl TimelessState {
-    fn into_node(self, ply_count: u64) -> SearchNode {
-        TimelessStateToNodeConverter(self.0).into_node(ply_count)
-    }
-}
-
-impl TimelessStateToNodeConverter {
-    fn into_node(self, ply_count: u64) -> SearchNode {
-        let raw = self
-            .set_ply_count(ply_count)
-            .horizontally_normalize()
-            .init_best_discovered_outcome_and_next_action()
-            .0;
-        SearchNode(raw)
+impl NodeBuilder {
+    fn invert_active_player(self) -> Self {
+        todo!()
     }
 
-    fn set_ply_count(self, ply_count: u64) -> Self {
-        let out = (self.0 & !(0b1111_1111 << (0 + 9 + 7))) | (ply_count << (0 + 9 + 7));
-        Self(out)
+    fn increment_ply_count(self) -> Self {
+        todo!()
     }
 
     fn horizontally_normalize(self) -> Self {
@@ -254,18 +281,33 @@ impl SolutionCache {
         }
     }
 
-    fn get(&self, node: SearchNode) -> Option<Solution> {
-        let bin0 = &self.raw[(node.0 >> 48) as usize].as_ref()?;
-        let bin1 = bin0[((node.0 >> (48 - 1 * 4)) & 0b1111) as usize].as_ref()?;
-        let bin2 = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref()?;
-        let bin3 = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref()?;
-        let bin4 = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref()?;
-        let bin5 = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref()?;
-        let raw = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].into_zero_padded_i9()?;
+    fn get(&self, node: SearchNode) -> OptionalSolution {
+        let Some(bin0) = &self.raw[(node.0 >> 48) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(bin1) = bin0[((node.0 >> (48 - 1 * 4)) & 0b1111) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(bin2) = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(bin3) = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(bin4) = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(bin5) = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref() else {
+            return OptionalSolution::NONE;
+        };
+        let Some(raw) = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].into_zero_padded_i9()
+        else {
+            return OptionalSolution::NONE;
+        };
 
         let left = node.0 & 0xFFFF_FFFF_FF00_0000;
         let right = raw;
-        Some(Solution(left | right))
+        OptionalSolution(left | right)
     }
 
     fn set(&mut self, solution: Solution) {
@@ -461,6 +503,58 @@ impl Default for OptionalCachedEvaluation {
     }
 }
 
+impl OptionalSolution {
+    const NONE: Self = OptionalSolution(0);
+
+    fn is_none(self) -> bool {
+        self == Self::NONE
+    }
+
+    fn is_some(self) -> bool {
+        self != Self::NONE
+    }
+
+    fn unchecked_unwrap(self) -> Solution {
+        Solution(self.0)
+    }
+}
+
+impl OptionalSearchNode {
+    const NONE: Self = OptionalSearchNode(0);
+
+    fn is_none(self) -> bool {
+        self == Self::NONE
+    }
+
+    fn unchecked_unwrap(self) -> SearchNode {
+        SearchNode(self.0)
+    }
+}
+
+impl OptionalNodeBuilder {
+    const NONE: Self = OptionalNodeBuilder(0);
+
+    fn is_none(self) -> bool {
+        self == Self::NONE
+    }
+
+    fn unchecked_unwrap(self) -> NodeBuilder {
+        NodeBuilder(self.0)
+    }
+}
+
+impl OptionalAction {
+    const NONE: Self = OptionalAction(0);
+
+    fn is_none(self) -> bool {
+        self == Self::NONE
+    }
+
+    fn unchecked_unwrap(self) -> Action {
+        Action(self.0)
+    }
+}
+
 /// -200 in 9-bit two's complement, left-padded with zeros
 /// to fill the 64-bit integer.
 const NEGATIVE_200_I9: u64 = 0b100111000;
@@ -472,7 +566,7 @@ const NEGATIVE_200_I9: u64 = 0b100111000;
 /// Regardless of the legality of the action,
 /// the handler will return an `Option<Action>`
 /// that represents the next (possibly illegal) action to be explored.
-const ACTION_HANDLERS: [fn(TimelessState) -> (Option<TimelessState>, Option<Action>); 128] = [
+const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction); 128] = [
     // illegal: 0b000_0000 to 0b000_1111
     handle_bad_action,
     handle_bad_action,
@@ -611,84 +705,85 @@ const ACTION_HANDLERS: [fn(TimelessState) -> (Option<TimelessState>, Option<Acti
     todo_dummy,
 ];
 
-fn handle_bad_action(_: TimelessState) -> (Option<TimelessState>, Option<Action>) {
+fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     panic!("Illegal action");
 }
 
 const CHICK_0_ALLEGIANCE_MASK: u64 = 0b1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6 + 5);
 
-const CHICK1_STARTING_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b010_0000) });
+const CHICK1_STARTING_ACTION: Action = Action(0b010_0000);
 
-fn handle_chick0_row00_col00(state: TimelessState) -> (Option<TimelessState>, Option<Action>) {
-    const THIS_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b001_0000) });
-    const NEXT_BOUND: Action = unsafe { THIS_ACTION.increment_unchecked() };
-    const NEXT_PIECE_ACTION: Option<Action> = Some(CHICK1_STARTING_ACTION);
+fn handle_chick0_row00_col00(_state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+    // const THIS_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b001_0000) });
+    // const NEXT_BOUND: Action = unsafe { THIS_ACTION.increment_unchecked() };
+    // const NEXT_PIECE_ACTION: Option<Action> = Some(CHICK1_STARTING_ACTION);
 
-    let min_reachable = state.get_minimum_reachable_chick0_action(THIS_ACTION);
-    if min_reachable != Some(THIS_ACTION) {
-        return (None, min_reachable.or(NEXT_PIECE_ACTION));
-    }
+    // let min_reachable = state.get_minimum_reachable_chick0_action(THIS_ACTION);
+    // if min_reachable != Some(THIS_ACTION) {
+    //     return (None, min_reachable.or(NEXT_PIECE_ACTION));
+    // }
 
-    let Some(state) = state.vacate_row00_col00() else {
-        return (None, NEXT_PIECE_ACTION);
-    };
+    // let Some(state) = state.vacate_row00_col00() else {
+    //     return (None, NEXT_PIECE_ACTION);
+    // };
 
-    let state = state
-        .set_chick0_position_and_normalize(0b00_00)
-        .flip_active_player();
-    let min_reachable = state.get_minimum_reachable_chick0_action(NEXT_BOUND);
-    (Some(state), min_reachable.or(NEXT_PIECE_ACTION))
+    // let state = state
+    //     .set_chick0_position_and_normalize(0b00_00)
+    //     .flip_active_player();
+    // let min_reachable = state.get_minimum_reachable_chick0_action(NEXT_BOUND);
+    // (Some(state), min_reachable.or(NEXT_PIECE_ACTION))
+    todo!()
 }
 
-impl TimelessState {
-    fn flip_active_player(self) -> Self {
-        todo!()
-    }
+// impl TimelessState {
+//     fn flip_active_player(self) -> Self {
+//         todo!()
+//     }
 
-    fn is_chick0_passive(self) -> bool {
-        self.0 & CHICK_0_ALLEGIANCE_MASK != 0
-    }
+//     fn is_chick0_passive(self) -> bool {
+//         self.0 & CHICK_0_ALLEGIANCE_MASK != 0
+//     }
 
-    fn set_chick0_position_and_normalize(self, position: u64) -> Self {
-        todo!()
-    }
+//     fn set_chick0_position_and_normalize(self, position: u64) -> Self {
+//         todo!()
+//     }
 
-    /// - If row 0, column 0 is empty, we return the original state.
-    /// - If it is occupied by a passive piece, we move that piece
-    ///   to the active player's hand, and return the new state.
-    /// - If it is occupied by an active piece, return `None`.
-    fn vacate_row00_col00(self) -> Option<Self> {
-        todo!()
-    }
-}
+//     /// - If row 0, column 0 is empty, we return the original state.
+//     /// - If it is occupied by a passive piece, we move that piece
+//     ///   to the active player's hand, and return the new state.
+//     /// - If it is occupied by an active piece, return `None`.
+//     fn vacate_row00_col00(self) -> Option<Self> {
+//         todo!()
+//     }
+// }
 
 // An action is "reachable" by a certain piece
 // if the piece is allegiant to the active player,
 // and the piece's move pattern allows it to move to the target square.
 // The target square may contain an active piece.
 // As a corollary, a reachable action is not necessarily legal.
-impl TimelessState {
-    fn get_minimum_reachable_chick0_action(self, lower_bound: Action) -> Option<Action> {
-        if self.is_chick0_passive() {
-            return None;
-        }
+// impl TimelessState {
+//     fn get_minimum_reachable_chick0_action(self, lower_bound: Action) -> Option<Action> {
+//         if self.is_chick0_passive() {
+//             return None;
+//         }
 
-        todo!()
-    }
-}
+//         todo!()
+//     }
+// }
 
-impl Action {
-    const unsafe fn increment_unchecked(self) -> Action {
-        let raw = self.0.get();
+// impl Action {
+//     const unsafe fn increment_unchecked(self) -> Action {
+//         let raw = self.0.get();
 
-        if raw & 0b11 == 0b10 {
-            return Action(unsafe { NonZeroU8::new_unchecked(raw) });
-        }
+//         if raw & 0b11 == 0b10 {
+//             return Action(unsafe { NonZeroU8::new_unchecked(raw) });
+//         }
 
-        Action(unsafe { NonZeroU8::new_unchecked(raw + 1) })
-    }
-}
+//         Action(unsafe { NonZeroU8::new_unchecked(raw + 1) })
+//     }
+// }
 
-fn todo_dummy(_: TimelessState) -> (Option<TimelessState>, Option<Action>) {
+fn todo_dummy(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     todo!()
 }
