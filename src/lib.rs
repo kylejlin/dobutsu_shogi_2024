@@ -691,14 +691,29 @@ fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     panic!("Illegal action");
 }
 
+macro_rules! handle_chick_drop {
+    ($ACTION:expr, $state:expr) => {{
+        todo!()
+    }};
+}
+
+macro_rules! handle_chick_move {
+    ($ACTION:expr, $state:expr) => {{
+        todo!()
+    }};
+}
+
 macro_rules! handle_chick_action {
     ($ACTION:expr, $state:expr) => {{
-        const ALLEGIANCE_MASK: u64 = $ACTION.allegiance_mask();
-
-        if $state.0 & ALLEGIANCE_MASK != 0 {
+        if $state.0 & $ACTION.allegiance_mask() != 0 {
             return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
         }
-        todo!()
+
+        if $state.0 & $ACTION.hand_mask() == $ACTION.hand_mask() {
+            return handle_chick_drop!($ACTION, $state);
+        }
+
+        return handle_chick_move!($ACTION, $state);
     }};
 }
 
@@ -741,6 +756,10 @@ impl Action {
 
             _ => 0,
         })
+    }
+
+    const fn hand_mask(self) -> u64 {
+        todo!()
     }
 }
 

@@ -137,8 +137,8 @@ If the chick is on the board, then the row and column fields hold the row and co
 Row zero is defined as the active player's home row.
 For columns, the direction of counting doesn't matter
 due to horizontal symmetry.
-If the chick is in the hand, the column field is `0b11`
-and the row field is `0b00`. This convention is used for all pieces.
+If the chick is in the hand, the both the row field and the column field are `0b11`.
+This convention is used for all pieces.
 
 The promotion bit is `1` if the chick is promoted, and `0` if the chick is not promoted.
 
