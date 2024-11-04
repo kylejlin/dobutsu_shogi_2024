@@ -265,6 +265,7 @@ impl NodeBuilder {
         Self(self.0 + C)
     }
 
+    // TODO: Rethink horizontal normalization.
     fn horizontally_normalize(self) -> Self {
         let flipped = self.horizontally_flip();
 
