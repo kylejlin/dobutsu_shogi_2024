@@ -695,45 +695,64 @@ fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
 }
 
 macro_rules! is_dest_square_occupied {
-    ($board:expr, $ACTION:expr) => {{
+    ($ACTION:expr, $board:expr) => {{
         // TODO
+        let _dummy: Action = $ACTION;
+        let _dummy: Board = $board;
         false
     }};
 }
 
 macro_rules! move_acting_piece_to_dest_square {
-    ($state:expr, $ACTION:expr) => {{
+    ($ACTION:expr, $state:expr) => {{
         // TODO
+        let _dummy: Action = $ACTION;
+        let _dummy: NodeBuilder = $state;
         NodeBuilder(0)
     }};
 }
 
 macro_rules! next_empty_square_action {
-    ($state:expr, $ACTION:expr) => {{
+    ($ACTION:expr, $state:expr) => {{
         // TODO
+        let _dummy: Action = $ACTION;
+        let _dummy: NodeBuilder = $state;
         OptionalAction(0)
     }};
 }
 
 macro_rules! handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance {
     ($ACTION:expr, $state:expr) => {{
-        let state = $state.into_builder();
-        let board = state.board();
+        let board = $state.board();
 
-        if is_dest_square_occupied!(board, $ACTION) {
+        if is_dest_square_occupied!($ACTION, board) {
             return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
         }
 
-        let state = move_acting_piece_to_dest_square!(state, $ACTION);
-        let next_action = next_empty_square_action!(state, $ACTION);
+        let state = move_acting_piece_to_dest_square!($ACTION, $state);
+        let next_action = next_empty_square_action!($ACTION, $state);
         (state.into_optional(), next_action)
     }};
 }
 
-macro_rules! handle_chick_move_assuming_it_is_on_board_and_has_active_allegiance {
+macro_rules! handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance {
     ($ACTION:expr, $state:expr) => {{
         // TODO
         (OptionalNodeBuilder(0), OptionalAction(0))
+    }};
+}
+
+macro_rules! is_actor_out_of_range_of_dest_square {
+    ($ACTION:expr, $state:expr) => {{
+        // TODO
+        false
+    }};
+}
+
+macro_rules! next_action_with_dest_square_in_current_actor_range {
+    ($ACTION:expr, $state:expr) => {{
+        // TODO
+        OptionalAction(0)
     }};
 }
 
@@ -749,14 +768,21 @@ macro_rules! handle_chick_action {
             );
         }
 
-        return handle_chick_move_assuming_it_is_on_board_and_has_active_allegiance!(
+        if is_actor_out_of_range_of_dest_square!($ACTION, $state) {
+            return (
+                OptionalNodeBuilder::NONE,
+                next_action_with_dest_square_in_current_actor_range!($ACTION, $state),
+            );
+        }
+
+        return handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance!(
             $ACTION, $state
         );
     }};
 }
 
 fn handle_chick0_row00_col00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    handle_chick_action!(Action(0b001_0000), state)
+    handle_chick_action!(Action(0b001_0000), state.into_builder())
 }
 
 impl Action {
