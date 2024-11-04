@@ -218,7 +218,6 @@ impl SearchNode {
                 .unchecked_unwrap()
                 .invert_active_player()
                 .increment_ply_count()
-                .horizontally_normalize()
                 .init_best_discovered_outcome_and_next_action()
                 .build()
                 .into_optional()
@@ -265,21 +264,6 @@ impl NodeBuilder {
         Self(self.0 + C)
     }
 
-    // TODO: Rethink horizontal normalization.
-    fn horizontally_normalize(self) -> Self {
-        let flipped = self.horizontally_flip();
-
-        if flipped.0 < self.0 {
-            return flipped;
-        }
-
-        self
-    }
-
-    fn horizontally_flip(self) -> Self {
-        todo!()
-    }
-
     /// If the this is terminal, then we set the best discovered outcome
     /// to the outcome of the game, and we set the next action to `None`.
     /// Otherwise, we set the best discovered outcome to `-200`,
@@ -289,7 +273,24 @@ impl NodeBuilder {
     }
 
     const fn build(self) -> SearchNode {
+        let nonflipped = self.build_without_horizontal_normalization();
+        let flipped = self
+            .horizontally_flip()
+            .build_without_horizontal_normalization();
+
+        if flipped.0 < nonflipped.0 {
+            return flipped;
+        }
+
+        nonflipped
+    }
+
+    const fn build_without_horizontal_normalization(self) -> SearchNode {
         // TODO: Ensure chick0 <= chick1, etc.
+        todo!()
+    }
+
+    const fn horizontally_flip(self) -> Self {
         todo!()
     }
 }
