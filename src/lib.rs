@@ -722,15 +722,16 @@ macro_rules! next_empty_square_action {
 }
 
 macro_rules! handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance {
-    ($ACTION:expr, $state:expr) => {{
-        let board = $state.board();
+    ($ACTION:expr, $original_state:expr) => {{
+        let original_state = $original_state;
+        let original_board = $original_state.board();
 
-        if is_dest_square_occupied!($ACTION, board) {
+        if is_dest_square_occupied!($ACTION, original_board) {
             return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
         }
 
-        let state = move_acting_piece_to_dest_square!($ACTION, $state);
-        let next_action = next_empty_square_action!($ACTION, $state);
+        let state = move_acting_piece_to_dest_square!($ACTION, original_state);
+        let next_action = next_empty_square_action!($ACTION, original_state);
         (state.into_optional(), next_action)
     }};
 }
