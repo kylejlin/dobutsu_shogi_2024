@@ -164,17 +164,17 @@ impl SearchNode {
         let best_discovered_evaluation: u64 = NEGATIVE_200_I9;
 
         SearchNode(
-            (chick0 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6))
-                | (chick1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5))
-                | (elephant0 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5))
-                | (elephant1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5))
-                | (giraffe0 << (0 + 9 + 7 + 8 + 4 + 4 + 5))
-                | (giraffe1 << (0 + 9 + 7 + 8 + 4 + 4))
-                | (active_lion << (0 + 9 + 7 + 8 + 4))
-                | (passive_lion << (0 + 9 + 7 + 8))
-                | (ply_count << (0 + 9 + 7))
-                | (lowest_unexplored_action << (0 + 9))
-                | (best_discovered_evaluation << 0),
+            (chick0 << offsets::CHICK0)
+                | (chick1 << offsets::CHICK1)
+                | (elephant0 << offsets::ELEPHANT0)
+                | (elephant1 << offsets::ELEPHANT1)
+                | (giraffe0 << offsets::GIRAFFE0)
+                | (giraffe1 << offsets::GIRAFFE1)
+                | (active_lion << offsets::ACTIVE_LION)
+                | (passive_lion << offsets::PASSIVE_LION)
+                | (ply_count << offsets::PLY_COUNT)
+                | (lowest_unexplored_action << offsets::NEXT_ACTION)
+                | (best_discovered_evaluation << offsets::BEST_DISCOVERED_OUTCOME),
         )
     }
 
@@ -205,7 +205,7 @@ impl SearchNode {
     }
 
     fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
-        let (child_builder, next_action) = ACTION_HANDLERS[action.0 as usize](self);
+        let (child_builder, next_action) = ACTION_HANDLERS[(action.0 - 16) as usize](self);
 
         let new_self = self.set_next_action(next_action);
         let child = if child_builder.is_none() {
@@ -225,10 +225,6 @@ impl SearchNode {
     fn set_next_action(self, next_action: OptionalAction) -> Self {
         let raw = next_action.0 as u64;
         Self((self.0 & !(0b111_1111 << 9)) | (raw << 9))
-    }
-
-    fn ply_count(self) -> u64 {
-        (self.0 >> (0 + 9 + 7)) & 0b1111_1111
     }
 }
 
@@ -566,224 +562,232 @@ const NEGATIVE_200_I9: u64 = 0b100111000;
 /// Regardless of the legality of the action,
 /// the handler will return an `Option<Action>`
 /// that represents the next (possibly illegal) action to be explored.
-const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction); 128] = [
-    // illegal: 0b000_0000 to 0b000_1111
+const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction); 128 - 16] = [
+    // 0b000_0000 to 0b000_1111 are unreachable
+    // due to the offset of 16.
+
+    // activeLion: 0b001_0000 to 0b111_1111
+    todo_dummy,
+    todo_dummy,
+    todo_dummy,
     handle_bad_action,
+    todo_dummy,
+    todo_dummy,
+    todo_dummy,
     handle_bad_action,
+    todo_dummy,
+    todo_dummy,
+    todo_dummy,
     handle_bad_action,
+    todo_dummy,
+    todo_dummy,
+    todo_dummy,
     handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    handle_bad_action,
-    // chick0: 0b001_0000 to 0b001_1111
+    // chick0: 0b010_0000 to 0b010_1111
     handle_chick0_row00_col00,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
+    // chick1: 0b011_0000 to 0b011_1111
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
-    // chick1: 0b010_0000 to 0b010_1111
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
+    // elephant0: 0b100_0000 to 0b100_1111
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
-    // elephant0: 0b011_0000 to 0b011_1111
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
+    // elephant1: 0b101_0000 to 0b101_1111
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
-    // elephant1: 0b100_0000 to 0b100_1111
+    handle_bad_action,
+    // giraffe0: 0b110_0000 to 0b110_1111
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
+    // giraffe1: 0b111_0000 to 0b111_1111
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
-    // giraffe0: 0b101_0000 to 0b101_1111
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
+    handle_bad_action,
     todo_dummy,
     todo_dummy,
     todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    // giraffe1: 0b110_0000 to 0b110_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    // activeLion: 0b111_0000 to 0b111_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    handle_bad_action,
 ];
 
 fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     panic!("Illegal action");
 }
 
-const CHICK_0_ALLEGIANCE_MASK: u64 = 0b1 << (0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6 + 5);
+macro_rules! handle_chick_action {
+    ($ACTION:expr, $state:expr) => {{
+        const ALLEGIANCE_MASK: u64 = $ACTION.allegiance_mask();
 
-const CHICK1_STARTING_ACTION: Action = Action(0b010_0000);
-
-fn handle_chick0_row00_col00(_state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    // const THIS_ACTION: Action = Action(unsafe { NonZeroU8::new_unchecked(0b001_0000) });
-    // const NEXT_BOUND: Action = unsafe { THIS_ACTION.increment_unchecked() };
-    // const NEXT_PIECE_ACTION: Option<Action> = Some(CHICK1_STARTING_ACTION);
-
-    // let min_reachable = state.get_minimum_reachable_chick0_action(THIS_ACTION);
-    // if min_reachable != Some(THIS_ACTION) {
-    //     return (None, min_reachable.or(NEXT_PIECE_ACTION));
-    // }
-
-    // let Some(state) = state.vacate_row00_col00() else {
-    //     return (None, NEXT_PIECE_ACTION);
-    // };
-
-    // let state = state
-    //     .set_chick0_position_and_normalize(0b00_00)
-    //     .flip_active_player();
-    // let min_reachable = state.get_minimum_reachable_chick0_action(NEXT_BOUND);
-    // (Some(state), min_reachable.or(NEXT_PIECE_ACTION))
-    todo!()
+        if $state.0 & ALLEGIANCE_MASK != 0 {
+            return (
+                OptionalNodeBuilder::NONE,
+                OptionalAction($ACTION.next_species_action()),
+            );
+        }
+        todo!()
+    }};
 }
 
-// impl TimelessState {
-//     fn flip_active_player(self) -> Self {
-//         todo!()
-//     }
+fn handle_chick0_row00_col00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+    handle_chick_action!(Action(0b001_0000), state)
+}
 
-//     fn is_chick0_passive(self) -> bool {
-//         self.0 & CHICK_0_ALLEGIANCE_MASK != 0
-//     }
+impl Action {
+    const fn allegiance_mask(self) -> u64 {
+        let offset = match self.0 >> 4 {
+            0b010 => offsets::CHICK0_ALLEGIANCE,
+            0b011 => offsets::CHICK1_ALLEGIANCE,
+            0b100 => offsets::ELEPHANT0_ALLEGIANCE,
+            0b101 => offsets::ELEPHANT1_ALLEGIANCE,
+            0b110 => offsets::GIRAFFE0_ALLEGIANCE,
+            0b111 => offsets::GIRAFFE1_ALLEGIANCE,
 
-//     fn set_chick0_position_and_normalize(self, position: u64) -> Self {
-//         todo!()
-//     }
+            // There is no mask for the active lion, since it's allegiance
+            // is fixed.
+            _ => 0,
+        };
 
-//     /// - If row 0, column 0 is empty, we return the original state.
-//     /// - If it is occupied by a passive piece, we move that piece
-//     ///   to the active player's hand, and return the new state.
-//     /// - If it is occupied by an active piece, return `None`.
-//     fn vacate_row00_col00(self) -> Option<Self> {
-//         todo!()
-//     }
-// }
+        1 << offset
+    }
 
-// An action is "reachable" by a certain piece
-// if the piece is allegiant to the active player,
-// and the piece's move pattern allows it to move to the target square.
-// The target square may contain an active piece.
-// As a corollary, a reachable action is not necessarily legal.
-// impl TimelessState {
-//     fn get_minimum_reachable_chick0_action(self, lower_bound: Action) -> Option<Action> {
-//         if self.is_chick0_passive() {
-//             return None;
-//         }
+    const fn next_species_action(self) -> u8 {
+        match self.0 >> 4 {
+            0b001 => 0b010_0000,
+            0b010 => 0b011_0000,
+            0b011 => 0b100_0000,
+            0b100 => 0b101_0000,
+            0b101 => 0b110_0000,
+            0b110 => 0b111_0000,
+            0b111 => 0b111_0000,
 
-//         todo!()
-//     }
-// }
-
-// impl Action {
-//     const unsafe fn increment_unchecked(self) -> Action {
-//         let raw = self.0.get();
-
-//         if raw & 0b11 == 0b10 {
-//             return Action(unsafe { NonZeroU8::new_unchecked(raw) });
-//         }
-
-//         Action(unsafe { NonZeroU8::new_unchecked(raw + 1) })
-//     }
-// }
+            _ => 0,
+        }
+    }
+}
 
 fn todo_dummy(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     todo!()
+}
+
+mod offsets {
+    pub const CHICK0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6;
+    pub const CHICK1: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5;
+    pub const ELEPHANT0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5;
+    pub const ELEPHANT1: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5;
+    pub const GIRAFFE0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5;
+    pub const GIRAFFE1: u64 = 0 + 9 + 7 + 8 + 4 + 4;
+    pub const ACTIVE_LION: u64 = 0 + 9 + 7 + 8 + 4;
+    pub const PASSIVE_LION: u64 = 0 + 9 + 7 + 8;
+    pub const PLY_COUNT: u64 = 0 + 9 + 7;
+    pub const NEXT_ACTION: u64 = 0 + 9;
+    pub const BEST_DISCOVERED_OUTCOME: u64 = 0;
+
+    pub const CHICK0_PROMOTION: u64 = CHICK0;
+    pub const CHICK0_COLUMN: u64 = CHICK0_PROMOTION + 1;
+    pub const CHICK0_ROW: u64 = CHICK0_COLUMN + 2;
+    pub const CHICK0_ALLEGIANCE: u64 = CHICK0_ROW + 2;
+
+    pub const CHICK1_PROMOTION: u64 = CHICK1;
+    pub const CHICK1_COLUMN: u64 = CHICK1_PROMOTION + 1;
+    pub const CHICK1_ROW: u64 = CHICK1_COLUMN + 2;
+    pub const CHICK1_ALLEGIANCE: u64 = CHICK1_ROW + 2;
+
+    pub const ELEPHANT0_COLUMN: u64 = ELEPHANT0;
+    pub const ELEPHANT0_ROW: u64 = ELEPHANT0_COLUMN + 2;
+    pub const ELEPHANT0_ALLEGIANCE: u64 = ELEPHANT0_ROW + 1;
+
+    pub const ELEPHANT1_COLUMN: u64 = ELEPHANT1;
+    pub const ELEPHANT1_ROW: u64 = ELEPHANT1_COLUMN + 2;
+    pub const ELEPHANT1_ALLEGIANCE: u64 = ELEPHANT1_ROW + 1;
+
+    pub const GIRAFFE0_COLUMN: u64 = GIRAFFE0;
+    pub const GIRAFFE0_ROW: u64 = GIRAFFE0_COLUMN + 2;
+    pub const GIRAFFE0_ALLEGIANCE: u64 = GIRAFFE0_ROW + 1;
+
+    pub const GIRAFFE1_COLUMN: u64 = GIRAFFE1;
+    pub const GIRAFFE1_ROW: u64 = GIRAFFE1_COLUMN + 2;
+    pub const GIRAFFE1_ALLEGIANCE: u64 = GIRAFFE1_ROW + 1;
+
+    pub const ACTIVE_LION_COLUMN: u64 = ACTIVE_LION;
+    pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
+
+    pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
+    pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
 }

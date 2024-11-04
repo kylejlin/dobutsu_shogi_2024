@@ -174,13 +174,13 @@ An action is represented by 7 bits.
 
 The piece encoding is as follows:
 
-- `0b001` for chick0
-- `0b010` for chick1
-- `0b011` for elephant0
-- `0b100` for elephant1
-- `0b101` for giraffe0
-- `0b110` for giraffe1
-- `0b111` for activeLion
+- `0b001` for activeLion
+- `0b010` for chick0
+- `0b011` for chick1
+- `0b100` for elephant0
+- `0b101` for elephant1
+- `0b110` for giraffe0
+- `0b111` for giraffe1
 
 The passive lion cannot move (by definition), so we do not assign an encoding to it.
 
