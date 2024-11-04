@@ -261,7 +261,8 @@ impl NodeBuilder {
     }
 
     fn increment_ply_count(self) -> Self {
-        todo!()
+        const C: u64 = 1 << offsets::PLY_COUNT;
+        Self(self.0 + C)
     }
 
     fn horizontally_normalize(self) -> Self {
