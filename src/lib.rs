@@ -214,13 +214,14 @@ impl SearchNode {
         let child = if child_builder.is_none() {
             OptionalSearchNode::NONE
         } else {
-            let built = child_builder
+            child_builder
                 .unchecked_unwrap()
                 .invert_active_player()
                 .increment_ply_count()
                 .horizontally_normalize()
-                .init_best_discovered_outcome_and_next_action();
-            OptionalSearchNode(built.0)
+                .init_best_discovered_outcome_and_next_action()
+                .build()
+                .into_optional()
         };
         (new_self, child)
     }
@@ -259,6 +260,11 @@ impl NodeBuilder {
     /// Otherwise, we set the best discovered outcome to `-200`,
     /// and we set the next action `to Action(0b001_0000)`.
     fn init_best_discovered_outcome_and_next_action(self) -> Self {
+        todo!()
+    }
+
+    const fn build(self) -> SearchNode {
+        // TODO: Ensure chick0 <= chick1, etc.
         todo!()
     }
 }
@@ -929,6 +935,10 @@ mod offsets {
 impl SearchNode {
     const fn into_builder(self) -> NodeBuilder {
         NodeBuilder(self.0)
+    }
+
+    const fn into_optional(self) -> OptionalSearchNode {
+        OptionalSearchNode(self.0)
     }
 }
 
