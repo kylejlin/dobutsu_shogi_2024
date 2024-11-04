@@ -285,8 +285,8 @@ impl NodeBuilder {
         nonflipped
     }
 
+    /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
     const fn build_without_horizontal_normalization(self) -> SearchNode {
-        // TODO: Ensure chick0 <= chick1, etc.
         todo!()
     }
 
