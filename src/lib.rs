@@ -119,6 +119,9 @@ type CacheBin<T> = [Option<Box<T>>; 16];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalCachedEvaluation(i16);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Board(u64);
+
 impl CompactSolutionMap {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(self.raw.len() * 8);
@@ -691,15 +694,46 @@ fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     panic!("Illegal action");
 }
 
-macro_rules! handle_chick_drop_assuming_active_allegiance {
-    ($ACTION:expr, $state:expr) => {{
-        todo!()
+macro_rules! is_dest_square_occupied {
+    ($board:expr, $ACTION:expr) => {{
+        // TODO
+        false
     }};
 }
 
-macro_rules! handle_chick_move_assuming_active_allegiance {
+macro_rules! move_acting_piece_to_dest_square {
+    ($state:expr, $ACTION:expr) => {{
+        // TODO
+        NodeBuilder(0)
+    }};
+}
+
+macro_rules! next_empty_square_action {
+    ($state:expr, $ACTION:expr) => {{
+        // TODO
+        OptionalAction(0)
+    }};
+}
+
+macro_rules! handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance {
     ($ACTION:expr, $state:expr) => {{
-        todo!()
+        let state = $state.into_builder();
+        let board = state.board();
+
+        if is_dest_square_occupied!(board, $ACTION) {
+            return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
+        }
+
+        let state = move_acting_piece_to_dest_square!(state, $ACTION);
+        let next_action = next_empty_square_action!(state, $ACTION);
+        (state.into_optional(), next_action)
+    }};
+}
+
+macro_rules! handle_chick_move_assuming_it_is_on_board_and_has_active_allegiance {
+    ($ACTION:expr, $state:expr) => {{
+        // TODO
+        (OptionalNodeBuilder(0), OptionalAction(0))
     }};
 }
 
@@ -710,10 +744,14 @@ macro_rules! handle_chick_action {
         }
 
         if $state.0 & $ACTION.hand_mask() == $ACTION.hand_mask() {
-            return handle_chick_drop_assuming_active_allegiance!($ACTION, $state);
+            return handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance!(
+                $ACTION, $state
+            );
         }
 
-        return handle_chick_move_assuming_active_allegiance!($ACTION, $state);
+        return handle_chick_move_assuming_it_is_on_board_and_has_active_allegiance!(
+            $ACTION, $state
+        );
     }};
 }
 
@@ -811,4 +849,20 @@ mod offsets {
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
+}
+
+impl SearchNode {
+    const fn into_builder(self) -> NodeBuilder {
+        NodeBuilder(self.0)
+    }
+}
+
+impl NodeBuilder {
+    const fn board(self) -> Board {
+        todo!()
+    }
+
+    const fn into_optional(self) -> OptionalNodeBuilder {
+        OptionalNodeBuilder(self.0)
+    }
 }

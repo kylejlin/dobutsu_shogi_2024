@@ -15,6 +15,7 @@ I'm creating a new solver because I want to try a different approach.
 4. [State representation](#state-representation)
 5. [Action representation](#action-representation)
 6. [Search node representation](#search-node-representation)
+7. [Board representation](#board-representation)
 
 ## Supremacy clause
 
@@ -221,3 +222,29 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 | timelessState | dontCare | bestOutcome |
 | ------------- | -------- | ----------- |
 | 40 bits       | 15 bits  | 9 bits      |
+
+## Board representation (60 bits total)
+
+| r3c2   | r3c1   | r3c0   | r2c2   | r2c1   | r2c0   | r1c2   | r1c1   | r1c0   | r0c2   | r0c1   | r0c0   |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits |
+
+### Square format (5 bits total)
+
+| allegiance | pieceNumber | species |
+| ---------- | ----------- | ------- |
+| 1 bit      | 1 bits      | 3 bits  |
+
+The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player.
+
+For chicks, the piece number is `0` if the chick is `chick0`, and `1` if the chick is `chick1`. The same goes for elephants and giraffes.
+For lions, the piece number is `0` if the lion is `activeLion` and `1` if the lion is `passiveLion`.
+Note that the lion piece number bit is redundant, since it identical to the allegiance bit.
+
+The species bits are as follows:
+
+- `0b000` for an empty square
+- `0b001` for a chick
+- `0b010` for an elephant
+- `0b011` for a giraffe
+- `0b100` for a lion
