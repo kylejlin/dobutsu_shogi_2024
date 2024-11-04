@@ -735,10 +735,58 @@ macro_rules! handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance 
     }};
 }
 
-macro_rules! handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance {
-    ($ACTION:expr, $state:expr) => {{
+/// - If the destination square is empty, this returns the original state.
+/// - If the destination square is occupied by a passive piece,
+///   this returns the state with the passive piece moved to the active player's hand.
+/// - If the destination square is occupied by an active piece,
+///   this returns `OptionalNodeBuilder::NONE`.
+macro_rules! vacate_passive_dest_square {
+    ($ACTION:expr, $state:expr, $board:expr) => {{
         // TODO
-        (OptionalNodeBuilder(0), OptionalAction(0))
+        let _dummy: Action = $ACTION;
+        let _dummy: NodeBuilder = $state;
+        let _dummy: Board = $board;
+        OptionalNodeBuilder::NONE
+    }};
+}
+
+macro_rules! next_action_with_nonactive_dest_square_in_range_of_current_actor {
+    ($ACTION:expr, $state:expr, $board:expr) => {{
+        // TODO
+        let _dummy: Action = $ACTION;
+        let _dummy: NodeBuilder = $state;
+        let _dummy: Board = $board;
+        OptionalAction(0)
+    }};
+}
+
+macro_rules! handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance {
+    ($ACTION:expr, $original_state:expr) => {{
+        let original_state = $original_state;
+        let original_board = original_state.board();
+        let state = vacate_passive_dest_square!($ACTION, original_state, original_board);
+
+        // If the destination square is occupied by an active piece,
+        // then the move is illegal.
+        if state.is_none() {
+            return (
+                OptionalNodeBuilder::NONE,
+                next_action_with_nonactive_dest_square_in_range_of_current_actor!(
+                    $ACTION,
+                    original_state,
+                    original_board
+                ),
+            );
+        }
+
+        let state = state.unchecked_unwrap();
+        let state = move_acting_piece_to_dest_square!($ACTION, state);
+        let next_action = next_action_with_nonactive_dest_square_in_range_of_current_actor!(
+            $ACTION,
+            original_state,
+            original_board
+        );
+        (state.into_optional(), next_action)
     }};
 }
 
