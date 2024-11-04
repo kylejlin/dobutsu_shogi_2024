@@ -696,10 +696,7 @@ macro_rules! handle_chick_action {
         const ALLEGIANCE_MASK: u64 = $ACTION.allegiance_mask();
 
         if $state.0 & ALLEGIANCE_MASK != 0 {
-            return (
-                OptionalNodeBuilder::NONE,
-                OptionalAction($ACTION.next_species_action()),
-            );
+            return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
         }
         todo!()
     }};
@@ -712,6 +709,10 @@ fn handle_chick0_row00_col00(state: SearchNode) -> (OptionalNodeBuilder, Optiona
 impl Action {
     const fn allegiance_mask(self) -> u64 {
         let offset = match self.0 >> 4 {
+            // There is no mask for the active lion, since it's allegiance
+            // is fixed.
+            0b001 => return 0,
+
             0b010 => offsets::CHICK0_ALLEGIANCE,
             0b011 => offsets::CHICK1_ALLEGIANCE,
             0b100 => offsets::ELEPHANT0_ALLEGIANCE,
@@ -719,26 +720,27 @@ impl Action {
             0b110 => offsets::GIRAFFE0_ALLEGIANCE,
             0b111 => offsets::GIRAFFE1_ALLEGIANCE,
 
-            // There is no mask for the active lion, since it's allegiance
-            // is fixed.
-            _ => 0,
+            _ => return 0,
         };
 
         1 << offset
     }
 
-    const fn next_species_action(self) -> u8 {
-        match self.0 >> 4 {
+    const fn next_species_action(self) -> OptionalAction {
+        OptionalAction(match self.0 >> 4 {
             0b001 => 0b010_0000,
-            0b010 => 0b011_0000,
+
+            0b010 => 0b100_0000,
             0b011 => 0b100_0000,
-            0b100 => 0b101_0000,
+
+            0b100 => 0b110_0000,
             0b101 => 0b110_0000,
-            0b110 => 0b111_0000,
-            0b111 => 0b111_0000,
+
+            0b110 => 0,
+            0b111 => 0,
 
             _ => 0,
-        }
+        })
     }
 }
 
