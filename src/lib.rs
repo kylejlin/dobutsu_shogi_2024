@@ -757,6 +757,15 @@ macro_rules! vacate_passive_dest_square {
     }};
 }
 
+macro_rules! promote_actor_if_dest_square_in_promotion_zone {
+    ($ACTION:expr, $state:expr) => {{
+        // TODO
+        let _dummy: Action = $ACTION;
+        let _dummy: NodeBuilder = $state;
+        NodeBuilder(0)
+    }};
+}
+
 macro_rules! next_action_with_nonactive_dest_square_in_range_of_current_actor {
     ($ACTION:expr, $state:expr, $board:expr) => {{
         // TODO
@@ -788,6 +797,7 @@ macro_rules! handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_ac
 
         let state = state.unchecked_unwrap();
         let state = move_acting_piece_to_dest_square!($ACTION, state);
+        let state = promote_actor_if_dest_square_in_promotion_zone!($ACTION, state);
         let next_action = next_action_with_nonactive_dest_square_in_range_of_current_actor!(
             $ACTION,
             original_state,
