@@ -1162,7 +1162,32 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
-        todo!()
+        macro_rules! check_square {
+            ($coords:literal) => {
+                if action.0 & 0b1111 < $coords
+                    && board.is_square_empty_at_board_offset(coords_to_board_offset($coords))
+                {
+                    return action.set_dest_square($coords).into_optional();
+                }
+            };
+        }
+
+        check_square!(0b0001);
+        check_square!(0b0010);
+
+        check_square!(0b0100);
+        check_square!(0b0101);
+        check_square!(0b0110);
+
+        check_square!(0b1000);
+        check_square!(0b1001);
+        check_square!(0b1010);
+
+        check_square!(0b1100);
+        check_square!(0b1101);
+        check_square!(0b1110);
+
+        action.next_piece_action()
     }
 
     #[inline(always)]
@@ -1279,7 +1304,12 @@ impl NodeBuilder {
 impl Board {
     #[inline(always)]
     const fn is_dest_square_empty(self, action: Action) -> bool {
-        self.0 & (0b111 << action.dest_square_board_offset()) == 0
+        self.is_square_empty_at_board_offset(action.dest_square_board_offset())
+    }
+
+    #[inline(always)]
+    const fn is_square_empty_at_board_offset(self, board_offset: u64) -> bool {
+        self.0 & (0b111 << board_offset) == 0
     }
 
     #[inline(always)]
@@ -1333,6 +1363,21 @@ impl Action {
     }
 
     #[inline(always)]
+    const fn next_piece_action(self) -> OptionalAction {
+        OptionalAction(match self.0 >> 4 {
+            0b001 => 0b010_0000,
+            0b010 => 0b011_0000,
+            0b011 => 0b100_0000,
+            0b100 => 0b101_0000,
+            0b101 => 0b110_0000,
+            0b110 => 0b111_0000,
+            0b111 => 0,
+
+            _ => 0,
+        })
+    }
+
+    #[inline(always)]
     const fn coords_mask(self) -> u64 {
         let offset = match self.0 >> 4 {
             0b001 => offsets::ACTIVE_LION_COLUMN,
@@ -1379,6 +1424,16 @@ impl Action {
     #[inline(always)]
     const fn is_actor_chick1(self) -> bool {
         self.0 >> 4 == 0b011
+    }
+
+    #[inline(always)]
+    const fn set_dest_square(self, coords: u8) -> Action {
+        Self((self.0 & !0b1111) | coords)
+    }
+
+    #[inline(always)]
+    const fn into_optional(self) -> OptionalAction {
+        OptionalAction(self.0)
     }
 }
 
