@@ -1251,7 +1251,7 @@ impl NodeBuilder {
         // The promotion bit is 1 bit right of the column offset.
         let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset - 1));
 
-        Self(self.0 | (0b1111 << occupant_coords_offset) & allegiance_mask & demotion_mask)
+        Self((self.0 | (0b1111 << occupant_coords_offset)) & allegiance_mask & demotion_mask)
             .into_optional()
     }
 
