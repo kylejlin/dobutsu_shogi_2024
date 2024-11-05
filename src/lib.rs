@@ -340,7 +340,59 @@ impl NodeBuilder {
 
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
     const fn build_without_horizontal_normalization(self) -> SearchNode {
-        todo!()
+        const CHICK0_MASK: u64 = 0b11_1111 << offsets::CHICK0;
+        const CHICK1_MASK: u64 = 0b11_1111 << offsets::CHICK1;
+        const ELEPHANT0_MASK: u64 = 0b1_1111 << offsets::ELEPHANT0;
+        const ELEPHANT1_MASK: u64 = 0b1_1111 << offsets::ELEPHANT1;
+        const GIRAFFE0_MASK: u64 = 0b1_1111 << offsets::GIRAFFE0;
+        const GIRAFFE1_MASK: u64 = 0b1_1111 << offsets::GIRAFFE1;
+
+        let chick0 = self.0 & CHICK0_MASK;
+        let chick1 = self.0 & CHICK1_MASK;
+        let chick1_shifted = chick1 << (offsets::CHICK0 - offsets::CHICK1);
+        let (chick0, chick1) = if chick0 <= chick1_shifted {
+            (chick0, chick1)
+        } else {
+            (
+                chick0 >> (offsets::CHICK0 - offsets::CHICK1),
+                chick1_shifted,
+            )
+        };
+
+        let elephant0 = self.0 & ELEPHANT0_MASK;
+        let elephant1 = self.0 & ELEPHANT1_MASK;
+        let elephant1_shifted = elephant1 << (offsets::ELEPHANT0 - offsets::ELEPHANT1);
+        let (elephant0, elephant1) = if elephant0 <= elephant1_shifted {
+            (elephant0, elephant1)
+        } else {
+            (
+                elephant0 >> (offsets::ELEPHANT0 - offsets::ELEPHANT1),
+                elephant1_shifted,
+            )
+        };
+
+        let giraffe0 = self.0 & GIRAFFE0_MASK;
+        let giraffe1 = self.0 & GIRAFFE1_MASK;
+        let giraffe1_shifted = giraffe1 << (offsets::GIRAFFE0 - offsets::GIRAFFE1);
+        let (giraffe0, giraffe1) = if giraffe0 <= giraffe1_shifted {
+            (giraffe0, giraffe1)
+        } else {
+            (
+                giraffe0 >> (offsets::GIRAFFE0 - offsets::GIRAFFE1),
+                giraffe1_shifted,
+            )
+        };
+
+        const NONLION_MASK: u64 = 0xFFFF_FFFF;
+        SearchNode(
+            (self.0 & !NONLION_MASK)
+                | chick0
+                | chick1
+                | elephant0
+                | elephant1
+                | giraffe0
+                | giraffe1,
+        )
     }
 
     const fn horizontally_flip(self) -> Self {
