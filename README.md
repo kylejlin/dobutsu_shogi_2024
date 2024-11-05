@@ -7,7 +7,7 @@ I'm creating a new solver because I want to try a different approach.
 
 ## Table of contents
 
-1. [Supremacy clause](#supremacy-clause)
+1. [Official rules](#official-rules)
 2. [Rule simplifications](#rule-simplifications)
    1. [The Try Rule](#the-try-rule)
    2. [Threefold Repetition Rule](#threefold-repetition-rule)
@@ -18,7 +18,7 @@ I'm creating a new solver because I want to try a different approach.
 7. [Board representation](#board-representation)
 8. [Square set representation](#square-set-representation)
 
-## Supremacy clause
+## Official rules
 
 The term "official rules" refers to the [original Japanese rules](https://nekomado.com/wp/wp-content/uploads/2021/12/jp.pdf).
 
