@@ -60,7 +60,7 @@ impl Display for Pretty<Board> {
             4] = self.into_array();
         write!(
         f,
-        "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|---|",
+        "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|\n|---|",
     )
     }
 }
