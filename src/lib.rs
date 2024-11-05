@@ -1229,14 +1229,8 @@ impl NodeBuilder {
             return OptionalNodeBuilder::NONE;
         }
 
-        let occupant = board.0 & (0b111 << action.dest_square_board_offset());
-        if occupant == 0b001 << action.dest_square_board_offset() {
-            // Handle the two lion cases.
-            todo!()
-        }
-
-        let occupant_lookup_index =
-            ((occupant >> action.dest_square_board_offset()) - 0b010) as usize;
+        let occupant = (board.0 >> action.dest_square_board_offset()) & 0b111;
+        let occupant_lookup_index = (occupant - 1) as usize;
 
         let occupant_coords_offset = [
             offsets::CHICK0_COLUMN,
@@ -1247,22 +1241,14 @@ impl NodeBuilder {
             offsets::GIRAFFE1_COLUMN,
         ][occupant_lookup_index];
 
-        let demotion_mask: u64 = [
-            !(1 << offsets::CHICK0_PROMOTION),
-            !(1 << offsets::CHICK1_PROMOTION),
-            !0,
-            !0,
-            !0,
-            !0,
-        ][occupant_lookup_index];
+        let is_occupant_nonlion = occupant != 0b001;
+        let allegiance_mask = !((is_occupant_nonlion as u64) << (occupant_coords_offset + 4));
 
-        Self(
-            self.0
-                | (0b1111 << occupant_coords_offset)
-                    & !(0b1_0000 << occupant_coords_offset)
-                    & demotion_mask,
-        )
-        .into_optional()
+        let is_occupant_chick = occupant & !1 == 0b010;
+        let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset - 1));
+
+        Self(self.0 | (0b1111 << occupant_coords_offset) & allegiance_mask & demotion_mask)
+            .into_optional()
     }
 
     #[inline(always)]
