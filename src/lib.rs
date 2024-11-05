@@ -5,12 +5,12 @@
 
 use offsets::CHICK0;
 
-pub const PLY_LIMIT: u8 = 200;
+pub const MAX_PLY_COUNT: u8 = 200;
 
 pub fn calculate() -> CompactSolutionMap {
     let mut solution_cache = SolutionCache::new();
 
-    let mut stack: Vec<SearchNode> = Vec::with_capacity(PLY_LIMIT as usize);
+    let mut stack: Vec<SearchNode> = Vec::with_capacity(MAX_PLY_COUNT as usize);
     stack.push(SearchNode::initial());
 
     loop {
@@ -166,7 +166,7 @@ impl SearchNode {
 
         let lowest_unexplored_action: u64 = 0;
 
-        let best_discovered_evaluation: u64 = NEGATIVE_200_I9;
+        let best_discovered_evaluation: u64 = NEGATIVE_201_I9;
 
         SearchNode(
             (chick0 << offsets::CHICK0)
@@ -261,7 +261,7 @@ impl NodeBuilder {
         Self(out)
     }
 
-    fn increment_ply_count(self) -> Self {
+    const fn increment_ply_count(self) -> Self {
         const C: u64 = 1 << offsets::PLY_COUNT;
         Self(self.0 + C)
     }
@@ -270,8 +270,59 @@ impl NodeBuilder {
     /// to the outcome of the game, and we set the next action to `None`.
     /// Otherwise, we set the best discovered outcome to `-200`,
     /// and we set the next action `to Action(0b001_0000)`.
-    fn init_best_discovered_outcome_and_next_action(self) -> Self {
-        todo!()
+    const fn init_best_discovered_outcome_and_next_action(self) -> Self {
+        const ACTIVE_LION_HAND_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
+
+        // If the active lion is in the passive player's hand,
+        // the active player has lost.
+        if self.0 & ACTIVE_LION_HAND_MASK == ACTIVE_LION_HAND_MASK {
+            return self.init_best_discovered_outcome_and_next_action_assuming_loss();
+        }
+
+        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
+
+        // If the active lion is in the last row,
+        // the active player has won.
+        if self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK {
+            return self.init_best_discovered_outcome_and_next_action_assuming_win();
+        }
+
+        const PLY_COUNT_MASK: u64 = 0xFF << offsets::PLY_COUNT;
+        const MAX_PLY_COUNT_SHIFTED: u64 = (MAX_PLY_COUNT as u64) << offsets::PLY_COUNT;
+        if self.0 & PLY_COUNT_MASK == MAX_PLY_COUNT_SHIFTED {
+            return self.init_best_discovered_outcome_and_next_action_assuming_draw();
+        }
+
+        const DEFAULT_FIRST_ACTION: Action = Action(0b001_0000);
+        Self(
+            (self.0 & !0xFFFF)
+                | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION)
+                | (NEGATIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME),
+        )
+    }
+
+    const fn init_best_discovered_outcome_and_next_action_assuming_loss(self) -> Self {
+        Self(
+            (self.0 & !0xFFFF)
+                | (NEGATIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME)
+                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
+        )
+    }
+
+    const fn init_best_discovered_outcome_and_next_action_assuming_win(self) -> Self {
+        Self(
+            (self.0 & !0xFFFF)
+                | (POSITIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME)
+                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
+        )
+    }
+
+    const fn init_best_discovered_outcome_and_next_action_assuming_draw(self) -> Self {
+        Self(
+            (self.0 & !0xFFFF)
+                | (0 << offsets::BEST_DISCOVERED_OUTCOME)
+                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
+        )
     }
 
     const fn build(self) -> SearchNode {
@@ -682,9 +733,13 @@ impl NodeBuilder {
     }
 }
 
-/// -200 in 9-bit two's complement, left-padded with zeros
+/// `-200`` in 9-bit two's complement, left-padded with zeros
 /// to fill the 64-bit integer.
-const NEGATIVE_200_I9: u64 = 0b100111000;
+const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
+
+/// `200` in 9-bit two's complement, left-padded with zeros
+/// to fill the 64-bit integer.
+const POSITIVE_201_I9: u64 = 0b0_1100_1001;
 
 /// An action handler will return the result of applying an action
 /// to the input state, if the action is legal.
