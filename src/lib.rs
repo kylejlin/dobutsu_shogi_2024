@@ -1481,6 +1481,121 @@ impl Action {
 
     #[inline(always)]
     const fn legal_starting_squares(self) -> SquareSet {
+        struct DirectionSet {
+            n: bool,
+            ne: bool,
+            e: bool,
+            se: bool,
+            s: bool,
+            sw: bool,
+            w: bool,
+            nw: bool,
+        }
+
+        impl DirectionSet {
+            const fn union(self, rhs: Self) -> Self {
+                Self {
+                    n: self.n | rhs.n,
+                    ne: self.ne | rhs.ne,
+                    e: self.e | rhs.e,
+                    se: self.se | rhs.se,
+                    s: self.s | rhs.s,
+                    sw: self.sw | rhs.sw,
+                    w: self.w | rhs.w,
+                    nw: self.nw | rhs.nw,
+                }
+            }
+        }
+
+        const N: DirectionSet = DirectionSet {
+            n: true,
+            ne: false,
+            e: false,
+            se: false,
+            s: false,
+            sw: false,
+            w: false,
+            nw: false,
+        };
+        const NE: DirectionSet = DirectionSet {
+            n: true,
+            ne: true,
+            e: false,
+            se: false,
+            s: false,
+            sw: false,
+            w: false,
+            nw: false,
+        };
+        const E: DirectionSet = DirectionSet {
+            n: false,
+            ne: true,
+            e: true,
+            se: false,
+            s: false,
+            sw: false,
+            w: false,
+            nw: false,
+        };
+        const SE: DirectionSet = DirectionSet {
+            n: false,
+            ne: true,
+            e: true,
+            se: true,
+            s: false,
+            sw: false,
+            w: false,
+            nw: false,
+        };
+        const S: DirectionSet = DirectionSet {
+            n: false,
+            ne: false,
+            e: true,
+            se: true,
+            s: true,
+            sw: false,
+            w: false,
+            nw: false,
+        };
+        const SW: DirectionSet = DirectionSet {
+            n: false,
+            ne: false,
+            e: true,
+            se: true,
+            s: true,
+            sw: true,
+            w: false,
+            nw: false,
+        };
+        const W: DirectionSet = DirectionSet {
+            n: false,
+            ne: false,
+            e: false,
+            se: true,
+            s: true,
+            sw: true,
+            w: true,
+            nw: false,
+        };
+        const NW: DirectionSet = DirectionSet {
+            n: false,
+            ne: false,
+            e: false,
+            se: false,
+            s: true,
+            sw: true,
+            w: true,
+            nw: true,
+        };
+        const CARDINAL: DirectionSet = N.union(E).union(S).union(W);
+        const DIAGONAL: DirectionSet = NE.union(SE).union(SW).union(NW);
+
+        const CHICK: DirectionSet = N;
+        const HEN: DirectionSet = CARDINAL.union(NE).union(NW);
+        const ELEPHANT: DirectionSet = DIAGONAL;
+        const GIRAFFE: DirectionSet = CARDINAL;
+        const LION: DirectionSet = CARDINAL.union(DIAGONAL);
+
         todo!()
     }
 }
