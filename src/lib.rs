@@ -1242,9 +1242,13 @@ impl NodeBuilder {
         ][occupant_lookup_index];
 
         let is_occupant_nonlion = occupant != 0b001;
+        // If the occupant is a non-lion, we need to set the allegiance bit to 0.
+        // The allegiance bit is 4 bits left of the column offset.
         let allegiance_mask = !((is_occupant_nonlion as u64) << (occupant_coords_offset + 4));
 
         let is_occupant_chick = occupant & !1 == 0b010;
+        // If the occupant is a chick, we need to set the promotion bit to 0.
+        // The promotion bit is 1 bit right of the column offset.
         let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset - 1));
 
         Self(self.0 | (0b1111 << occupant_coords_offset) & allegiance_mask & demotion_mask)
