@@ -16,6 +16,7 @@ I'm creating a new solver because I want to try a different approach.
 5. [Action representation](#action-representation)
 6. [Search node representation](#search-node-representation)
 7. [Board representation](#board-representation)
+8. [Square set representation](#square-set-representation)
 
 ## Supremacy clause
 
@@ -253,3 +254,25 @@ The piece bits are as follows:
 
 The piece bits use a similar encoding to the actor bits in the action representation,
 except `0b001` is used for both lions.
+
+## Square set representation (16 bits total)
+
+When calculating which actions are legal in a given state,
+we check whether a piece of a given species can legally move
+from some start square to some destination square.
+The species and destination square are known at compile time.
+So, we implement this in a very straightforward way:
+check to see if the start square is in a set of "legal start squares"
+corresponding to the given species and destination square.
+
+The question then becomes how to represent such a set.
+Since square coordinates are represented with a 4-bit integer,
+we can simply use a 16-bit integer as a bitset.
+
+The bit at index `4 * row + column` is set if the square is in the set.
+
+| ZERO  | r3c2  | r3c1  | r3c0  | ZERO  | r2c2  | r2c1  | r2c0  | ZERO  | r1c2  | r1c1  | r1c0  | ZERO  | r0c2  | r0c1  | r0c0  |
+| ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit |
+
+Since there are only 3 columns, for any `n`, the bit for square `(row: n, column: 3)` is always zero.
