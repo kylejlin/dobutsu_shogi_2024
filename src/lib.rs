@@ -1145,16 +1145,13 @@ impl NodeBuilder {
     ) -> (OptionalNodeBuilder, OptionalAction) {
         let original_state = self;
         let original_board = original_state.board();
+        let next_action = original_state.next_empty_square_action(action, original_board);
 
         if original_board.is_dest_square_occupied(action) {
-            return (
-                OptionalNodeBuilder::NONE,
-                original_state.next_empty_square_action(action),
-            );
+            return (OptionalNodeBuilder::NONE, next_action);
         }
 
         let state = original_state.move_actor_to_dest_square(action);
-        let next_action = original_state.next_empty_square_action(action);
         (state.into_optional(), next_action)
     }
 
@@ -1164,7 +1161,7 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn next_empty_square_action(self, action: Action) -> OptionalAction {
+    const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
         todo!()
     }
 
