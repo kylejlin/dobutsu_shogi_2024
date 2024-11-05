@@ -1502,6 +1502,7 @@ impl Action {
     /// set to use.
     #[inline(always)]
     const fn legal_starting_squares(self) -> [SquareSet; 2] {
+        #[derive(Copy, Clone)]
         struct DirectionSet {
             n: bool,
             ne: bool,
@@ -1514,6 +1515,7 @@ impl Action {
         }
 
         impl DirectionSet {
+            #[inline(always)]
             const fn union(self, rhs: Self) -> Self {
                 Self {
                     n: self.n | rhs.n,
@@ -1526,8 +1528,25 @@ impl Action {
                     nw: self.nw | rhs.nw,
                 }
             }
+
+            /// Returns whether there is a way to move from `from` to `to`
+            /// by taking one step in some direction contained in this set.
+            #[inline(always)]
+            const fn connects(self, from: u8, to: u8) -> bool {
+                todo!()
+            }
         }
 
+        const EMPTY: DirectionSet = DirectionSet {
+            n: false,
+            ne: false,
+            e: false,
+            se: false,
+            s: false,
+            sw: false,
+            w: false,
+            nw: false,
+        };
         const N: DirectionSet = DirectionSet {
             n: true,
             ne: false,
@@ -1617,7 +1636,80 @@ impl Action {
         const GIRAFFE: DirectionSet = CARDINAL;
         const LION: DirectionSet = CARDINAL.union(DIAGONAL);
 
-        todo!()
+        let [nonpromoted_dirset, promoted_dirset] = match self.0 >> 4 {
+            0b001 => [LION, EMPTY],
+            0b010 => [CHICK, HEN],
+            0b011 => [CHICK, HEN],
+            0b100 => [ELEPHANT, EMPTY],
+            0b101 => [ELEPHANT, EMPTY],
+            0b110 => [GIRAFFE, EMPTY],
+            0b111 => [GIRAFFE, EMPTY],
+
+            _ => [EMPTY, EMPTY],
+        };
+
+        let dest_coords = self.0 & 0b1111;
+
+        let nonpromoted_squares = {
+            let mut out: u16 = 0;
+
+            macro_rules! check_start_square {
+                ($start_square:literal) => {
+                    if nonpromoted_dirset.connects($start_square, dest_coords) {
+                        out |= 1 << $start_square;
+                    }
+                };
+            }
+
+            check_start_square!(0b0000);
+            check_start_square!(0b0001);
+            check_start_square!(0b0010);
+
+            check_start_square!(0b0100);
+            check_start_square!(0b0101);
+            check_start_square!(0b0110);
+
+            check_start_square!(0b1000);
+            check_start_square!(0b1001);
+            check_start_square!(0b1010);
+
+            check_start_square!(0b1100);
+            check_start_square!(0b1101);
+            check_start_square!(0b1110);
+
+            out
+        };
+        let promoted_squares = {
+            let mut out: u16 = 0;
+
+            macro_rules! check_start_square {
+                ($start_square:literal) => {
+                    if promoted_dirset.connects($start_square, dest_coords) {
+                        out |= 1 << $start_square;
+                    }
+                };
+            }
+
+            check_start_square!(0b0000);
+            check_start_square!(0b0001);
+            check_start_square!(0b0010);
+
+            check_start_square!(0b0100);
+            check_start_square!(0b0101);
+            check_start_square!(0b0110);
+
+            check_start_square!(0b1000);
+            check_start_square!(0b1001);
+            check_start_square!(0b1010);
+
+            check_start_square!(0b1100);
+            check_start_square!(0b1101);
+            check_start_square!(0b1110);
+
+            out
+        };
+
+        [SquareSet(nonpromoted_squares), SquareSet(promoted_squares)]
     }
 }
 
