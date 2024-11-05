@@ -1229,7 +1229,40 @@ impl NodeBuilder {
             return OptionalNodeBuilder::NONE;
         }
 
-        todo!()
+        let occupant = board.0 & (0b111 << action.dest_square_board_offset());
+        if occupant == 0b001 << action.dest_square_board_offset() {
+            // Handle the two lion cases.
+            todo!()
+        }
+
+        let occupant_lookup_index =
+            ((occupant >> action.dest_square_board_offset()) - 0b010) as usize;
+
+        let occupant_coords_offset = [
+            offsets::CHICK0_COLUMN,
+            offsets::CHICK1_COLUMN,
+            offsets::ELEPHANT0_COLUMN,
+            offsets::ELEPHANT1_COLUMN,
+            offsets::GIRAFFE0_COLUMN,
+            offsets::GIRAFFE1_COLUMN,
+        ][occupant_lookup_index];
+
+        let demotion_mask: u64 = [
+            !(1 << offsets::CHICK0_PROMOTION),
+            !(1 << offsets::CHICK1_PROMOTION),
+            !0,
+            !0,
+            !0,
+            !0,
+        ][occupant_lookup_index];
+
+        Self(
+            self.0
+                | (0b1111 << occupant_coords_offset)
+                    & !(0b1_0000 << occupant_coords_offset)
+                    & demotion_mask,
+        )
+        .into_optional()
     }
 
     #[inline(always)]
