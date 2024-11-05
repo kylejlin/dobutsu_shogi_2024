@@ -3,8 +3,6 @@ use std::path::Path;
 use std::time::Instant;
 
 fn main() {
-    panic!("File write disabled. Please delete this line.\n");
-
     println!("Starting tree search. This will probably take several hours.");
     let now = Instant::now();
     let solution_map = dobutsu_shogi_2024::calculate();
