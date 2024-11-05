@@ -586,6 +586,26 @@ impl OptionalAction {
     }
 }
 
+impl SearchNode {
+    const fn into_builder(self) -> NodeBuilder {
+        NodeBuilder(self.0)
+    }
+
+    const fn into_optional(self) -> OptionalSearchNode {
+        OptionalSearchNode(self.0)
+    }
+}
+
+impl NodeBuilder {
+    const fn board(self) -> Board {
+        todo!()
+    }
+
+    const fn into_optional(self) -> OptionalNodeBuilder {
+        OptionalNodeBuilder(self.0)
+    }
+}
+
 /// -200 in 9-bit two's complement, left-padded with zeros
 /// to fill the 64-bit integer.
 const NEGATIVE_200_I9: u64 = 0b100111000;
@@ -609,273 +629,122 @@ const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
     action_handlers::active_lion::r00_c00,
     action_handlers::active_lion::r00_c01,
     action_handlers::active_lion::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::active_lion::r01_c00,
     action_handlers::active_lion::r01_c01,
     action_handlers::active_lion::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::active_lion::r10_c00,
     action_handlers::active_lion::r10_c01,
     action_handlers::active_lion::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::active_lion::r11_c00,
     action_handlers::active_lion::r11_c01,
     action_handlers::active_lion::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // chick0: 0b010_0000 to 0b010_1111
     action_handlers::chick0::r00_c00,
     action_handlers::chick0::r00_c01,
     action_handlers::chick0::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick0::r01_c00,
     action_handlers::chick0::r01_c01,
     action_handlers::chick0::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick0::r10_c00,
     action_handlers::chick0::r10_c01,
     action_handlers::chick0::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick0::r11_c00,
     action_handlers::chick0::r11_c01,
     action_handlers::chick0::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // chick1: 0b011_0000 to 0b011_1111
     action_handlers::chick1::r00_c00,
     action_handlers::chick1::r00_c01,
     action_handlers::chick1::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick1::r01_c00,
     action_handlers::chick1::r01_c01,
     action_handlers::chick1::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick1::r10_c00,
     action_handlers::chick1::r10_c01,
     action_handlers::chick1::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::chick1::r11_c00,
     action_handlers::chick1::r11_c01,
     action_handlers::chick1::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // elephant0: 0b100_0000 to 0b100_1111
     action_handlers::elephant0::r00_c00,
     action_handlers::elephant0::r00_c01,
     action_handlers::elephant0::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant0::r01_c00,
     action_handlers::elephant0::r01_c01,
     action_handlers::elephant0::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant0::r10_c00,
     action_handlers::elephant0::r10_c01,
     action_handlers::elephant0::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant0::r11_c00,
     action_handlers::elephant0::r11_c01,
     action_handlers::elephant0::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // elephant1: 0b101_0000 to 0b101_1111
     action_handlers::elephant1::r00_c00,
     action_handlers::elephant1::r00_c01,
     action_handlers::elephant1::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant1::r01_c00,
     action_handlers::elephant1::r01_c01,
     action_handlers::elephant1::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant1::r10_c00,
     action_handlers::elephant1::r10_c01,
     action_handlers::elephant1::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::elephant1::r11_c00,
     action_handlers::elephant1::r11_c01,
     action_handlers::elephant1::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // giraffe0: 0b110_0000 to 0b110_1111
     action_handlers::giraffe0::r00_c00,
     action_handlers::giraffe0::r00_c01,
     action_handlers::giraffe0::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe0::r01_c00,
     action_handlers::giraffe0::r01_c01,
     action_handlers::giraffe0::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe0::r10_c00,
     action_handlers::giraffe0::r10_c01,
     action_handlers::giraffe0::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe0::r11_c00,
     action_handlers::giraffe0::r11_c01,
     action_handlers::giraffe0::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     // giraffe1: 0b111_0000 to 0b111_1111
     action_handlers::giraffe1::r00_c00,
     action_handlers::giraffe1::r00_c01,
     action_handlers::giraffe1::r00_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe1::r01_c00,
     action_handlers::giraffe1::r01_c01,
     action_handlers::giraffe1::r01_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe1::r10_c00,
     action_handlers::giraffe1::r10_c01,
     action_handlers::giraffe1::r10_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
     action_handlers::giraffe1::r11_c00,
     action_handlers::giraffe1::r11_c01,
     action_handlers::giraffe1::r11_c10,
-    handle_bad_action,
+    action_handlers::handle_bad_action,
 ];
-
-fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    panic!("Illegal action");
-}
-
-macro_rules! is_dest_square_occupied {
-    ($ACTION:expr, $board:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: Board = $board;
-        false
-    }};
-}
-
-macro_rules! move_acting_piece_to_dest_square {
-    ($ACTION:expr, $state:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: NodeBuilder = $state;
-        NodeBuilder(0)
-    }};
-}
-
-macro_rules! next_empty_square_action {
-    ($ACTION:expr, $state:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: NodeBuilder = $state;
-        OptionalAction(0)
-    }};
-}
-
-macro_rules! handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance {
-    ($ACTION:expr, $original_state:expr) => {{
-        let original_state = $original_state;
-        let original_board = $original_state.board();
-
-        if is_dest_square_occupied!($ACTION, original_board) {
-            return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
-        }
-
-        let state = move_acting_piece_to_dest_square!($ACTION, original_state);
-        let next_action = next_empty_square_action!($ACTION, original_state);
-        (state.into_optional(), next_action)
-    }};
-}
-
-/// - If the destination square is empty, this returns the original state.
-/// - If the destination square is occupied by a passive piece,
-///   this returns the state with the passive piece moved to the active player's hand.
-/// - If the destination square is occupied by an active piece,
-///   this returns `OptionalNodeBuilder::NONE`.
-macro_rules! vacate_passive_dest_square {
-    ($ACTION:expr, $state:expr, $board:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: NodeBuilder = $state;
-        let _dummy: Board = $board;
-        OptionalNodeBuilder::NONE
-    }};
-}
-
-macro_rules! promote_actor_if_dest_square_in_promotion_zone {
-    ($ACTION:expr, $state:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: NodeBuilder = $state;
-        NodeBuilder(0)
-    }};
-}
-
-macro_rules! next_action_with_nonactive_dest_square_in_range_of_current_actor {
-    ($ACTION:expr, $state:expr, $board:expr) => {{
-        // TODO
-        let _dummy: Action = $ACTION;
-        let _dummy: NodeBuilder = $state;
-        let _dummy: Board = $board;
-        OptionalAction(0)
-    }};
-}
-
-macro_rules! handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance {
-    ($ACTION:expr, $original_state:expr) => {{
-        let original_state = $original_state;
-        let original_board = original_state.board();
-        let state = vacate_passive_dest_square!($ACTION, original_state, original_board);
-
-        // If the destination square is occupied by an active piece,
-        // then the move is illegal.
-        if state.is_none() {
-            return (
-                OptionalNodeBuilder::NONE,
-                next_action_with_nonactive_dest_square_in_range_of_current_actor!(
-                    $ACTION,
-                    original_state,
-                    original_board
-                ),
-            );
-        }
-
-        let state = state.unchecked_unwrap();
-        let state = move_acting_piece_to_dest_square!($ACTION, state);
-        let state = promote_actor_if_dest_square_in_promotion_zone!($ACTION, state);
-        let next_action = next_action_with_nonactive_dest_square_in_range_of_current_actor!(
-            $ACTION,
-            original_state,
-            original_board
-        );
-        (state.into_optional(), next_action)
-    }};
-}
-
-macro_rules! is_actor_out_of_range_of_dest_square {
-    ($ACTION:expr, $state:expr) => {{
-        // TODO
-        false
-    }};
-}
-
-macro_rules! next_action_with_dest_square_in_current_actor_range {
-    ($ACTION:expr, $state:expr) => {{
-        // TODO
-        OptionalAction(0)
-    }};
-}
-
-impl NodeBuilder {
-    #[inline(always)]
-    const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
-        if self.0 & action.allegiance_mask() != 0 {
-            return (OptionalNodeBuilder::NONE, action.next_species_action());
-        }
-
-        if self.0 & action.hand_mask() == action.hand_mask() {
-            return handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance!(
-                action, self
-            );
-        }
-
-        if is_actor_out_of_range_of_dest_square!(action, self) {
-            return (
-                OptionalNodeBuilder::NONE,
-                next_action_with_dest_square_in_current_actor_range!(action, self),
-            );
-        }
-
-        return handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance!(
-            action, self
-        );
-    }
-}
 
 macro_rules! define_piece_action_handlers {
     ($name:ident, $piece:literal) => {
@@ -956,7 +825,6 @@ macro_rules! define_piece_action_handlers {
         }
     };
 }
-
 mod action_handlers {
     use super::*;
 
@@ -967,6 +835,128 @@ mod action_handlers {
     define_piece_action_handlers!(elephant1, 0b101);
     define_piece_action_handlers!(giraffe0, 0b110);
     define_piece_action_handlers!(giraffe1, 0b111);
+
+    pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+        panic!("Illegal action");
+    }
+}
+
+impl NodeBuilder {
+    #[inline(always)]
+    const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
+        if self.0 & action.allegiance_mask() != 0 {
+            return (OptionalNodeBuilder::NONE, action.next_species_action());
+        }
+
+        if self.0 & action.hand_mask() == action.hand_mask() {
+            return self.handle_drop_assuming_actor_is_active_and_in_hand(action);
+        }
+
+        if self.is_actor_out_of_range_of_dest_square(action) {
+            return (
+                OptionalNodeBuilder::NONE,
+                self.next_action_with_nonactive_dest_square_in_current_actor_range(
+                    action,
+                    self.board(),
+                ),
+            );
+        }
+
+        return self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action);
+    }
+
+    #[inline(always)]
+    const fn handle_drop_assuming_actor_is_active_and_in_hand(
+        self,
+        action: Action,
+    ) -> (OptionalNodeBuilder, OptionalAction) {
+        let original_state = self;
+        let original_board = original_state.board();
+
+        if original_board.is_dest_square_occupied(action) {
+            return (OptionalNodeBuilder::NONE, action.next_species_action());
+        }
+
+        let state = original_state.move_acting_piece_to_dest_square(action);
+        let next_action = original_state.next_empty_square_action(action);
+        (state.into_optional(), next_action)
+    }
+
+    #[inline(always)]
+    const fn move_acting_piece_to_dest_square(self, action: Action) -> NodeBuilder {
+        todo!()
+    }
+
+    #[inline(always)]
+    const fn next_empty_square_action(self, action: Action) -> OptionalAction {
+        todo!()
+    }
+
+    #[inline(always)]
+    const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
+        todo!()
+    }
+
+    #[inline(always)]
+    const fn next_action_with_nonactive_dest_square_in_current_actor_range(
+        self,
+        action: Action,
+        board: Board,
+    ) -> OptionalAction {
+        todo!()
+    }
+
+    #[inline(always)]
+    const fn handle_move_assuming_actor_is_active_and_in_range_of_dest_square(
+        self,
+        action: Action,
+    ) -> (OptionalNodeBuilder, OptionalAction) {
+        let original_state = self;
+        let original_board = original_state.board();
+        let state = original_state.vacate_passive_dest_square(action, original_board);
+
+        // If the destination square is occupied by an active piece,
+        // then the move is illegal.
+        if state.is_none() {
+            return (
+                OptionalNodeBuilder::NONE,
+                original_state.next_action_with_nonactive_dest_square_in_current_actor_range(
+                    action,
+                    original_board,
+                ),
+            );
+        }
+
+        let state = state.unchecked_unwrap();
+        let state = state.move_acting_piece_to_dest_square(action);
+        let state = state.promote_actor_if_needed(action);
+        let next_action = original_state
+            .next_action_with_nonactive_dest_square_in_current_actor_range(action, original_board);
+        (state.into_optional(), next_action)
+    }
+
+    /// - If the destination square is empty, this returns the original state.
+    /// - If the destination square is occupied by a passive piece,
+    ///   this returns the state with the passive piece moved to the active player's hand.
+    /// - If the destination square is occupied by an active piece,
+    ///   this returns `OptionalNodeBuilder::NONE`.
+    #[inline(always)]
+    const fn vacate_passive_dest_square(self, action: Action, board: Board) -> OptionalNodeBuilder {
+        todo!()
+    }
+
+    #[inline(always)]
+    const fn promote_actor_if_needed(self, action: Action) -> NodeBuilder {
+        todo!()
+    }
+}
+
+impl Board {
+    #[inline(always)]
+    const fn is_dest_square_occupied(self, action: Action) -> bool {
+        // TODO
+        false
+    }
 }
 
 impl Action {
@@ -1009,10 +999,6 @@ impl Action {
     const fn hand_mask(self) -> u64 {
         todo!()
     }
-}
-
-fn todo_dummy(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    todo!()
 }
 
 /// All offsets are given relative to the right (i.e., least significant) bit.
@@ -1060,24 +1046,4 @@ mod offsets {
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
-}
-
-impl SearchNode {
-    const fn into_builder(self) -> NodeBuilder {
-        NodeBuilder(self.0)
-    }
-
-    const fn into_optional(self) -> OptionalSearchNode {
-        OptionalSearchNode(self.0)
-    }
-}
-
-impl NodeBuilder {
-    const fn board(self) -> Board {
-        todo!()
-    }
-
-    const fn into_optional(self) -> OptionalNodeBuilder {
-        OptionalNodeBuilder(self.0)
-    }
 }
