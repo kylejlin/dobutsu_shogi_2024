@@ -3,8 +3,6 @@
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
-use offsets::CHICK0;
-
 pub const MAX_PLY_COUNT: u8 = 200;
 
 pub fn calculate() -> CompactSolutionMap {
@@ -123,6 +121,9 @@ struct OptionalCachedEvaluation(i16);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Board(u64);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SquareSet(u16);
 
 impl CompactSolutionMap {
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -1157,7 +1158,10 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn move_actor_to_dest_square(self, action: Action) -> NodeBuilder {
-        Self((self.0 & !action.coords_mask()) | action.dest_square_shifted_by_actor_coords_offset())
+        Self(
+            (self.0 & !action.coords_mask())
+                | action.dest_square_coords_shifted_by_actor_coords_offset(),
+        )
     }
 
     #[inline(always)]
@@ -1192,7 +1196,16 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        todo!()
+        let actor_coords = (self.0 >> action.actor_coords_offset()) & 0b1111;
+
+        let legal_squares = action.legal_starting_squares();
+
+        // Only pieces on the board can be in range.
+        // Therefore, if the actor is in hand, it is out of range.
+        // However, we don't have to explicitly check this case,
+        // because if the actor is in hand, then `actor_coords == 15`,
+        // and bit 15 of `legal_squares` is guaranteed to be 0.
+        legal_squares.0 & (1 << actor_coords) == 0
     }
 
     #[inline(always)]
@@ -1379,24 +1392,17 @@ impl Action {
 
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
-        let offset = match self.0 >> 4 {
-            0b001 => offsets::ACTIVE_LION_COLUMN,
-            0b010 => offsets::CHICK0_COLUMN,
-            0b011 => offsets::CHICK1_COLUMN,
-            0b100 => offsets::ELEPHANT0_COLUMN,
-            0b101 => offsets::ELEPHANT1_COLUMN,
-            0b110 => offsets::GIRAFFE0_COLUMN,
-            0b111 => offsets::GIRAFFE1_COLUMN,
-
-            _ => return 0,
-        };
-
-        0b1111 << offset
+        0b1111 << self.actor_coords_offset()
     }
 
     #[inline(always)]
-    const fn dest_square_shifted_by_actor_coords_offset(self) -> u64 {
-        let offset = match self.0 >> 4 {
+    const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
+        ((self.0 as u64) & 0b1111) << self.actor_coords_offset()
+    }
+
+    #[inline(always)]
+    const fn actor_coords_offset(self) -> u64 {
+        match self.0 >> 4 {
             0b001 => offsets::ACTIVE_LION_COLUMN,
             0b010 => offsets::CHICK0_COLUMN,
             0b011 => offsets::CHICK1_COLUMN,
@@ -1405,10 +1411,8 @@ impl Action {
             0b110 => offsets::GIRAFFE0_COLUMN,
             0b111 => offsets::GIRAFFE1_COLUMN,
 
-            _ => return 0,
-        };
-
-        ((self.0 as u64) & 0b1111) << offset
+            _ => 0,
+        }
     }
 
     #[inline(always)]
@@ -1434,6 +1438,11 @@ impl Action {
     #[inline(always)]
     const fn into_optional(self) -> OptionalAction {
         OptionalAction(self.0)
+    }
+
+    #[inline(always)]
+    const fn legal_starting_squares(self) -> SquareSet {
+        todo!()
     }
 }
 
