@@ -201,7 +201,7 @@ impl SearchNode {
         self
     }
 
-    fn next_action(self) -> Result<Action, Solution> {
+    const fn next_action(self) -> Result<Action, Solution> {
         let raw = ((self.0 >> 9) & 0b111_1111) as u8;
         if raw == 0 {
             return Err(Solution(self.0));
@@ -227,14 +227,14 @@ impl SearchNode {
         (new_self, child)
     }
 
-    fn set_next_action(self, next_action: OptionalAction) -> Self {
+    const fn set_next_action(self, next_action: OptionalAction) -> Self {
         let raw = next_action.0 as u64;
         Self((self.0 & !(0b111_1111 << 9)) | (raw << 9))
     }
 }
 
 impl NodeBuilder {
-    fn invert_active_player(self) -> Self {
+    const fn invert_active_player(self) -> Self {
         const ALLEGIANCE_INVERSION_MASK: u64 = (1 << offsets::CHICK0_ALLEGIANCE)
             | (1 << offsets::CHICK1_ALLEGIANCE)
             | (1 << offsets::ELEPHANT0_ALLEGIANCE)
