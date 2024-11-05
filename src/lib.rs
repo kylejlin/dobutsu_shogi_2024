@@ -680,7 +680,7 @@ impl FromZeroPaddedI9<u64> for OptionalCachedEvaluation {
 impl FromZeroPaddedI9<u64> for i16 {
     fn from_zero_padded_i9(value: u64) -> i16 {
         // Handle negative values
-        if (value & (1 << 9)) != 0 {
+        if (value & (1 << 8)) != 0 {
             const C: i16 = -(1 << 8);
             let v8 = (value & 0b1111_1111) as i16;
             return C + v8;
@@ -1243,4 +1243,65 @@ mod offsets {
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn positive1_i9_converts_to_i16_correctly() {
+        let actual = i16::from_zero_padded_i9(1);
+        let expected: i16 = 1;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn zero_i9_converts_to_i16_correctly() {
+        let actual = i16::from_zero_padded_i9(0);
+        let expected: i16 = 0;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn negative1_i9_converts_to_i16_correctly() {
+        let actual = i16::from_zero_padded_i9(0b1_1111_1111);
+        let expected: i16 = -1;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn negative201_i9_converts_to_i16_correctly() {
+        let actual = i16::from_zero_padded_i9(NEGATIVE_201_I9);
+        let expected: i16 = -201;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn positive1_i16_converts_to_i9_correctly() {
+        let actual = 1i16.into_zero_padded_i9_unchecked();
+        let expected: u64 = 1;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn zero_i16_converts_to_i9_correctly() {
+        let actual = 0i16.into_zero_padded_i9_unchecked();
+        let expected: u64 = 0;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn negative1_i16_converts_to_i9_correctly() {
+        let actual = (-1i16).into_zero_padded_i9_unchecked();
+        let expected: u64 = 0b1_1111_1111;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn negative201_i16_converts_to_i9_correctly() {
+        let actual = (-201i16).into_zero_padded_i9_unchecked();
+        let expected: u64 = NEGATIVE_201_I9;
+        assert_eq!(expected, actual);
+    }
 }
