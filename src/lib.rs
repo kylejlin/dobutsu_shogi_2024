@@ -1533,7 +1533,19 @@ impl Action {
             /// by taking one step in some direction contained in this set.
             #[inline(always)]
             const fn connects(self, from: u8, to: u8) -> bool {
-                todo!()
+                let from_column = (from & 0b11) as i8;
+                let from_row = (from >> 2) as i8;
+                let to_column = (to & 0b11) as i8;
+                let to_row = (to >> 2) as i8;
+
+                (self.n && from_row + 1 == to_row && from_column == to_column)
+                    || (self.ne && from_row + 1 == to_row && from_column + 1 == to_column)
+                    || (self.e && from_row == to_row && from_column + 1 == to_column)
+                    || (self.se && from_row - 1 == to_row && from_column + 1 == to_column)
+                    || (self.s && from_row - 1 == to_row && from_column == to_column)
+                    || (self.sw && from_row - 1 == to_row && from_column - 1 == to_column)
+                    || (self.w && from_row == to_row && from_column - 1 == to_column)
+                    || (self.nw && from_row + 1 == to_row && from_column - 1 == to_column)
             }
         }
 
