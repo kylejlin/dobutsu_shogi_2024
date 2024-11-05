@@ -1209,12 +1209,45 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
+    const fn is_actor_in_range_of_dest_square(self, action: Action) -> bool {
+        !self.is_actor_out_of_range_of_dest_square(action)
+    }
+
+    #[inline(always)]
     const fn next_action_with_nonactive_dest_square_in_current_actor_range(
         self,
         action: Action,
         board: Board,
     ) -> OptionalAction {
-        todo!()
+        macro_rules! check_square {
+            ($coords:literal) => {{
+                let candidate = action.set_dest_square($coords);
+
+                if action.0 & 0b1111 < $coords
+                    && board.is_dest_square_nonactive(candidate)
+                    && self.is_actor_in_range_of_dest_square(candidate)
+                {
+                    return candidate.into_optional();
+                }
+            }};
+        }
+
+        check_square!(0b0001);
+        check_square!(0b0010);
+
+        check_square!(0b0100);
+        check_square!(0b0101);
+        check_square!(0b0110);
+
+        check_square!(0b1000);
+        check_square!(0b1001);
+        check_square!(0b1010);
+
+        check_square!(0b1100);
+        check_square!(0b1101);
+        check_square!(0b1110);
+
+        action.next_piece_action()
     }
 
     #[inline(always)]
@@ -1333,6 +1366,12 @@ impl Board {
     #[inline(always)]
     const fn is_dest_square_nonpassive(self, action: Action) -> bool {
         self.0 & (0b1_000 << action.dest_square_board_offset()) == 0
+    }
+
+    #[inline(always)]
+    const fn is_dest_square_nonactive(self, action: Action) -> bool {
+        let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
+        self.is_dest_square_empty(action) | is_passive
     }
 }
 
