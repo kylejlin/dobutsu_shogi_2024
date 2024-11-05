@@ -1205,7 +1205,18 @@ impl NodeBuilder {
         // However, we don't have to explicitly check this case,
         // because if the actor is in hand, then `actor_coords == 15`,
         // and bit 15 of `legal_squares` is guaranteed to be 0.
-        legal_squares.0 & (1 << actor_coords) == 0
+        legal_squares[self.is_actor_promoted(action) as usize].0 & (1 << actor_coords) == 0
+    }
+
+    #[inline(always)]
+    const fn is_actor_promoted(self, action: Action) -> bool {
+        let offset = match action.0 >> 4 {
+            0b010 => offsets::CHICK0_PROMOTION,
+            0b011 => offsets::CHICK1_PROMOTION,
+
+            _ => return false,
+        };
+        self.0 & (1 << offset) != 0
     }
 
     #[inline(always)]
@@ -1479,8 +1490,18 @@ impl Action {
         OptionalAction(self.0)
     }
 
+    /// The set of legal starting squares depends on whether the
+    /// actor is promoted.
+    /// We cannot determine this from the action alone.
+    ///
+    /// So, we return an array of two sets.
+    /// The first set is for the non-promoted actor,
+    /// and the second set is for the promoted actor.
+    ///
+    /// It is the consumer's responsibility to select the correct
+    /// set to use.
     #[inline(always)]
-    const fn legal_starting_squares(self) -> SquareSet {
+    const fn legal_starting_squares(self) -> [SquareSet; 2] {
         struct DirectionSet {
             n: bool,
             ne: bool,
