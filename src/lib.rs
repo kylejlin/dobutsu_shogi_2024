@@ -873,7 +873,7 @@ macro_rules! handle_chick_action {
 }
 
 fn handle_chick0_row00_col00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    handle_chick_action!(Action(0b001_0000), state.into_builder())
+    handle_chick_action!(Action(0b010_0000), state.into_builder())
 }
 
 impl Action {
