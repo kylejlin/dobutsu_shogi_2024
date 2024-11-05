@@ -996,8 +996,22 @@ impl Action {
         })
     }
 
+    // Returns a mask `m` that can be `&`ed with the state to produce
+    // some number `n` such that `n == m` if and only if the actor is in hand.
     const fn hand_mask(self) -> u64 {
-        todo!()
+        let offset = match self.0 >> 4 {
+            0b001 => offsets::ACTIVE_LION_COLUMN,
+            0b010 => offsets::CHICK0_COLUMN,
+            0b011 => offsets::CHICK1_COLUMN,
+            0b100 => offsets::ELEPHANT0_COLUMN,
+            0b101 => offsets::ELEPHANT1_COLUMN,
+            0b110 => offsets::GIRAFFE0_COLUMN,
+            0b111 => offsets::GIRAFFE1_COLUMN,
+
+            _ => return 0,
+        };
+
+        0b1111 << offset
     }
 }
 
