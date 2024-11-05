@@ -591,134 +591,138 @@ impl OptionalAction {
 const NEGATIVE_200_I9: u64 = 0b100111000;
 
 /// An action handler will return the result of applying an action
-/// to the input state, assuming the action is legal.
+/// to the input state, if the action is legal.
 /// If the action is illegal, then the handler will return `None`
 /// instead of the resulting timeless state.
+///
 /// Regardless of the legality of the action,
 /// the handler will return an `Option<Action>`
 /// that represents the next (possibly illegal) action to be explored.
+///
+/// The handler assumes that the input state is non-terminal.
+/// It will not check for terminality.
 const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction); 128 - 16] = [
     // 0b000_0000 to 0b000_1111 are unreachable
     // due to the offset of 16.
 
     // activeLion: 0b001_0000 to 0b111_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::active_lion::r00_c00,
+    action_handlers::active_lion::r00_c01,
+    action_handlers::active_lion::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::active_lion::r01_c00,
+    action_handlers::active_lion::r01_c01,
+    action_handlers::active_lion::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::active_lion::r10_c00,
+    action_handlers::active_lion::r10_c01,
+    action_handlers::active_lion::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::active_lion::r11_c00,
+    action_handlers::active_lion::r11_c01,
+    action_handlers::active_lion::r11_c10,
     handle_bad_action,
     // chick0: 0b010_0000 to 0b010_1111
-    handle_chick0_row00_col00,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick0::r00_c00,
+    action_handlers::chick0::r00_c01,
+    action_handlers::chick0::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick0::r01_c00,
+    action_handlers::chick0::r01_c01,
+    action_handlers::chick0::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick0::r10_c00,
+    action_handlers::chick0::r10_c01,
+    action_handlers::chick0::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick0::r11_c00,
+    action_handlers::chick0::r11_c01,
+    action_handlers::chick0::r11_c10,
     handle_bad_action,
     // chick1: 0b011_0000 to 0b011_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick1::r00_c00,
+    action_handlers::chick1::r00_c01,
+    action_handlers::chick1::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick1::r01_c00,
+    action_handlers::chick1::r01_c01,
+    action_handlers::chick1::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick1::r10_c00,
+    action_handlers::chick1::r10_c01,
+    action_handlers::chick1::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::chick1::r11_c00,
+    action_handlers::chick1::r11_c01,
+    action_handlers::chick1::r11_c10,
     handle_bad_action,
     // elephant0: 0b100_0000 to 0b100_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant0::r00_c00,
+    action_handlers::elephant0::r00_c01,
+    action_handlers::elephant0::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant0::r01_c00,
+    action_handlers::elephant0::r01_c01,
+    action_handlers::elephant0::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant0::r10_c00,
+    action_handlers::elephant0::r10_c01,
+    action_handlers::elephant0::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant0::r11_c00,
+    action_handlers::elephant0::r11_c01,
+    action_handlers::elephant0::r11_c10,
     handle_bad_action,
     // elephant1: 0b101_0000 to 0b101_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant1::r00_c00,
+    action_handlers::elephant1::r00_c01,
+    action_handlers::elephant1::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant1::r01_c00,
+    action_handlers::elephant1::r01_c01,
+    action_handlers::elephant1::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant1::r10_c00,
+    action_handlers::elephant1::r10_c01,
+    action_handlers::elephant1::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::elephant1::r11_c00,
+    action_handlers::elephant1::r11_c01,
+    action_handlers::elephant1::r11_c10,
     handle_bad_action,
     // giraffe0: 0b110_0000 to 0b110_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe0::r00_c00,
+    action_handlers::giraffe0::r00_c01,
+    action_handlers::giraffe0::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe0::r01_c00,
+    action_handlers::giraffe0::r01_c01,
+    action_handlers::giraffe0::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe0::r10_c00,
+    action_handlers::giraffe0::r10_c01,
+    action_handlers::giraffe0::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe0::r11_c00,
+    action_handlers::giraffe0::r11_c01,
+    action_handlers::giraffe0::r11_c10,
     handle_bad_action,
     // giraffe1: 0b111_0000 to 0b111_1111
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe1::r00_c00,
+    action_handlers::giraffe1::r00_c01,
+    action_handlers::giraffe1::r00_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe1::r01_c00,
+    action_handlers::giraffe1::r01_c01,
+    action_handlers::giraffe1::r01_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe1::r10_c00,
+    action_handlers::giraffe1::r10_c01,
+    action_handlers::giraffe1::r10_c10,
     handle_bad_action,
-    todo_dummy,
-    todo_dummy,
-    todo_dummy,
+    action_handlers::giraffe1::r11_c00,
+    action_handlers::giraffe1::r11_c01,
+    action_handlers::giraffe1::r11_c10,
     handle_bad_action,
 ];
 
@@ -872,8 +876,72 @@ macro_rules! handle_chick_action {
     }};
 }
 
-fn handle_chick0_row00_col00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    handle_chick_action!(Action(0b010_0000), state.into_builder())
+macro_rules! define_piece_action_handlers {
+    ($name:ident, $piece:literal) => {
+        pub mod $name {
+            use super::*;
+
+            pub fn r00_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0000), state.into_builder())
+            }
+
+            pub fn r00_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0001), state.into_builder())
+            }
+
+            pub fn r00_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0010), state.into_builder())
+            }
+
+            pub fn r01_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0100), state.into_builder())
+            }
+
+            pub fn r01_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0101), state.into_builder())
+            }
+
+            pub fn r01_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b0110), state.into_builder())
+            }
+
+            pub fn r10_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1000), state.into_builder())
+            }
+
+            pub fn r10_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1001), state.into_builder())
+            }
+
+            pub fn r10_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1010), state.into_builder())
+            }
+
+            pub fn r11_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1100), state.into_builder())
+            }
+
+            pub fn r11_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1101), state.into_builder())
+            }
+
+            pub fn r11_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                handle_chick_action!(Action(($piece << 4) | 0b1110), state.into_builder())
+            }
+        }
+    };
+}
+
+mod action_handlers {
+    use super::*;
+
+    define_piece_action_handlers!(active_lion, 0b001);
+    define_piece_action_handlers!(chick0, 0b010);
+    define_piece_action_handlers!(chick1, 0b011);
+    define_piece_action_handlers!(elephant0, 0b100);
+    define_piece_action_handlers!(elephant1, 0b101);
+    define_piece_action_handlers!(giraffe0, 0b110);
+    define_piece_action_handlers!(giraffe1, 0b111);
 }
 
 impl Action {
