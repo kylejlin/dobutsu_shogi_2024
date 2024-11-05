@@ -1147,7 +1147,10 @@ impl NodeBuilder {
         let original_board = original_state.board();
 
         if original_board.is_dest_square_occupied(action) {
-            return (OptionalNodeBuilder::NONE, action.next_species_action());
+            return (
+                OptionalNodeBuilder::NONE,
+                original_state.next_empty_square_action(action),
+            );
         }
 
         let state = original_state.move_actor_to_dest_square(action);
@@ -1227,12 +1230,12 @@ impl NodeBuilder {
 impl Board {
     #[inline(always)]
     const fn is_dest_square_occupied(self, action: Action) -> bool {
-        // TODO
-        false
+        self.0 & (0b111 << action.dest_square_board_offset()) != 0
     }
 }
 
 impl Action {
+    #[inline(always)]
     const fn allegiance_mask(self) -> u64 {
         let offset = match self.0 >> 4 {
             // There is no mask for the active lion, since it's allegiance
@@ -1252,6 +1255,7 @@ impl Action {
         1 << offset
     }
 
+    #[inline(always)]
     const fn next_species_action(self) -> OptionalAction {
         OptionalAction(match self.0 >> 4 {
             0b001 => 0b010_0000,
@@ -1269,6 +1273,7 @@ impl Action {
         })
     }
 
+    #[inline(always)]
     const fn coords_mask(self) -> u64 {
         let offset = match self.0 >> 4 {
             0b001 => offsets::ACTIVE_LION_COLUMN,
@@ -1285,6 +1290,7 @@ impl Action {
         0b1111 << offset
     }
 
+    #[inline(always)]
     const fn dest_square_shifted_by_actor_coords_offset(self) -> u64 {
         let offset = match self.0 >> 4 {
             0b001 => offsets::ACTIVE_LION_COLUMN,
@@ -1299,6 +1305,11 @@ impl Action {
         };
 
         ((self.0 as u64) & 0b1111) << offset
+    }
+
+    #[inline(always)]
+    const fn dest_square_board_offset(self) -> u64 {
+        coords_to_board_offset((self.0 as u64) & 0b1111)
     }
 }
 
@@ -1347,12 +1358,6 @@ mod offsets {
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
-
-    pub mod square {
-        pub const SPECIES: u64 = 0;
-        pub const PIECE_NUMBER: u64 = SPECIES + 3;
-        pub const ALLEGIANCE: u64 = PIECE_NUMBER + 1;
-    }
 }
 
 #[cfg(test)]

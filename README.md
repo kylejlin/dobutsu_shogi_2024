@@ -235,7 +235,7 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 | ---------- | ------ |
 | 1 bit      | 3 bits |
 
-The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player.
+The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player. If the square is empty, the allegiance bit is zero.
 
 The piece bits are as follows:
 
