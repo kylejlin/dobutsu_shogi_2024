@@ -3,6 +3,8 @@
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
+use offsets::CHICK0;
+
 pub const PLY_LIMIT: u8 = 200;
 
 pub fn calculate() -> CompactSolutionMap {
@@ -291,7 +293,81 @@ impl NodeBuilder {
     }
 
     const fn horizontally_flip(self) -> Self {
-        todo!()
+        const CHICK0_COORDS_MASK: u64 = 0b1111 << offsets::CHICK0_COLUMN;
+        let chick0_coords = self.0 & CHICK0_COORDS_MASK;
+        let chick0_coords_flipped = if chick0_coords == CHICK0_COORDS_MASK {
+            chick0_coords
+        } else {
+            (0b10 << offsets::CHICK0_COLUMN) - chick0_coords
+        };
+
+        const CHICK1_COORDS_MASK: u64 = 0b1111 << offsets::CHICK1_COLUMN;
+        let chick1_coords = self.0 & CHICK1_COORDS_MASK;
+        let chick1_coords_flipped = if chick1_coords == CHICK1_COORDS_MASK {
+            chick1_coords
+        } else {
+            (0b10 << offsets::CHICK1_COLUMN) - chick1_coords
+        };
+
+        const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT0_COLUMN;
+        let elephant0_coords = self.0 & ELEPHANT0_COORDS_MASK;
+        let elephant0_coords_flipped = if elephant0_coords == ELEPHANT0_COORDS_MASK {
+            elephant0_coords
+        } else {
+            (0b10 << offsets::ELEPHANT0_COLUMN) - elephant0_coords
+        };
+
+        const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT1_COLUMN;
+        let elephant1_coords = self.0 & ELEPHANT1_COORDS_MASK;
+        let elephant1_coords_flipped = if elephant1_coords == ELEPHANT1_COORDS_MASK {
+            elephant1_coords
+        } else {
+            (0b10 << offsets::ELEPHANT1_COLUMN) - elephant1_coords
+        };
+
+        const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE0_COLUMN;
+        let giraffe0_coords = self.0 & GIRAFFE0_COORDS_MASK;
+        let giraffe0_coords_flipped = if giraffe0_coords == GIRAFFE0_COORDS_MASK {
+            giraffe0_coords
+        } else {
+            (0b10 << offsets::GIRAFFE0_COLUMN) - giraffe0_coords
+        };
+
+        const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE1_COLUMN;
+        let giraffe1_coords = self.0 & GIRAFFE1_COORDS_MASK;
+        let giraffe1_coords_flipped = if giraffe1_coords == GIRAFFE1_COORDS_MASK {
+            giraffe1_coords
+        } else {
+            (0b10 << offsets::GIRAFFE1_COLUMN) - giraffe1_coords
+        };
+
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION_COLUMN;
+        let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
+        let active_lion_coords_flipped = if active_lion_coords == ACTIVE_LION_COORDS_MASK {
+            active_lion_coords
+        } else {
+            (0b10 << offsets::ACTIVE_LION_COLUMN) - active_lion_coords
+        };
+
+        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::PASSIVE_LION_COLUMN;
+        let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
+        let passive_lion_coords_flipped = if passive_lion_coords == PASSIVE_LION_COORDS_MASK {
+            passive_lion_coords
+        } else {
+            (0b10 << offsets::PASSIVE_LION_COLUMN) - passive_lion_coords
+        };
+
+        Self(
+            (self.0 & !(0xFF_FFFF_FFFF << offsets::PASSIVE_LION))
+                | chick0_coords_flipped
+                | chick1_coords_flipped
+                | elephant0_coords_flipped
+                | elephant1_coords_flipped
+                | giraffe0_coords_flipped
+                | giraffe1_coords_flipped
+                | active_lion_coords_flipped
+                | passive_lion_coords_flipped,
+        )
     }
 }
 
