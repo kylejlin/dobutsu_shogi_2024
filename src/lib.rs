@@ -1150,13 +1150,13 @@ impl NodeBuilder {
             return (OptionalNodeBuilder::NONE, action.next_species_action());
         }
 
-        let state = original_state.move_acting_piece_to_dest_square(action);
+        let state = original_state.move_actor_to_dest_square(action);
         let next_action = original_state.next_empty_square_action(action);
         (state.into_optional(), next_action)
     }
 
     #[inline(always)]
-    const fn move_acting_piece_to_dest_square(self, action: Action) -> NodeBuilder {
+    const fn move_actor_to_dest_square(self, action: Action) -> NodeBuilder {
         todo!()
     }
 
@@ -1201,7 +1201,7 @@ impl NodeBuilder {
         }
 
         let state = state.unchecked_unwrap();
-        let state = state.move_acting_piece_to_dest_square(action);
+        let state = state.move_actor_to_dest_square(action);
         let state = state.promote_actor_if_needed(action);
         let next_action = original_state
             .next_action_with_nonactive_dest_square_in_current_actor_range(action, original_board);
