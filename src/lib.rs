@@ -777,12 +777,102 @@ impl SearchNode {
 
 impl NodeBuilder {
     const fn board(self) -> Board {
-        todo!()
+        const CHICK0_COORDS_MASK: u64 = 0b1111 << offsets::CHICK0_COLUMN;
+        const CHICK1_COORDS_MASK: u64 = 0b1111 << offsets::CHICK1_COLUMN;
+        const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT0_COLUMN;
+        const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT1_COLUMN;
+        const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE0_COLUMN;
+        const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE1_COLUMN;
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION_COLUMN;
+        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::PASSIVE_LION_COLUMN;
+
+        let chick0_coords = self.0 & CHICK0_COORDS_MASK;
+        let chick1_coords = self.0 & CHICK1_COORDS_MASK;
+        let elephant0_coords = self.0 & ELEPHANT0_COORDS_MASK;
+        let elephant1_coords = self.0 & ELEPHANT1_COORDS_MASK;
+        let giraffe0_coords = self.0 & GIRAFFE0_COORDS_MASK;
+        let giraffe1_coords = self.0 & GIRAFFE1_COORDS_MASK;
+        let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
+        let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
+
+        const LION_SQUARE_PIECE: u64 = 0b001;
+        const CHICK0_SQUARE_PIECE: u64 = 0b010;
+        const CHICK1_SQUARE_PIECE: u64 = 0b011;
+        const ELEPHANT0_SQUARE_PIECE: u64 = 0b100;
+        const ELEPHANT1_SQUARE_PIECE: u64 = 0b101;
+        const GIRAFFE0_SQUARE_PIECE: u64 = 0b110;
+        const GIRAFFE1_SQUARE_PIECE: u64 = 0b111;
+
+        let mut board: u64 = 0;
+
+        // For each piece, we first check whether it's in the hand.
+        // If so, we skip it.
+        // Otherwise, we calculate the board offset and add the piece to the board.
+
+        if chick0_coords != CHICK0_COORDS_MASK {
+            let board_offset = coords_to_board_offset(chick0_coords >> offsets::CHICK0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | CHICK0_SQUARE_PIECE) << board_offset;
+        }
+
+        if chick1_coords != CHICK1_COORDS_MASK {
+            let board_offset = coords_to_board_offset(chick1_coords >> offsets::CHICK1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | CHICK1_SQUARE_PIECE) << board_offset;
+        }
+
+        if elephant0_coords != ELEPHANT0_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(elephant0_coords >> offsets::ELEPHANT0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | ELEPHANT0_SQUARE_PIECE) << board_offset;
+        }
+
+        if elephant1_coords != ELEPHANT1_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(elephant1_coords >> offsets::ELEPHANT1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | ELEPHANT1_SQUARE_PIECE) << board_offset;
+        }
+
+        if giraffe0_coords != GIRAFFE0_COORDS_MASK {
+            let board_offset = coords_to_board_offset(giraffe0_coords >> offsets::GIRAFFE0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | GIRAFFE0_SQUARE_PIECE) << board_offset;
+        }
+
+        if giraffe1_coords != GIRAFFE1_COORDS_MASK {
+            let board_offset = coords_to_board_offset(giraffe1_coords >> offsets::GIRAFFE1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | GIRAFFE1_SQUARE_PIECE) << board_offset;
+        }
+
+        if active_lion_coords != ACTIVE_LION_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(active_lion_coords >> offsets::ACTIVE_LION_COLUMN);
+            const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
+            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+        }
+
+        if passive_lion_coords != PASSIVE_LION_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(passive_lion_coords >> offsets::PASSIVE_LION_COLUMN);
+            const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
+            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+        }
+
+        Board(board)
     }
 
     const fn into_optional(self) -> OptionalNodeBuilder {
         OptionalNodeBuilder(self.0)
     }
+}
+
+const fn coords_to_board_offset(coords: u64) -> u64 {
+    let col = coords & 0b11;
+    let row = coords >> 2;
+    (row * 3 + col) * 4
 }
 
 /// `-200`` in 9-bit two's complement, left-padded with zeros
@@ -1243,6 +1333,12 @@ mod offsets {
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
+
+    pub mod square {
+        pub const SPECIES: u64 = 0;
+        pub const PIECE_NUMBER: u64 = SPECIES + 3;
+        pub const ALLEGIANCE: u64 = PIECE_NUMBER + 1;
+    }
 }
 
 #[cfg(test)]

@@ -169,11 +169,11 @@ The ply count holds the number of plies that have been played so far.
 
 An action is represented by 7 bits.
 
-| piece  | destination row | destination column |
+| actor  | destination row | destination column |
 | ------ | --------------- | ------------------ |
 | 3 bits | 2 bits          | 2 bits             |
 
-The piece encoding is as follows:
+The actor encoding is as follows:
 
 - `0b001` for activeLion
 - `0b010` for chick0
@@ -223,28 +223,33 @@ The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement 
 | ------------- | -------- | ----------- |
 | 40 bits       | 15 bits  | 9 bits      |
 
-## Board representation (60 bits total)
+## Board representation (48 bits total)
 
 | r3c2   | r3c1   | r3c0   | r2c2   | r2c1   | r2c0   | r1c2   | r1c1   | r1c0   | r0c2   | r0c1   | r0c0   |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits | 5 bits |
+| 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits |
 
-### Square format (5 bits total)
+### Square format (4 bits total)
 
-| allegiance | pieceNumber | species |
-| ---------- | ----------- | ------- |
-| 1 bit      | 1 bits      | 3 bits  |
+| allegiance | piece  |
+| ---------- | ------ |
+| 1 bit      | 3 bits |
 
 The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player.
 
-For chicks, the piece number is `0` if the chick is `chick0`, and `1` if the chick is `chick1`. The same goes for elephants and giraffes.
-For lions, the piece number is `0` if the lion is `activeLion` and `1` if the lion is `passiveLion`.
-Note that the lion piece number bit is redundant, since it identical to the allegiance bit.
-
-The species bits are as follows:
+The piece bits are as follows:
 
 - `0b000` for an empty square
-- `0b001` for a chick
-- `0b010` for an elephant
-- `0b011` for a giraffe
-- `0b100` for a lion
+- `0b001` for active lion and passive lion
+
+  You can use the `allegiance` bit to determine which lion it is.
+
+- `0b010` for chick0
+- `0b011` for chick1
+- `0b100` for elephant0
+- `0b101` for elephant1
+- `0b110` for giraffe0
+- `0b111` for giraffe1
+
+The piece bits use a similar encoding to the actor bits in the action representation,
+except `0b001` is used for both lions.
