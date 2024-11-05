@@ -1223,7 +1223,25 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn promote_actor_if_needed(self, action: Action) -> NodeBuilder {
-        todo!()
+        if action.is_actor_chick0() {
+            let coords = self.0 & action.coords_mask();
+            let promotion_bit = (((coords != action.coords_mask())
+                & (coords >= (0b1100 << offsets::CHICK0_COLUMN)))
+                as u64)
+                << offsets::CHICK0_PROMOTION;
+            return Self(self.0 | promotion_bit);
+        }
+
+        if action.is_actor_chick1() {
+            let coords = self.0 & action.coords_mask();
+            let promotion_bit = (((coords != action.coords_mask())
+                & (coords >= (0b1100 << offsets::CHICK1_COLUMN)))
+                as u64)
+                << offsets::CHICK1_PROMOTION;
+            return Self(self.0 | promotion_bit);
+        }
+
+        self
     }
 }
 
@@ -1310,6 +1328,16 @@ impl Action {
     #[inline(always)]
     const fn dest_square_board_offset(self) -> u64 {
         coords_to_board_offset((self.0 as u64) & 0b1111)
+    }
+
+    #[inline(always)]
+    const fn is_actor_chick0(self) -> bool {
+        self.0 >> 4 == 0b010
+    }
+
+    #[inline(always)]
+    const fn is_actor_chick1(self) -> bool {
+        self.0 >> 4 == 0b011
     }
 }
 
