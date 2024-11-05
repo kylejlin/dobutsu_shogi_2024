@@ -537,15 +537,15 @@ impl Default for OptionalCachedEvaluation {
 impl OptionalSolution {
     const NONE: Self = OptionalSolution(0);
 
-    fn is_none(self) -> bool {
-        self == Self::NONE
+    const fn is_none(self) -> bool {
+        self.0 == Self::NONE.0
     }
 
-    fn is_some(self) -> bool {
-        self != Self::NONE
+    const fn is_some(self) -> bool {
+        self.0 != Self::NONE.0
     }
 
-    fn unchecked_unwrap(self) -> Solution {
+    const fn unchecked_unwrap(self) -> Solution {
         Solution(self.0)
     }
 }
@@ -553,11 +553,11 @@ impl OptionalSolution {
 impl OptionalSearchNode {
     const NONE: Self = OptionalSearchNode(0);
 
-    fn is_none(self) -> bool {
-        self == Self::NONE
+    const fn is_none(self) -> bool {
+        self.0 == Self::NONE.0
     }
 
-    fn unchecked_unwrap(self) -> SearchNode {
+    const fn unchecked_unwrap(self) -> SearchNode {
         SearchNode(self.0)
     }
 }
@@ -565,11 +565,11 @@ impl OptionalSearchNode {
 impl OptionalNodeBuilder {
     const NONE: Self = OptionalNodeBuilder(0);
 
-    fn is_none(self) -> bool {
-        self == Self::NONE
+    const fn is_none(self) -> bool {
+        self.0 == Self::NONE.0
     }
 
-    fn unchecked_unwrap(self) -> NodeBuilder {
+    const fn unchecked_unwrap(self) -> NodeBuilder {
         NodeBuilder(self.0)
     }
 }
@@ -577,11 +577,11 @@ impl OptionalNodeBuilder {
 impl OptionalAction {
     const NONE: Self = OptionalAction(0);
 
-    fn is_none(self) -> bool {
-        self == Self::NONE
+    const fn is_none(self) -> bool {
+        self.0 == Self::NONE.0
     }
 
-    fn unchecked_unwrap(self) -> Action {
+    const fn unchecked_unwrap(self) -> Action {
         Action(self.0)
     }
 }
@@ -851,29 +851,30 @@ macro_rules! next_action_with_dest_square_in_current_actor_range {
     }};
 }
 
-macro_rules! handle_chick_action {
-    ($ACTION:expr, $state:expr) => {{
-        if $state.0 & $ACTION.allegiance_mask() != 0 {
-            return (OptionalNodeBuilder::NONE, $ACTION.next_species_action());
+impl NodeBuilder {
+    #[inline(always)]
+    const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
+        if self.0 & action.allegiance_mask() != 0 {
+            return (OptionalNodeBuilder::NONE, action.next_species_action());
         }
 
-        if $state.0 & $ACTION.hand_mask() == $ACTION.hand_mask() {
+        if self.0 & action.hand_mask() == action.hand_mask() {
             return handle_chick_drop_assuming_it_is_in_hand_and_has_active_allegiance!(
-                $ACTION, $state
+                action, self
             );
         }
 
-        if is_actor_out_of_range_of_dest_square!($ACTION, $state) {
+        if is_actor_out_of_range_of_dest_square!(action, self) {
             return (
                 OptionalNodeBuilder::NONE,
-                next_action_with_dest_square_in_current_actor_range!($ACTION, $state),
+                next_action_with_dest_square_in_current_actor_range!(action, self),
             );
         }
 
         return handle_chick_move_assuming_it_is_in_range_of_dest_square_and_has_active_allegiance!(
-            $ACTION, $state
+            action, self
         );
-    }};
+    }
 }
 
 macro_rules! define_piece_action_handlers {
@@ -881,52 +882,76 @@ macro_rules! define_piece_action_handlers {
         pub mod $name {
             use super::*;
 
-            pub fn r00_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0000), state.into_builder())
+            pub const fn r00_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0000))
             }
 
-            pub fn r00_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0001), state.into_builder())
+            pub const fn r00_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0001))
             }
 
-            pub fn r00_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0010), state.into_builder())
+            pub const fn r00_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0010))
             }
 
-            pub fn r01_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0100), state.into_builder())
+            pub const fn r01_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0100))
             }
 
-            pub fn r01_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0101), state.into_builder())
+            pub const fn r01_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0101))
             }
 
-            pub fn r01_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b0110), state.into_builder())
+            pub const fn r01_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b0110))
             }
 
-            pub fn r10_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1000), state.into_builder())
+            pub const fn r10_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1000))
             }
 
-            pub fn r10_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1001), state.into_builder())
+            pub const fn r10_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1001))
             }
 
-            pub fn r10_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1010), state.into_builder())
+            pub const fn r10_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1010))
             }
 
-            pub fn r11_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1100), state.into_builder())
+            pub const fn r11_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1100))
             }
 
-            pub fn r11_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1101), state.into_builder())
+            pub const fn r11_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1101))
             }
 
-            pub fn r11_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                handle_chick_action!(Action(($piece << 4) | 0b1110), state.into_builder())
+            pub const fn r11_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+                state
+                    .into_builder()
+                    .handle_action(Action(($piece << 4) | 0b1110))
             }
         }
     };
