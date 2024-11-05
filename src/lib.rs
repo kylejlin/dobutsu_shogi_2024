@@ -1121,7 +1121,7 @@ impl NodeBuilder {
             return (OptionalNodeBuilder::NONE, action.next_species_action());
         }
 
-        if self.0 & action.hand_mask() == action.hand_mask() {
+        if self.0 & action.coords_mask() == action.coords_mask() {
             return self.handle_drop_assuming_actor_is_active_and_in_hand(action);
         }
 
@@ -1157,7 +1157,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn move_actor_to_dest_square(self, action: Action) -> NodeBuilder {
-        todo!()
+        Self((self.0 & !action.coords_mask()) | action.dest_square_shifted_by_actor_coords_offset())
     }
 
     #[inline(always)]
@@ -1269,9 +1269,7 @@ impl Action {
         })
     }
 
-    // Returns a mask `m` that can be `&`ed with the state to produce
-    // some number `n` such that `n == m` if and only if the actor is in hand.
-    const fn hand_mask(self) -> u64 {
+    const fn coords_mask(self) -> u64 {
         let offset = match self.0 >> 4 {
             0b001 => offsets::ACTIVE_LION_COLUMN,
             0b010 => offsets::CHICK0_COLUMN,
@@ -1285,6 +1283,22 @@ impl Action {
         };
 
         0b1111 << offset
+    }
+
+    const fn dest_square_shifted_by_actor_coords_offset(self) -> u64 {
+        let offset = match self.0 >> 4 {
+            0b001 => offsets::ACTIVE_LION_COLUMN,
+            0b010 => offsets::CHICK0_COLUMN,
+            0b011 => offsets::CHICK1_COLUMN,
+            0b100 => offsets::ELEPHANT0_COLUMN,
+            0b101 => offsets::ELEPHANT1_COLUMN,
+            0b110 => offsets::GIRAFFE0_COLUMN,
+            0b111 => offsets::GIRAFFE1_COLUMN,
+
+            _ => return 0,
+        };
+
+        ((self.0 as u64) & 0b1111) << offset
     }
 }
 
