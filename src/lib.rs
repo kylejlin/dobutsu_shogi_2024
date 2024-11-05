@@ -1218,6 +1218,17 @@ impl NodeBuilder {
     ///   this returns `OptionalNodeBuilder::NONE`.
     #[inline(always)]
     const fn vacate_passive_dest_square(self, action: Action, board: Board) -> OptionalNodeBuilder {
+        if board.is_dest_square_empty(action) {
+            return self.into_optional();
+        }
+
+        // If the destination square is non-empty
+        // and non-passive, then it must be active.
+        // Therefore, we return `None`.
+        if board.is_dest_square_nonpassive(action) {
+            return OptionalNodeBuilder::NONE;
+        }
+
         todo!()
     }
 
@@ -1247,8 +1258,18 @@ impl NodeBuilder {
 
 impl Board {
     #[inline(always)]
+    const fn is_dest_square_empty(self, action: Action) -> bool {
+        self.0 & (0b111 << action.dest_square_board_offset()) == 0
+    }
+
+    #[inline(always)]
     const fn is_dest_square_occupied(self, action: Action) -> bool {
         self.0 & (0b111 << action.dest_square_board_offset()) != 0
+    }
+
+    #[inline(always)]
+    const fn is_dest_square_nonpassive(self, action: Action) -> bool {
+        self.0 & (0b1_000 << action.dest_square_board_offset()) == 0
     }
 }
 
