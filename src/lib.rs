@@ -717,10 +717,6 @@ impl Default for OptionalCachedEvaluation {
 impl OptionalSolution {
     const NONE: Self = OptionalSolution(0);
 
-    const fn is_none(self) -> bool {
-        self.0 == Self::NONE.0
-    }
-
     const fn is_some(self) -> bool {
         self.0 != Self::NONE.0
     }
@@ -756,14 +752,6 @@ impl OptionalNodeBuilder {
 
 impl OptionalAction {
     const NONE: Self = OptionalAction(0);
-
-    const fn is_none(self) -> bool {
-        self.0 == Self::NONE.0
-    }
-
-    const fn unchecked_unwrap(self) -> Action {
-        Action(self.0)
-    }
 }
 
 impl SearchNode {
@@ -1769,7 +1757,6 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
-    pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
 }
 
 #[cfg(test)]
