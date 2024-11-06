@@ -23,7 +23,9 @@ pub fn calculate() -> CompactSolutionMap {
             Err(solution) => {
                 stack.pop();
 
-                solution_cache.set(solution);
+                if solution.is_nondraw() {
+                    solution_cache.set(solution);
+                }
 
                 if stack.is_empty() {
                     break;
@@ -557,6 +559,12 @@ impl SolutionCache {
         let raw = &mut bin5[((solution.0 >> (48 - 6 * 4)) & 0b1111) as usize];
 
         *raw = OptionalCachedEvaluation::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
+    }
+}
+
+impl Solution {
+    const fn is_nondraw(self) -> bool {
+        self.0 & 0b1_1111_1111 != 0
     }
 }
 
