@@ -236,6 +236,10 @@ impl SearchNode {
 
 impl NodeBuilder {
     const fn invert_active_player(self) -> Self {
+        let mut out = self.0;
+
+        // First, we invert the allegiance bits of non-lions.
+
         const ALLEGIANCE_INVERSION_MASK: u64 = (1 << offsets::CHICK0_ALLEGIANCE)
             | (1 << offsets::CHICK1_ALLEGIANCE)
             | (1 << offsets::ELEPHANT0_ALLEGIANCE)
@@ -243,23 +247,65 @@ impl NodeBuilder {
             | (1 << offsets::GIRAFFE0_ALLEGIANCE)
             | (1 << offsets::GIRAFFE1_ALLEGIANCE);
 
+        out ^= ALLEGIANCE_INVERSION_MASK;
+
+        // Then, we swap the active and passive lions.
+
         const ACTIVE_LION_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
         const PASSIVE_LION_MASK: u64 = 0b1111 << offsets::PASSIVE_LION;
 
         let active_lion_bits_in_original_position = self.0 & ACTIVE_LION_MASK;
         let passive_lion_bits_in_original_position = self.0 & PASSIVE_LION_MASK;
 
-        let out = self.0 ^ ALLEGIANCE_INVERSION_MASK;
-
-        let out = (out & !ACTIVE_LION_MASK)
+        out = (out & !ACTIVE_LION_MASK)
             | (passive_lion_bits_in_original_position
                 << (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
 
-        let out = (out & !PASSIVE_LION_MASK)
+        out = (out & !PASSIVE_LION_MASK)
             | (active_lion_bits_in_original_position
                 >> (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
 
+        // Finally, we need to invert the coordinates of all pieces.
+
+        let chick0_inverted_coords = self.invert_coords_at_offset(offsets::CHICK0_COLUMN);
+        let chick1_inverted_coords = self.invert_coords_at_offset(offsets::CHICK1_COLUMN);
+        let elephant0_inverted_coords = self.invert_coords_at_offset(offsets::ELEPHANT0_COLUMN);
+        let elephant1_inverted_coords = self.invert_coords_at_offset(offsets::ELEPHANT1_COLUMN);
+        let giraffe0_inverted_coords = self.invert_coords_at_offset(offsets::GIRAFFE0_COLUMN);
+        let giraffe1_inverted_coords = self.invert_coords_at_offset(offsets::GIRAFFE1_COLUMN);
+        let active_lion_inverted_coords = self.invert_coords_at_offset(offsets::ACTIVE_LION_COLUMN);
+        let passive_lion_inverted_coords =
+            self.invert_coords_at_offset(offsets::PASSIVE_LION_COLUMN);
+
+        const ALL_COORDS_MASK: u64 = (0b1111 << offsets::CHICK0_COLUMN)
+            | (0b1111 << offsets::CHICK1_COLUMN)
+            | (0b1111 << offsets::ELEPHANT0_COLUMN)
+            | (0b1111 << offsets::ELEPHANT1_COLUMN)
+            | (0b1111 << offsets::GIRAFFE0_COLUMN)
+            | (0b1111 << offsets::GIRAFFE1_COLUMN)
+            | (0b1111 << offsets::ACTIVE_LION_COLUMN)
+            | (0b1111 << offsets::PASSIVE_LION_COLUMN);
+
+        out = (out & !ALL_COORDS_MASK)
+            | chick0_inverted_coords
+            | chick1_inverted_coords
+            | elephant0_inverted_coords
+            | elephant1_inverted_coords
+            | giraffe0_inverted_coords
+            | giraffe1_inverted_coords
+            | active_lion_inverted_coords
+            | passive_lion_inverted_coords;
+
         Self(out)
+    }
+
+    #[inline(always)]
+    const fn invert_coords_at_offset(self, coords_offset: u64) -> u64 {
+        let coords_mask = 0b1111 << coords_offset;
+        let r3c2 = 0b1110 << coords_offset;
+        let coords = self.0 & coords_mask;
+        let is_on_board = coords != coords_mask;
+        ((is_on_board as u64) * coords_mask) | (r3c2 - coords)
     }
 
     const fn increment_ply_count(self) -> Self {
