@@ -3,6 +3,9 @@
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
+#[cfg(test)]
+mod tests;
+
 pub const MAX_PLY_COUNT: u8 = 200;
 
 pub fn calculate() -> CompactSolutionMap {
@@ -1820,6 +1823,3 @@ mod offsets {
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
     pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
 }
-
-#[cfg(test)]
-mod tests;
