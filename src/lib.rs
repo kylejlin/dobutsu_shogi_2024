@@ -304,8 +304,10 @@ impl NodeBuilder {
         let coords_mask = 0b1111 << coords_offset;
         let r3c2 = 0b1110 << coords_offset;
         let coords = self.0 & coords_mask;
-        let is_on_board = coords != coords_mask;
-        ((is_on_board as u64) * coords_mask) | (r3c2 - coords)
+        if coords == coords_mask {
+            return coords;
+        }
+        r3c2 - coords
     }
 
     const fn increment_ply_count(self) -> Self {
