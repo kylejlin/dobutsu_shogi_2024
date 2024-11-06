@@ -35,7 +35,8 @@ pub fn calculate() -> CompactSolutionMap {
                     break;
                 }
 
-                stack.last_mut().unwrap().record_solution(solution);
+                let last_node_mut = stack.last_mut().unwrap();
+                *last_node_mut = last_node_mut.record_solution(solution);
 
                 continue;
             }
