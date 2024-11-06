@@ -1508,6 +1508,11 @@ impl Action {
     /// set to use.
     #[inline(always)]
     const fn legal_starting_squares(self) -> [SquareSet; 2] {
+        /// This function should only be called during compile-time.
+        /// Consequently, we don't have to worry about the performance
+        /// inside of it.
+        /// Thus, we can use a simple struct with 8 boolean fields
+        /// instead of a more efficient `u8` bitset.
         #[derive(Copy, Clone)]
         struct DirectionSet {
             n: bool,
