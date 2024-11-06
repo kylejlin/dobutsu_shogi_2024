@@ -324,11 +324,11 @@ impl NodeBuilder {
     /// Otherwise, we set the best discovered outcome to `-200`,
     /// and we set the next action `to Action(0b001_0000)`.
     const fn init_best_discovered_outcome_and_next_action(self) -> Self {
-        const ACTIVE_LION_HAND_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
 
         // If the active lion is in the passive player's hand,
         // the active player has lost.
-        if self.0 & ACTIVE_LION_HAND_MASK == ACTIVE_LION_HAND_MASK {
+        if self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK {
             return self.init_best_discovered_outcome_and_next_action_assuming_loss();
         }
 
