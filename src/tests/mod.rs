@@ -28,6 +28,14 @@ fn initial_search_node_with_incremented_ply_count_is_correct() {
 }
 
 #[test]
+fn initial_search_node_with_initialized_best_discovered_outcome_and_next_action() {
+    insta::assert_snapshot!(SearchNode::initial()
+        .into_builder()
+        .init_best_discovered_outcome_and_next_action()
+        .pretty());
+}
+
+#[test]
 fn initial_search_node_horizontally_flipped_is_correct() {
     insta::assert_snapshot!(SearchNode::initial()
         .into_builder()
