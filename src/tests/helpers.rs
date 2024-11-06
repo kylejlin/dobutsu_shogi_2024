@@ -5,6 +5,11 @@ use std::fmt::{self, Debug, Display, Formatter};
 #[derive(Clone, Copy)]
 pub struct Pretty<T>(T);
 
+#[derive(Clone)]
+pub struct SearchNodeSet(Vec<SearchNode>);
+
+const GAP: &str = "                ";
+
 impl SearchNode {
     pub fn pretty(self) -> Pretty<Self> {
         Pretty(self)
@@ -18,6 +23,12 @@ impl Board {
 }
 
 impl Action {
+    pub fn pretty(self) -> Pretty<Self> {
+        Pretty(self)
+    }
+}
+
+impl SearchNodeSet {
     pub fn pretty(self) -> Pretty<Self> {
         Pretty(self)
     }
@@ -55,7 +66,6 @@ impl Debug for Pretty<SearchNode> {
 
 impl Display for Pretty<Board> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        const GAP: &str = "                ";
         let [[r0c0, r0c1, r0c2], [r1c0, r1c1, r1c2], [r2c0, r2c1, r2c2], [r3c0, r3c1, r3c2]]: [[char;
             3];
             4] = self.into_array();
@@ -162,5 +172,42 @@ impl Display for Pretty<Action> {
 impl Debug for Pretty<Action> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
+    }
+}
+
+impl SearchNode {
+    pub fn children(mut self) -> SearchNodeSet {
+        let mut out = vec![];
+        loop {
+            let Ok(action) = self.next_action() else {
+                return SearchNodeSet(out);
+            };
+
+            let (new_self, child) = self.explore(action);
+            self = new_self;
+
+            if child.is_none() {
+                continue;
+            }
+
+            out.push(child.unchecked_unwrap());
+        }
+    }
+}
+
+impl Display for Pretty<SearchNodeSet> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let divider = "=".repeat("|---|".len() * 2 + GAP.len());
+
+        let len = self.0 .0.len();
+
+        writeln!(f, "SearchNodeSet(len = {len}) [")?;
+
+        for (i, node) in self.0 .0.iter().enumerate() {
+            let node = node.pretty();
+            writeln!(f, "    {i}:\n{node}\n{divider}\n")?;
+        }
+
+        write!(f, "]")
     }
 }
