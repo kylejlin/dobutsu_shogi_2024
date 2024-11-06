@@ -960,7 +960,7 @@ macro_rules! action_handlers_for_piece {
     };
 }
 
-macro_rules! concat_action_handler_arr {
+macro_rules! concat_action_handlers {
     ($left:expr, $right:expr) => {{
         let left = $left;
         let right = $right;
@@ -1001,12 +1001,12 @@ const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAc
 ///
 /// The handler assumes that the input state is non-terminal.
 /// It will not check for terminality.
-const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handler_arr!(
-    concat_action_handler_arr!(
-        concat_action_handler_arr!(
-            concat_action_handler_arr!(
-                concat_action_handler_arr!(
-                    concat_action_handler_arr!(
+const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handlers!(
+    concat_action_handlers!(
+        concat_action_handlers!(
+            concat_action_handlers!(
+                concat_action_handlers!(
+                    concat_action_handlers!(
                         action_handlers_for_piece!(active_lion),
                         action_handlers_for_piece!(chick0)
                     ),
@@ -1021,7 +1021,7 @@ const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handler_arr!(
     action_handlers_for_piece!(giraffe1)
 );
 
-macro_rules! define_piece_action_handler {
+macro_rules! define_action_handler {
     ($piece:literal, $name:ident, $dest_coords:literal) => {
         pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
             state
@@ -1031,39 +1031,39 @@ macro_rules! define_piece_action_handler {
     };
 }
 
-macro_rules! define_piece_action_handlers {
+macro_rules! define_all_action_handlers_for_piece {
     ($name:ident, $piece:literal) => {
         pub mod $name {
             use super::*;
 
-            define_piece_action_handler!($piece, r00_c00, 0b0000);
-            define_piece_action_handler!($piece, r00_c01, 0b0001);
-            define_piece_action_handler!($piece, r00_c10, 0b0010);
+            define_action_handler!($piece, r00_c00, 0b0000);
+            define_action_handler!($piece, r00_c01, 0b0001);
+            define_action_handler!($piece, r00_c10, 0b0010);
 
-            define_piece_action_handler!($piece, r01_c00, 0b0100);
-            define_piece_action_handler!($piece, r01_c01, 0b0101);
-            define_piece_action_handler!($piece, r01_c10, 0b0110);
+            define_action_handler!($piece, r01_c00, 0b0100);
+            define_action_handler!($piece, r01_c01, 0b0101);
+            define_action_handler!($piece, r01_c10, 0b0110);
 
-            define_piece_action_handler!($piece, r10_c00, 0b1000);
-            define_piece_action_handler!($piece, r10_c01, 0b1001);
-            define_piece_action_handler!($piece, r10_c10, 0b1010);
+            define_action_handler!($piece, r10_c00, 0b1000);
+            define_action_handler!($piece, r10_c01, 0b1001);
+            define_action_handler!($piece, r10_c10, 0b1010);
 
-            define_piece_action_handler!($piece, r11_c00, 0b1100);
-            define_piece_action_handler!($piece, r11_c01, 0b1101);
-            define_piece_action_handler!($piece, r11_c10, 0b1110);
+            define_action_handler!($piece, r11_c00, 0b1100);
+            define_action_handler!($piece, r11_c01, 0b1101);
+            define_action_handler!($piece, r11_c10, 0b1110);
         }
     };
 }
 mod action_handlers {
     use super::*;
 
-    define_piece_action_handlers!(active_lion, 0b001);
-    define_piece_action_handlers!(chick0, 0b010);
-    define_piece_action_handlers!(chick1, 0b011);
-    define_piece_action_handlers!(elephant0, 0b100);
-    define_piece_action_handlers!(elephant1, 0b101);
-    define_piece_action_handlers!(giraffe0, 0b110);
-    define_piece_action_handlers!(giraffe1, 0b111);
+    define_all_action_handlers_for_piece!(active_lion, 0b001);
+    define_all_action_handlers_for_piece!(chick0, 0b010);
+    define_all_action_handlers_for_piece!(chick1, 0b011);
+    define_all_action_handlers_for_piece!(elephant0, 0b100);
+    define_all_action_handlers_for_piece!(elephant1, 0b101);
+    define_all_action_handlers_for_piece!(giraffe0, 0b110);
+    define_all_action_handlers_for_piece!(giraffe1, 0b111);
 
     pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
         panic!("Illegal action");
