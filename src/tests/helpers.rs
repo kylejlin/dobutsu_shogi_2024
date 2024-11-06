@@ -87,7 +87,7 @@ impl Display for Pretty<NodeBuilder> {
             format!("{outcome} (lose in {t})")
         } else if outcome > 0 {
             let t = 201 - outcome;
-            format!("+{outcome} (lose in {t})")
+            format!("+{outcome} (win in {t})")
         } else {
             "0 (draw)".to_string()
         };
