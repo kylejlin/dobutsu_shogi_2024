@@ -128,6 +128,8 @@ struct Board(u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct SquareSet(u16);
 
+type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
+
 impl CompactSolutionMap {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(self.raw.len() * 8);
@@ -935,6 +937,59 @@ const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
 /// to fill the 64-bit integer.
 const POSITIVE_201_I9: u64 = 0b0_1100_1001;
 
+macro_rules! action_handlers_for_piece {
+    ($piece:ident) => {
+        [
+            action_handlers::$piece::r00_c00,
+            action_handlers::$piece::r00_c01,
+            action_handlers::$piece::r00_c10,
+            action_handlers::handle_bad_action,
+            action_handlers::$piece::r01_c00,
+            action_handlers::$piece::r01_c01,
+            action_handlers::$piece::r01_c10,
+            action_handlers::handle_bad_action,
+            action_handlers::$piece::r10_c00,
+            action_handlers::$piece::r10_c01,
+            action_handlers::$piece::r10_c10,
+            action_handlers::handle_bad_action,
+            action_handlers::$piece::r11_c00,
+            action_handlers::$piece::r11_c01,
+            action_handlers::$piece::r11_c10,
+            action_handlers::handle_bad_action,
+        ]
+    };
+}
+
+macro_rules! concat_action_handler_arr {
+    ($left:expr, $right:expr) => {{
+        let left = $left;
+        let right = $right;
+
+        let mut arr: [ActionHandler; $left.len() + $right.len()] =
+            [dummy_action_handler; $left.len() + $right.len()];
+
+        let left_len = left.len();
+        let mut i = 0;
+        while i < left_len {
+            arr[i] = left[i];
+            i += 1;
+        }
+
+        let right_len = right.len();
+        let mut i = 0;
+        while i < right_len {
+            arr[left.len() + i] = right[i];
+            i += 1;
+        }
+
+        arr
+    }};
+}
+
+const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+    (OptionalNodeBuilder::NONE, OptionalAction::NONE)
+}
+
 /// An action handler will return the result of applying an action
 /// to the input state, if the action is legal.
 /// If the action is illegal, then the handler will return `None`
@@ -946,130 +1001,25 @@ const POSITIVE_201_I9: u64 = 0b0_1100_1001;
 ///
 /// The handler assumes that the input state is non-terminal.
 /// It will not check for terminality.
-const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction); 128 - 16] = [
-    // 0b000_0000 to 0b000_1111 are unreachable
-    // due to the offset of 16.
-
-    // activeLion: 0b001_0000 to 0b111_1111
-    action_handlers::active_lion::r00_c00,
-    action_handlers::active_lion::r00_c01,
-    action_handlers::active_lion::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::active_lion::r01_c00,
-    action_handlers::active_lion::r01_c01,
-    action_handlers::active_lion::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::active_lion::r10_c00,
-    action_handlers::active_lion::r10_c01,
-    action_handlers::active_lion::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::active_lion::r11_c00,
-    action_handlers::active_lion::r11_c01,
-    action_handlers::active_lion::r11_c10,
-    action_handlers::handle_bad_action,
-    // chick0: 0b010_0000 to 0b010_1111
-    action_handlers::chick0::r00_c00,
-    action_handlers::chick0::r00_c01,
-    action_handlers::chick0::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick0::r01_c00,
-    action_handlers::chick0::r01_c01,
-    action_handlers::chick0::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick0::r10_c00,
-    action_handlers::chick0::r10_c01,
-    action_handlers::chick0::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick0::r11_c00,
-    action_handlers::chick0::r11_c01,
-    action_handlers::chick0::r11_c10,
-    action_handlers::handle_bad_action,
-    // chick1: 0b011_0000 to 0b011_1111
-    action_handlers::chick1::r00_c00,
-    action_handlers::chick1::r00_c01,
-    action_handlers::chick1::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick1::r01_c00,
-    action_handlers::chick1::r01_c01,
-    action_handlers::chick1::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick1::r10_c00,
-    action_handlers::chick1::r10_c01,
-    action_handlers::chick1::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::chick1::r11_c00,
-    action_handlers::chick1::r11_c01,
-    action_handlers::chick1::r11_c10,
-    action_handlers::handle_bad_action,
-    // elephant0: 0b100_0000 to 0b100_1111
-    action_handlers::elephant0::r00_c00,
-    action_handlers::elephant0::r00_c01,
-    action_handlers::elephant0::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant0::r01_c00,
-    action_handlers::elephant0::r01_c01,
-    action_handlers::elephant0::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant0::r10_c00,
-    action_handlers::elephant0::r10_c01,
-    action_handlers::elephant0::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant0::r11_c00,
-    action_handlers::elephant0::r11_c01,
-    action_handlers::elephant0::r11_c10,
-    action_handlers::handle_bad_action,
-    // elephant1: 0b101_0000 to 0b101_1111
-    action_handlers::elephant1::r00_c00,
-    action_handlers::elephant1::r00_c01,
-    action_handlers::elephant1::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant1::r01_c00,
-    action_handlers::elephant1::r01_c01,
-    action_handlers::elephant1::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant1::r10_c00,
-    action_handlers::elephant1::r10_c01,
-    action_handlers::elephant1::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::elephant1::r11_c00,
-    action_handlers::elephant1::r11_c01,
-    action_handlers::elephant1::r11_c10,
-    action_handlers::handle_bad_action,
-    // giraffe0: 0b110_0000 to 0b110_1111
-    action_handlers::giraffe0::r00_c00,
-    action_handlers::giraffe0::r00_c01,
-    action_handlers::giraffe0::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe0::r01_c00,
-    action_handlers::giraffe0::r01_c01,
-    action_handlers::giraffe0::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe0::r10_c00,
-    action_handlers::giraffe0::r10_c01,
-    action_handlers::giraffe0::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe0::r11_c00,
-    action_handlers::giraffe0::r11_c01,
-    action_handlers::giraffe0::r11_c10,
-    action_handlers::handle_bad_action,
-    // giraffe1: 0b111_0000 to 0b111_1111
-    action_handlers::giraffe1::r00_c00,
-    action_handlers::giraffe1::r00_c01,
-    action_handlers::giraffe1::r00_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe1::r01_c00,
-    action_handlers::giraffe1::r01_c01,
-    action_handlers::giraffe1::r01_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe1::r10_c00,
-    action_handlers::giraffe1::r10_c01,
-    action_handlers::giraffe1::r10_c10,
-    action_handlers::handle_bad_action,
-    action_handlers::giraffe1::r11_c00,
-    action_handlers::giraffe1::r11_c01,
-    action_handlers::giraffe1::r11_c10,
-    action_handlers::handle_bad_action,
-];
+const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handler_arr!(
+    concat_action_handler_arr!(
+        concat_action_handler_arr!(
+            concat_action_handler_arr!(
+                concat_action_handler_arr!(
+                    concat_action_handler_arr!(
+                        action_handlers_for_piece!(active_lion),
+                        action_handlers_for_piece!(chick0)
+                    ),
+                    action_handlers_for_piece!(chick1)
+                ),
+                action_handlers_for_piece!(elephant0)
+            ),
+            action_handlers_for_piece!(elephant1)
+        ),
+        action_handlers_for_piece!(giraffe0)
+    ),
+    action_handlers_for_piece!(giraffe1)
+);
 
 macro_rules! define_piece_action_handler {
     ($piece:literal, $name:ident, $dest_coords:literal) => {
