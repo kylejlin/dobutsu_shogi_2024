@@ -1521,7 +1521,6 @@ impl Action {
         }
 
         impl DirectionSet {
-            #[inline(always)]
             const fn union(self, rhs: Self) -> Self {
                 Self {
                     n: self.n | rhs.n,
@@ -1537,7 +1536,6 @@ impl Action {
 
             /// Returns whether there is a way to move from `from` to `to`
             /// by taking one step in some direction contained in this set.
-            #[inline(always)]
             const fn connects(self, from: u8, to: u8) -> bool {
                 let from_column = (from & 0b11) as i8;
                 let from_row = (from >> 2) as i8;
