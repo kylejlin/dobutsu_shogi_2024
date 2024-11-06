@@ -165,9 +165,9 @@ impl SearchNode {
 
         let ply_count: u64 = 0;
 
-        let lowest_unexplored_action: u64 = 0;
+        let next_action: u64 = 0b001_0000;
 
-        let best_discovered_evaluation: u64 = NEGATIVE_201_I9;
+        let best_discovered_outcome: u64 = NEGATIVE_201_I9;
 
         SearchNode(
             (chick0 << offsets::CHICK0)
@@ -179,8 +179,8 @@ impl SearchNode {
                 | (active_lion << offsets::ACTIVE_LION)
                 | (passive_lion << offsets::PASSIVE_LION)
                 | (ply_count << offsets::PLY_COUNT)
-                | (lowest_unexplored_action << offsets::NEXT_ACTION)
-                | (best_discovered_evaluation << offsets::BEST_DISCOVERED_OUTCOME),
+                | (next_action << offsets::NEXT_ACTION)
+                | (best_discovered_outcome << offsets::BEST_DISCOVERED_OUTCOME),
         )
     }
 
