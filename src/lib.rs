@@ -395,8 +395,8 @@ impl NodeBuilder {
             (chick0, chick1)
         } else {
             (
-                chick0 >> (offsets::CHICK0 - offsets::CHICK1),
                 chick1_shifted,
+                chick0 >> (offsets::CHICK0 - offsets::CHICK1),
             )
         };
 
@@ -407,8 +407,8 @@ impl NodeBuilder {
             (elephant0, elephant1)
         } else {
             (
-                elephant0 >> (offsets::ELEPHANT0 - offsets::ELEPHANT1),
                 elephant1_shifted,
+                elephant0 >> (offsets::ELEPHANT0 - offsets::ELEPHANT1),
             )
         };
 
@@ -419,8 +419,8 @@ impl NodeBuilder {
             (giraffe0, giraffe1)
         } else {
             (
-                giraffe0 >> (offsets::GIRAFFE0 - offsets::GIRAFFE1),
                 giraffe1_shifted,
+                giraffe0 >> (offsets::GIRAFFE0 - offsets::GIRAFFE1),
             )
         };
 
