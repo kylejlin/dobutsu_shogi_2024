@@ -192,11 +192,23 @@ impl SearchNode {
     fn record_solution(self, solution: Solution) -> Self {
         let incumbent_score = i16::from_zero_padded_i9(self.0 & 0b1_1111_1111);
 
+        let challenger_score = i16::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
+
         // We need to invert the solution's score, since the solution is from one ply in the future.
         // A win for the next ply's active player
         // is a loss for the current ply's active player, and vice-versa.
         // Therefore, we must invert.
-        let challenger_score = -i16::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
+        let challenger_score = -challenger_score;
+
+        // Furthermore, we must increase the time-until-win (or time-until-loss) by 1,
+        // since the solution is from one ply in the future.
+        // - If the score is positive, then we must decrease it by 1
+        //   (since a longer time-until-win is worse).
+        // - If the score is negative, then we must increase it by 1
+        //   (since a longer time-until-loss is better).
+        // - If the score is zero, then we must leave it as is.
+        let challenger_score =
+            challenger_score - ((challenger_score > 0) as i16) + ((challenger_score < 0) as i16);
 
         if challenger_score > incumbent_score {
             return Self(
