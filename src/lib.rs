@@ -1325,6 +1325,7 @@ impl NodeBuilder {
         let occupant_lookup_index = (occupant - 1) as usize;
 
         let occupant_coords_offset = [
+            offsets::ACTIVE_LION_COLUMN,
             offsets::CHICK0_COLUMN,
             offsets::CHICK1_COLUMN,
             offsets::ELEPHANT0_COLUMN,
