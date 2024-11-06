@@ -55,12 +55,15 @@ impl Debug for Pretty<SearchNode> {
 
 impl Display for Pretty<Board> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        const GAP: &str = "                ";
         let [[r0c0, r0c1, r0c2], [r1c0, r1c1, r1c2], [r2c0, r2c1, r2c2], [r3c0, r3c1, r3c2]]: [[char;
             3];
             4] = self.into_array();
+        let [[i_r0c0, i_r0c1, i_r0c2], [i_r1c0, i_r1c1, i_r1c2], [i_r2c0, i_r2c1, i_r2c2], [i_r3c0, i_r3c1, i_r3c2]] =
+            self.0.invert_active_player().pretty().into_array();
         write!(
         f,
-        "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|\n|---|",
+        "|---|{GAP}|---|\n|{r3c0}{r3c1}{r3c2}|{GAP}|{i_r3c0}{i_r3c1}{i_r3c2}|\n|{r2c0}{r2c1}{r2c2}|{GAP}|{i_r2c0}{i_r2c1}{i_r2c2}|\n|{r1c0}{r1c1}{r1c2}|{GAP}|{i_r1c0}{i_r1c1}{i_r1c2}|\n|{r0c0}{r0c1}{r0c2}|{GAP}|{i_r0c0}{i_r0c1}{i_r0c2}|\n|---|{GAP}|---|",
     )
     }
 }
@@ -106,6 +109,34 @@ impl Pretty<Board> {
             // Bad square
             _ => '!',
         }
+    }
+}
+
+impl Board {
+    fn invert_active_player(self) -> Self {
+        let mut out = 0;
+
+        for row in 0..=3 {
+            for col in 0..=2 {
+                let coords = (row << 2) | col;
+                let offset = coords_to_board_offset(coords);
+                let square = (self.0 >> offset) & 0b1111;
+                let square_with_inverted_allegiance = if square == 0b0_000 {
+                    square
+                } else {
+                    square ^ 0b1_000
+                };
+
+                let inv_row = 3 - row;
+                let inv_col = 2 - col;
+                let inv_coords = (inv_row << 2) | inv_col;
+                let inv_offset = coords_to_board_offset(inv_coords);
+
+                out |= square_with_inverted_allegiance << inv_offset;
+            }
+        }
+
+        Self(out)
     }
 }
 
