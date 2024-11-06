@@ -1,0 +1,13 @@
+---
+source: src/tests/mod.rs
+expression: "SearchNode::initial().into_builder().invert_active_player().build_without_horizontal_normalization().pretty()"
+---
+|---|                |---|
+|GLE|                |GLE|
+|*C*|                |*C*|
+|*c*|                |*c*|
+|elg|                |elg|
+|---|                |---|
+ply_count: 0
+best_known_outcome: -201 (lose in 0)
+next_action: active_lion to r0c0

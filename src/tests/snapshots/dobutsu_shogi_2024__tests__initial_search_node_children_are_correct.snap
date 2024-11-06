@@ -1,0 +1,50 @@
+---
+source: src/tests/mod.rs
+expression: "SearchNode::initial().children().pretty()"
+---
+SearchNodeSet(len = 4) [
+    0:
+    |---|                |---|
+    |G*E|                |GLE|
+    |*CL|                |*C*|
+    |*c*|                |lc*|
+    |elg|                |e*g|
+    |---|                |---|
+    ply_count: 1
+    best_known_outcome: -201 (lose in 0)
+    next_action: active_lion to r0c0
+    ==========================
+    1:
+    |---|                |---|
+    |G*E|                |GLE|
+    |LC*|                |*C*|
+    |*c*|                |*cl|
+    |elg|                |e*g|
+    |---|                |---|
+    ply_count: 1
+    best_known_outcome: -201 (lose in 0)
+    next_action: active_lion to r0c0
+    ==========================
+    2:
+    |---|                |---|
+    |GLE|                |GLE|
+    |***|                |*c*|
+    |*C*|                |***|
+    |elg|                |elg|
+    |---|                |---|
+    ply_count: 1
+    best_known_outcome: -201 (lose in 0)
+    next_action: active_lion to r0c0
+    ==========================
+    3:
+    |---|                |---|
+    |*LE|                |GLE|
+    |GC*|                |*C*|
+    |*c*|                |*cg|
+    |elg|                |el*|
+    |---|                |---|
+    ply_count: 1
+    best_known_outcome: -201 (lose in 0)
+    next_action: active_lion to r0c0
+    ==========================
+]

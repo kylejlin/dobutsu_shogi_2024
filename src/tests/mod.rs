@@ -52,6 +52,15 @@ fn initial_search_node_partially_built_is_correct() {
 }
 
 #[test]
+fn initial_search_node_allegiance_inverted_partially_built_is_correct() {
+    insta::assert_snapshot!(SearchNode::initial()
+        .into_builder()
+        .invert_active_player()
+        .build_without_horizontal_normalization()
+        .pretty());
+}
+
+#[test]
 fn initial_search_node_children_are_correct() {
     insta::assert_snapshot!(SearchNode::initial().children().pretty());
 }
