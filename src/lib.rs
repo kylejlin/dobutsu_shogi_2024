@@ -1600,5 +1600,4 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
-    pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
 }
