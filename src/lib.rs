@@ -1566,76 +1566,14 @@ impl Action {
             nw: false,
         };
         const N: DirectionSet = DirectionSet { n: true, ..EMPTY };
-        const NE: DirectionSet = DirectionSet {
-            n: true,
-            ne: true,
-            e: false,
-            se: false,
-            s: false,
-            sw: false,
-            w: false,
-            nw: false,
-        };
-        const E: DirectionSet = DirectionSet {
-            n: false,
-            ne: true,
-            e: true,
-            se: false,
-            s: false,
-            sw: false,
-            w: false,
-            nw: false,
-        };
-        const SE: DirectionSet = DirectionSet {
-            n: false,
-            ne: true,
-            e: true,
-            se: true,
-            s: false,
-            sw: false,
-            w: false,
-            nw: false,
-        };
-        const S: DirectionSet = DirectionSet {
-            n: false,
-            ne: false,
-            e: true,
-            se: true,
-            s: true,
-            sw: false,
-            w: false,
-            nw: false,
-        };
-        const SW: DirectionSet = DirectionSet {
-            n: false,
-            ne: false,
-            e: true,
-            se: true,
-            s: true,
-            sw: true,
-            w: false,
-            nw: false,
-        };
-        const W: DirectionSet = DirectionSet {
-            n: false,
-            ne: false,
-            e: false,
-            se: true,
-            s: true,
-            sw: true,
-            w: true,
-            nw: false,
-        };
-        const NW: DirectionSet = DirectionSet {
-            n: false,
-            ne: false,
-            e: false,
-            se: false,
-            s: true,
-            sw: true,
-            w: true,
-            nw: true,
-        };
+        const NE: DirectionSet = DirectionSet { ne: true, ..EMPTY };
+        const E: DirectionSet = DirectionSet { e: true, ..EMPTY };
+        const SE: DirectionSet = DirectionSet { se: true, ..EMPTY };
+        const S: DirectionSet = DirectionSet { s: true, ..EMPTY };
+        const SW: DirectionSet = DirectionSet { sw: true, ..EMPTY };
+        const W: DirectionSet = DirectionSet { w: true, ..EMPTY };
+        const NW: DirectionSet = DirectionSet { nw: true, ..EMPTY };
+
         const CARDINAL: DirectionSet = N.union(E).union(S).union(W);
         const DIAGONAL: DirectionSet = NE.union(SE).union(SW).union(NW);
 
