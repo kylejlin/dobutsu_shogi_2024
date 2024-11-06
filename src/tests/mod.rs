@@ -20,6 +20,14 @@ fn initial_search_node_allegiance_inversion_is_correct() {
 }
 
 #[test]
+fn initial_search_node_with_incremented_ply_count_is_correct() {
+    insta::assert_snapshot!(SearchNode::initial()
+        .into_builder()
+        .increment_ply_count()
+        .pretty());
+}
+
+#[test]
 fn initial_search_node_horizontally_flipped_is_correct() {
     insta::assert_snapshot!(SearchNode::initial()
         .into_builder()
