@@ -8,29 +8,52 @@ pub struct Pretty<T>(T);
 #[derive(Clone)]
 pub struct SearchNodeSet(Vec<SearchNode>);
 
+#[derive(Clone, Copy)]
+struct Indented<'a> {
+    s: &'a str,
+    space_count: usize,
+}
+
 const GAP: &str = "                ";
 
-impl SearchNode {
-    pub fn pretty(self) -> Pretty<Self> {
+pub trait IntoPretty: Sized {
+    fn pretty(self) -> Pretty<Self>;
+}
+
+trait Indent {
+    fn indented(&self, spaces: usize) -> Indented<'_>;
+}
+
+impl IntoPretty for SearchNode {
+    fn pretty(self) -> Pretty<Self> {
         Pretty(self)
     }
 }
 
-impl Board {
-    pub fn pretty(self) -> Pretty<Self> {
+impl IntoPretty for Board {
+    fn pretty(self) -> Pretty<Self> {
         Pretty(self)
     }
 }
 
-impl Action {
-    pub fn pretty(self) -> Pretty<Self> {
+impl IntoPretty for Action {
+    fn pretty(self) -> Pretty<Self> {
         Pretty(self)
     }
 }
 
-impl SearchNodeSet {
-    pub fn pretty(self) -> Pretty<Self> {
+impl IntoPretty for SearchNodeSet {
+    fn pretty(self) -> Pretty<Self> {
         Pretty(self)
+    }
+}
+
+impl Indent for str {
+    fn indented(&self, spaces: usize) -> Indented<'_> {
+        Indented {
+            s: self,
+            space_count: spaces,
+        }
     }
 }
 
@@ -205,9 +228,34 @@ impl Display for Pretty<SearchNodeSet> {
 
         for (i, node) in self.0 .0.iter().enumerate() {
             let node = node.pretty();
-            writeln!(f, "    {i}:\n{node}\n{divider}\n")?;
+            let node = format!("{i}:\n{node}\n{divider}\n");
+            let indented = node.indented(4);
+            write!(f, "{indented}")?;
         }
 
         write!(f, "]")
+    }
+}
+
+impl Display for Indented<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let indent = " ".repeat(self.space_count);
+
+        let mut start = 0;
+        loop {
+            if start >= self.s.len() {
+                break Ok(());
+            }
+
+            let end = self.s[start..].find('\n').map(|n| start + n);
+            let Some(end) = end else {
+                let line = &self.s[start..];
+                break write!(f, "{indent}{line}");
+            };
+
+            let line = &self.s[start..end];
+            write!(f, "{indent}{line}\n")?;
+            start = end + 1;
+        }
     }
 }
