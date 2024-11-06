@@ -402,7 +402,10 @@ impl NodeBuilder {
         let chick0_coords_flipped = if chick0_coords == CHICK0_COORDS_MASK {
             chick0_coords
         } else {
-            (0b10 << offsets::CHICK0_COLUMN) - chick0_coords
+            let chick0_col = self.0 & (0b11 << offsets::CHICK0_COLUMN);
+            let chick0_col_flipped = (0b10 << offsets::CHICK0_COLUMN) - chick0_col;
+            const CHICK0_ROW_MASK: u64 = 0b11 << offsets::CHICK0_ROW;
+            (chick0_coords & CHICK0_ROW_MASK) | chick0_col_flipped
         };
 
         const CHICK1_COORDS_MASK: u64 = 0b1111 << offsets::CHICK1_COLUMN;
@@ -410,7 +413,10 @@ impl NodeBuilder {
         let chick1_coords_flipped = if chick1_coords == CHICK1_COORDS_MASK {
             chick1_coords
         } else {
-            (0b10 << offsets::CHICK1_COLUMN) - chick1_coords
+            let chick1_col = self.0 & (0b11 << offsets::CHICK1_COLUMN);
+            let chick1_col_flipped = (0b10 << offsets::CHICK1_COLUMN) - chick1_col;
+            const CHICK1_ROW_MASK: u64 = 0b11 << offsets::CHICK1_ROW;
+            (chick1_coords & CHICK1_ROW_MASK) | chick1_col_flipped
         };
 
         const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT0_COLUMN;
@@ -418,7 +424,10 @@ impl NodeBuilder {
         let elephant0_coords_flipped = if elephant0_coords == ELEPHANT0_COORDS_MASK {
             elephant0_coords
         } else {
-            (0b10 << offsets::ELEPHANT0_COLUMN) - elephant0_coords
+            let elephant0_col = self.0 & (0b11 << offsets::ELEPHANT0_COLUMN);
+            let elephant0_col_flipped = (0b10 << offsets::ELEPHANT0_COLUMN) - elephant0_col;
+            const ELEPHANT0_ROW_MASK: u64 = 0b11 << offsets::ELEPHANT0_ROW;
+            (elephant0_coords & ELEPHANT0_ROW_MASK) | elephant0_col_flipped
         };
 
         const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT1_COLUMN;
@@ -426,7 +435,10 @@ impl NodeBuilder {
         let elephant1_coords_flipped = if elephant1_coords == ELEPHANT1_COORDS_MASK {
             elephant1_coords
         } else {
-            (0b10 << offsets::ELEPHANT1_COLUMN) - elephant1_coords
+            let elephant1_col = self.0 & (0b11 << offsets::ELEPHANT1_COLUMN);
+            let elephant1_col_flipped = (0b10 << offsets::ELEPHANT1_COLUMN) - elephant1_col;
+            const ELEPHANT1_ROW_MASK: u64 = 0b11 << offsets::ELEPHANT1_ROW;
+            (elephant1_coords & ELEPHANT1_ROW_MASK) | elephant1_col_flipped
         };
 
         const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE0_COLUMN;
@@ -434,7 +446,10 @@ impl NodeBuilder {
         let giraffe0_coords_flipped = if giraffe0_coords == GIRAFFE0_COORDS_MASK {
             giraffe0_coords
         } else {
-            (0b10 << offsets::GIRAFFE0_COLUMN) - giraffe0_coords
+            let giraffe0_col = self.0 & (0b11 << offsets::GIRAFFE0_COLUMN);
+            let giraffe0_col_flipped = (0b10 << offsets::GIRAFFE0_COLUMN) - giraffe0_col;
+            const GIRAFFE0_ROW_MASK: u64 = 0b11 << offsets::GIRAFFE0_ROW;
+            (giraffe0_coords & GIRAFFE0_ROW_MASK) | giraffe0_col_flipped
         };
 
         const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE1_COLUMN;
@@ -442,23 +457,33 @@ impl NodeBuilder {
         let giraffe1_coords_flipped = if giraffe1_coords == GIRAFFE1_COORDS_MASK {
             giraffe1_coords
         } else {
-            (0b10 << offsets::GIRAFFE1_COLUMN) - giraffe1_coords
+            let giraffe1_col = self.0 & (0b11 << offsets::GIRAFFE1_COLUMN);
+            let giraffe1_col_flipped = (0b10 << offsets::GIRAFFE1_COLUMN) - giraffe1_col;
+            const GIRAFFE1_ROW_MASK: u64 = 0b11 << offsets::GIRAFFE1_ROW;
+            (giraffe1_coords & GIRAFFE1_ROW_MASK) | giraffe1_col_flipped
         };
 
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION_COLUMN;
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b11 << offsets::ACTIVE_LION_COLUMN;
         let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
         let active_lion_coords_flipped = if active_lion_coords == ACTIVE_LION_COORDS_MASK {
             active_lion_coords
         } else {
-            (0b10 << offsets::ACTIVE_LION_COLUMN) - active_lion_coords
+            let active_lion_col = self.0 & (0b11 << offsets::ACTIVE_LION_COLUMN);
+            let active_lion_col_flipped = (0b10 << offsets::ACTIVE_LION_COLUMN) - active_lion_col;
+            const ACTIVE_LION_ROW_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
+            (active_lion_coords & ACTIVE_LION_ROW_MASK) | active_lion_col_flipped
         };
 
-        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::PASSIVE_LION_COLUMN;
+        const PASSIVE_LION_COORDS_MASK: u64 = 0b11 << offsets::PASSIVE_LION_COLUMN;
         let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
         let passive_lion_coords_flipped = if passive_lion_coords == PASSIVE_LION_COORDS_MASK {
             passive_lion_coords
         } else {
-            (0b10 << offsets::PASSIVE_LION_COLUMN) - passive_lion_coords
+            let passive_lion_col = self.0 & (0b11 << offsets::PASSIVE_LION_COLUMN);
+            let passive_lion_col_flipped =
+                (0b10 << offsets::PASSIVE_LION_COLUMN) - passive_lion_col;
+            const PASSIVE_LION_ROW_MASK: u64 = 0b11 << offsets::PASSIVE_LION_ROW;
+            (passive_lion_coords & PASSIVE_LION_ROW_MASK) | passive_lion_col_flipped
         };
 
         Self(
@@ -1757,6 +1782,7 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
+    pub const PASSIVE_LION_ROW: u64 = PASSIVE_LION_COLUMN + 2;
 }
 
 #[cfg(test)]
