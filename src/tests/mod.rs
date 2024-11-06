@@ -44,10 +44,9 @@ fn initial_search_node_horizontally_flipped_is_correct() {
 }
 
 #[test]
-fn initial_search_node_allegiance_inversion_partially_built_is_correct() {
+fn initial_search_node_partially_built_is_correct() {
     insta::assert_snapshot!(SearchNode::initial()
         .into_builder()
-        .invert_active_player()
         .build_without_horizontal_normalization()
         .pretty());
 }

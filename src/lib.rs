@@ -424,7 +424,7 @@ impl NodeBuilder {
             )
         };
 
-        const NONLION_MASK: u64 = 0xFFFF_FFFF;
+        const NONLION_MASK: u64 = 0xFFFF_FFFF << offsets::GIRAFFE1;
         SearchNode(
             (self.0 & !NONLION_MASK)
                 | chick0
