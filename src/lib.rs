@@ -1071,82 +1071,36 @@ const ACTION_HANDLERS: [fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
     action_handlers::handle_bad_action,
 ];
 
+macro_rules! define_piece_action_handler {
+    ($piece:literal, $name:ident, $dest_coords:literal) => {
+        pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+            state
+                .into_builder()
+                .handle_action(Action(($piece << 4) | $dest_coords))
+        }
+    };
+}
+
 macro_rules! define_piece_action_handlers {
     ($name:ident, $piece:literal) => {
         pub mod $name {
             use super::*;
 
-            pub const fn r00_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0000))
-            }
+            define_piece_action_handler!($piece, r00_c00, 0b0000);
+            define_piece_action_handler!($piece, r00_c01, 0b0001);
+            define_piece_action_handler!($piece, r00_c10, 0b0010);
 
-            pub const fn r00_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0001))
-            }
+            define_piece_action_handler!($piece, r01_c00, 0b0100);
+            define_piece_action_handler!($piece, r01_c01, 0b0101);
+            define_piece_action_handler!($piece, r01_c10, 0b0110);
 
-            pub const fn r00_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0010))
-            }
+            define_piece_action_handler!($piece, r10_c00, 0b1000);
+            define_piece_action_handler!($piece, r10_c01, 0b1001);
+            define_piece_action_handler!($piece, r10_c10, 0b1010);
 
-            pub const fn r01_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0100))
-            }
-
-            pub const fn r01_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0101))
-            }
-
-            pub const fn r01_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b0110))
-            }
-
-            pub const fn r10_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1000))
-            }
-
-            pub const fn r10_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1001))
-            }
-
-            pub const fn r10_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1010))
-            }
-
-            pub const fn r11_c00(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1100))
-            }
-
-            pub const fn r11_c01(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1101))
-            }
-
-            pub const fn r11_c10(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-                state
-                    .into_builder()
-                    .handle_action(Action(($piece << 4) | 0b1110))
-            }
+            define_piece_action_handler!($piece, r11_c00, 0b1100);
+            define_piece_action_handler!($piece, r11_c01, 0b1101);
+            define_piece_action_handler!($piece, r11_c10, 0b1110);
         }
     };
 }
@@ -1611,16 +1565,7 @@ impl Action {
             w: false,
             nw: false,
         };
-        const N: DirectionSet = DirectionSet {
-            n: true,
-            ne: false,
-            e: false,
-            se: false,
-            s: false,
-            sw: false,
-            w: false,
-            nw: false,
-        };
+        const N: DirectionSet = DirectionSet { n: true, ..EMPTY };
         const NE: DirectionSet = DirectionSet {
             n: true,
             ne: true,
