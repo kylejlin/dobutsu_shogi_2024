@@ -437,17 +437,15 @@ impl NodeBuilder {
     }
 
     const fn horizontally_flip(self) -> Self {
-        /// Flips the column at the given offset.
-        /// The output may or may not contain the original row.
         macro_rules! flip_column {
             ($column_offset:expr) => {{
-                const COORDS_MASK: u64 = 0b1111 << $column_offset;
-                let coords = self.0 & COORDS_MASK;
-                if coords == COORDS_MASK {
-                    coords
+                const COL_MASK: u64 = 0b11 << $column_offset;
+                let col = self.0 & COL_MASK;
+
+                // A piece is in hand if and only if the column is `0b11`.
+                if col == COL_MASK {
+                    col
                 } else {
-                    const COL_MASK: u64 = 0b11 << $column_offset;
-                    let col = self.0 & COL_MASK;
                     (0b10 << $column_offset) - col
                 }
             }};
@@ -473,13 +471,6 @@ impl NodeBuilder {
 
         Self(
             (self.0 & !ALL_COLUMNS_MASK)
-            // Some values may contain the original row,
-            // instead of only the flipped column.
-            // However, this is not a problem,
-            // since row bits will not change
-            // whether I bitwise-OR the same bits to them
-            // or whether I bitwise-OR zeroes to them
-            // (since and `x | x == x` and `0 | x == x`).
                 | chick0_col_flipped
                 | chick1_col_flipped
                 | elephant0_col_flipped
