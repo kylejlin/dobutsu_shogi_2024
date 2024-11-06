@@ -236,36 +236,12 @@ impl SearchNode {
 
 impl NodeBuilder {
     const fn invert_active_player(self) -> Self {
-        let mut out = self.0;
-
-        // First, we invert the allegiance bits of non-lions.
-
-        const ALLEGIANCE_INVERSION_MASK: u64 = (1 << offsets::CHICK0_ALLEGIANCE)
+        const NONLION_ALLEGIANCE_INVERSION_MASK: u64 = (1 << offsets::CHICK0_ALLEGIANCE)
             | (1 << offsets::CHICK1_ALLEGIANCE)
             | (1 << offsets::ELEPHANT0_ALLEGIANCE)
             | (1 << offsets::ELEPHANT1_ALLEGIANCE)
             | (1 << offsets::GIRAFFE0_ALLEGIANCE)
             | (1 << offsets::GIRAFFE1_ALLEGIANCE);
-
-        out ^= ALLEGIANCE_INVERSION_MASK;
-
-        // Then, we swap the active and passive lions.
-
-        const ACTIVE_LION_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
-        const PASSIVE_LION_MASK: u64 = 0b1111 << offsets::PASSIVE_LION;
-
-        let active_lion_bits_in_original_position = self.0 & ACTIVE_LION_MASK;
-        let passive_lion_bits_in_original_position = self.0 & PASSIVE_LION_MASK;
-
-        out = (out & !ACTIVE_LION_MASK)
-            | (passive_lion_bits_in_original_position
-                << (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
-
-        out = (out & !PASSIVE_LION_MASK)
-            | (active_lion_bits_in_original_position
-                >> (offsets::ACTIVE_LION - offsets::PASSIVE_LION));
-
-        // Finally, we need to invert the coordinates of all pieces.
 
         let chick0_inverted_coords = self.invert_coords_at_offset(offsets::CHICK0_COLUMN);
         let chick1_inverted_coords = self.invert_coords_at_offset(offsets::CHICK1_COLUMN);
@@ -286,17 +262,28 @@ impl NodeBuilder {
             | (0b1111 << offsets::ACTIVE_LION_COLUMN)
             | (0b1111 << offsets::PASSIVE_LION_COLUMN);
 
-        out = (out & !ALL_COORDS_MASK)
+        Self(
+            (
+                (self.0 & !ALL_COORDS_MASK)
+                // First, we invert the allegiance bits of non-lions.
+                ^ NONLION_ALLEGIANCE_INVERSION_MASK
+            )
+            // Then, we invert the coordinates of the non-lions.
             | chick0_inverted_coords
             | chick1_inverted_coords
             | elephant0_inverted_coords
             | elephant1_inverted_coords
             | giraffe0_inverted_coords
             | giraffe1_inverted_coords
-            | active_lion_inverted_coords
-            | passive_lion_inverted_coords;
-
-        Self(out)
+            // Finally, we invert the coordinates of the lions,
+            // while simultaneously swapping their positions
+            // (i.e., putting the active lion in the passive lion location,
+            // and vice-versa).
+            | (active_lion_inverted_coords
+                >> (offsets::ACTIVE_LION - offsets::PASSIVE_LION))
+            | (passive_lion_inverted_coords
+                << (offsets::ACTIVE_LION - offsets::PASSIVE_LION)),
+        )
     }
 
     #[inline(always)]
