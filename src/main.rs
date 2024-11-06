@@ -16,5 +16,5 @@ fn main() {
         .unwrap()
         .join("solution.dat");
     let bytes = solution_map.to_bytes();
-    fs::write(&path, bytes).unwrap();
+    fs::write(path, bytes).unwrap();
 }

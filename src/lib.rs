@@ -1,3 +1,7 @@
+#![warn(clippy::all)]
+#![allow(clippy::unusual_byte_groupings)]
+#![allow(clippy::type_complexity)]
+
 // A note about fileds with the comment "This must be non-zero":
 // I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
 // but that would clutter the code with a bunch of unwraps,
@@ -518,7 +522,7 @@ impl SolutionCache {
         let Some(bin0) = &self.raw[(node.0 >> 48) as usize].as_ref() else {
             return OptionalSolution::NONE;
         };
-        let Some(bin1) = bin0[((node.0 >> (48 - 1 * 4)) & 0b1111) as usize].as_ref() else {
+        let Some(bin1) = bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].as_ref() else {
             return OptionalSolution::NONE;
         };
         let Some(bin2) = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref() else {
@@ -544,17 +548,16 @@ impl SolutionCache {
     }
 
     fn set(&mut self, solution: Solution) {
-        let bin0 =
-            (&mut self.raw[(solution.0 >> 48) as usize]).get_or_insert_with(Default::default);
-        let bin1 = (&mut bin0[((solution.0 >> (48 - 1 * 4)) & 0b1111) as usize])
+        let bin0 = self.raw[(solution.0 >> 48) as usize].get_or_insert_with(Default::default);
+        let bin1 =
+            bin0[((solution.0 >> (48 - 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin2 = bin1[((solution.0 >> (48 - 2 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bin2 = (&mut bin1[((solution.0 >> (48 - 2 * 4)) & 0b1111) as usize])
+        let bin3 = bin2[((solution.0 >> (48 - 3 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bin3 = (&mut bin2[((solution.0 >> (48 - 3 * 4)) & 0b1111) as usize])
+        let bin4 = bin3[((solution.0 >> (48 - 4 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bin4 = (&mut bin3[((solution.0 >> (48 - 4 * 4)) & 0b1111) as usize])
-            .get_or_insert_with(Default::default);
-        let bin5 = (&mut bin4[((solution.0 >> (48 - 5 * 4)) & 0b1111) as usize])
+        let bin5 = bin4[((solution.0 >> (48 - 5 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
         let raw = &mut bin5[((solution.0 >> (48 - 6 * 4)) & 0b1111) as usize];
 
@@ -594,16 +597,14 @@ impl SolutionCache {
     fn write_bin0(
         &self,
         prefix: u64,
-        bin0: &Box<
-            CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
-        >,
+        bin0: &CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
         out: &mut Vec<Solution>,
     ) {
         for (i1, bin1) in bin0.iter().enumerate() {
             let Some(bin1) = bin1 else {
                 continue;
             };
-            let prefix = prefix | ((i1 as u64) << (48 - 1 * 4));
+            let prefix = prefix | ((i1 as u64) << (48 - 4));
             self.write_bin1(prefix, bin1, out);
         }
     }
@@ -611,7 +612,7 @@ impl SolutionCache {
     fn write_bin1(
         &self,
         prefix: u64,
-        bin1: &Box<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
+        bin1: &CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
         out: &mut Vec<Solution>,
     ) {
         for (i2, bin2) in bin1.iter().enumerate() {
@@ -626,7 +627,7 @@ impl SolutionCache {
     fn write_bin2(
         &self,
         prefix: u64,
-        bin2: &Box<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
+        bin2: &CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>,
         out: &mut Vec<Solution>,
     ) {
         for (i3, bin3) in bin2.iter().enumerate() {
@@ -641,7 +642,7 @@ impl SolutionCache {
     fn write_bin3(
         &self,
         prefix: u64,
-        bin3: &Box<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>,
+        bin3: &CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>,
         out: &mut Vec<Solution>,
     ) {
         for (i4, bin4) in bin3.iter().enumerate() {
@@ -656,7 +657,7 @@ impl SolutionCache {
     fn write_bin4(
         &self,
         prefix: u64,
-        bin4: &Box<CacheBin<[OptionalCachedEvaluation; 16]>>,
+        bin4: &CacheBin<[OptionalCachedEvaluation; 16]>,
         out: &mut Vec<Solution>,
     ) {
         for (i5, bin5) in bin4.iter().enumerate() {
@@ -671,7 +672,7 @@ impl SolutionCache {
     fn write_bin5(
         &self,
         prefix: u64,
-        bin5: &Box<[OptionalCachedEvaluation; 16]>,
+        bin5: &[OptionalCachedEvaluation; 16],
         out: &mut Vec<Solution>,
     ) {
         for (i6, raw) in bin5.iter().enumerate() {
@@ -1054,7 +1055,7 @@ impl NodeBuilder {
             );
         }
 
-        return self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action);
+        self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action)
     }
 
     #[inline(always)]
@@ -1578,16 +1579,16 @@ impl Action {
 
 /// All offsets are given relative to the right (i.e., least significant) bit.
 mod offsets {
-    pub const CHICK0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6;
-    pub const CHICK1: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5;
-    pub const ELEPHANT0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5;
-    pub const ELEPHANT1: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5 + 5;
-    pub const GIRAFFE0: u64 = 0 + 9 + 7 + 8 + 4 + 4 + 5;
-    pub const GIRAFFE1: u64 = 0 + 9 + 7 + 8 + 4 + 4;
-    pub const ACTIVE_LION: u64 = 0 + 9 + 7 + 8 + 4;
-    pub const PASSIVE_LION: u64 = 0 + 9 + 7 + 8;
-    pub const PLY_COUNT: u64 = 0 + 9 + 7;
-    pub const NEXT_ACTION: u64 = 0 + 9;
+    pub const CHICK0: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6;
+    pub const CHICK1: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5;
+    pub const ELEPHANT0: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5;
+    pub const ELEPHANT1: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5;
+    pub const GIRAFFE0: u64 = 9 + 7 + 8 + 4 + 4 + 5;
+    pub const GIRAFFE1: u64 = 9 + 7 + 8 + 4 + 4;
+    pub const ACTIVE_LION: u64 = 9 + 7 + 8 + 4;
+    pub const PASSIVE_LION: u64 = 9 + 7 + 8;
+    pub const PLY_COUNT: u64 = 9 + 7;
+    pub const NEXT_ACTION: u64 = 9;
     pub const BEST_DISCOVERED_OUTCOME: u64 = 0;
 
     pub const CHICK0_PROMOTION: u64 = CHICK0;
