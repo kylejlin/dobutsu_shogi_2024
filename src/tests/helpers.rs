@@ -30,6 +30,12 @@ impl IntoPretty for SearchNode {
     }
 }
 
+impl IntoPretty for NodeBuilder {
+    fn pretty(self) -> Pretty<Self> {
+        Pretty(self)
+    }
+}
+
 impl IntoPretty for Board {
     fn pretty(self) -> Pretty<Self> {
         Pretty(self)
@@ -59,7 +65,19 @@ impl Indent for str {
 
 impl Display for Pretty<SearchNode> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let board = self.0.into_builder().board().pretty();
+        Display::fmt(&self.0.into_builder().pretty(), f)
+    }
+}
+
+impl Debug for Pretty<SearchNode> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self, f)
+    }
+}
+
+impl Display for Pretty<NodeBuilder> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let board = self.0.board().pretty();
         let ply_count = (self.0 .0 >> offsets::PLY_COUNT) & 0xFF;
         let outcome = i16::from_zero_padded_i9(
             (self.0 .0 >> offsets::BEST_DISCOVERED_OUTCOME) & 0b1_1111_1111,
@@ -81,7 +99,7 @@ impl Display for Pretty<SearchNode> {
     }
 }
 
-impl Debug for Pretty<SearchNode> {
+impl Debug for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
