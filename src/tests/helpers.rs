@@ -3,10 +3,10 @@ use super::*;
 use std::fmt::{self, Debug, Display, Formatter};
 
 #[derive(Clone, Copy)]
-pub struct Pretty<T>(T);
+pub struct Pretty<T>(pub T);
 
 #[derive(Clone)]
-pub struct SearchNodeSet(Vec<SearchNode>);
+pub struct SearchNodeSet(pub Vec<SearchNode>);
 
 #[derive(Clone, Copy)]
 struct Indented<'a> {
@@ -193,6 +193,10 @@ impl Board {
 
 impl Display for Pretty<Action> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.0 .0 == 0 {
+            return write!(f, "action_search_complete");
+        }
+
         let actor = match self.0 .0 >> 4 {
             0b001 => "active_lion",
             0b010 => "chick0",
