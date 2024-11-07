@@ -8,18 +8,15 @@ I'm creating a new solver because I want to try a different approach.
 ## Table of contents
 
 1. [Official rules](#official-rules)
-2. [Rule simplifications](#rule-simplifications)
-   1. [The Try Rule](#the-try-rule)
-   2. [Threefold Repetition Rule](#threefold-repetition-rule)
-3. [Definition of optimal play](#definition-of-optimal-play)
-4. [Algorithm](#algorithm)
-5. [Forward node representation](#forward-node-representation)
-6. [State representation](#state-representation)
-7. [Timeless state representation](#timeless-state-representation-40-bits-total)
+2. [Try Rule simplification](#try-rule-simplification)
+3. [Threefold repetition rule](#threefold-repetition-rule)
+4. [Definition of optimal play](#definition-of-optimal-play)
+5. [Algorithm](#algorithm)
+6. [Search node representation](#search-node-representation-56-bits-total)
+7. [State representation](#state-representation)
 8. [Action representation](#action-representation)
 9. [Board representation](#board-representation)
 10. [Square set representation](#square-set-representation)
-11. [Backward node representation](#backward-node-representation)
 
 ## Official rules
 
@@ -27,24 +24,9 @@ The term "official rules" refers to the [original Japanese rules](https://nekoma
 
 An English translation may be found [here](https://nekomado.com/wp/wp-content/uploads/2021/12/en.pdf).
 
-In the event that there is a discrepancy between the Japanese rules and the English translation, the Japanese rules are considered authoritative. No known discrepancies exist at the time of writing.
-
 In case the documents become inaccessible, PDFs can be found in the [`docs`](./docs) directory of this repository.
 
-## Rule simplifications
-
-However, we make some simplifications to the rules
-to make it easier to implement our tree search algorithm.
-
-**These simplifications preserve the correctness and optimality of winning and losing strategies.**
-That is, a player has a strategy that guarantees a win in N moves under the official rules if and only if they have a strategy that guarantees a win in N moves under the simplified rules. The same goes for losing strategies. I might later prove this formally.
-
-Note that the simplifications do not preserve the correctness of draw analyses, meaning that even if a given position in the simplified rules is a draw, it is not necessarily a draw in the official rules.
-In practice, this is not a significant issue,
-since solver concluded that the initial position is
-winning for 後手.
-
-### 1. The Try Rule
+## Try Rule simplification
 
 The official Try Rule is replaced by the following rule:
 
@@ -74,18 +56,40 @@ Instead of these three steps, the new rule is simpler:
    see if their lion is in the opponent's home row.
    If so, that player wins.
 
-### 2. Threefold Repetition Rule
+**Note that this simplification preserve the correctness and optimality of winning and strategies.**
 
-We remove the threefold repetition rule.
+That is:
 
-Instead, we place an arbitrary _N_ ply limit on the game.
-That is, at the end of the N-th ply, if neither player has won, the game is a draw.
-For the purpose of this project, we set _N_ to 200.
+```
+∀ player ∈ {sente, gote}:
+  ∀ gameState ∈ GameState:
+    ∀ n ∈ ℕ:
+      HasWinningStrategyUnderOfficialRules(player, gameState, n) ⇔
+        ∃ k ∈ {-1, 0, 1}:
+          HasWinningStrategyUnderSimplifiedRules(player, gameState, n + k)
+```
 
-A ply is a single move by a single player.
-We use the term "ply" instead of "move" to avoid
-confusion that often arises in the chess world,
-where "move" can refer to a _pair_ of moves by both players.
+The reason we need the `k` term is because this simplification to the Try Rule may prolong the game by one ply in some cases.
+This is because the official Try Rule would lead to an immediate win upon scoring the try (provided the scoring lion is not immediately capturable), but the simplified Try Rule would require the opponent to make a move before the game ends.
+
+## Threefold repetition rule
+
+We ignore threefold repetition, and instead allow games to continue indefinitely.
+This naturally raises questions about whether this will impact the solver's correctness and ease of implementation.
+
+### Correctness
+
+This simplification preserves the correctness of the solver.
+This is because any strategy that wins in the least amount of plies will not contain any duplicate states.
+
+### Implications for implementation
+
+In a naive depth-first search, allowing repetition would almost certainly lead to infinite recursion.
+However, we precompute and cache the set of all reachable states first (see [Algorithm](#algorithm) for details).
+Since there are a finite number of states, we can guarantee that the search will terminate.
+
+Only after we have precomputed the set of all reachable states do we calculate the best outcome for each state.
+We backtrack from winning and losing states, so that draws (which are the only possible kind of divergent state) are never visited.
 
 ## Definition of optimal play
 
@@ -116,38 +120,32 @@ We solve the game in two steps:
    (since there are no more children to explore).
    Thus, we add the parent to the set of states with known outcomes.
 
-## Forward node representation (64 bits total)
+## Search node representation (56 bits total)
 
-Forward nodes are used during the first step of the algorithm (i.e., calculating the set of all reachable states).
-
-| state   | nextAction | ZERO   |
-| ------- | ---------- | ------ |
-| 48 bits | 7 bits     | 9 bits |
+| state   | nextAction or unknownChildCount | bestKnownOutcome |
+| ------- | ------------------------------- | ---------------- |
+| 40 bits | 7 bits                          | 9 bits           |
 
 - `state`: see [State representation](#state-representation)
-- `nextAction`: see [Action representation](#action-representation).
+- `nextAction` or `unknownChildCount`: Similar to a `union` in C, this field can _either_ represent `nextAction` or `unknownChildCount`, but not both simultaneously.
 
-  If there are no remaining actions to explore, then this is zero.
+  In the first step of the algorithm (i.e., finding all reachable states), the field holds the `nextAction`. For more information on the `nextAction` field, see [Action representation](#action-representation).
 
-  When a node is newly created,
-  we initialize `nextAction` to `0b001_0000` if the node state is non-terminal, and `0` if the node state is terminal.
+  In the second step of the algorithm (i.e., retrograde analysis), the field holds the `unknownChildCount`.
+  This is an unsigned 7-bit integer.
 
-- `ZERO`: These bits are unused, so we set them to zero.
+- `bestKnownOutcome`: This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
 
-## State representation (48 bits total)
+  - `0` represents a draw.
+  - A positive number `n` represents a win for the active player
+    in `201 - n` plies.
+  - A negative number `-n` represents a win for the passive player
+    in `201 + n` plies.
 
-| timelessState | plyCount |
-| ------------- | -------- |
-| 40 bits       | 8 bits   |
+## State representation (40 bits total)
 
-- `timelessState`: See [Timeless state format](#timeless-state-format-40-bits-total). This stores the positions, allegiances, and promotion statuses of the pieces.
-- `plyCount`: The number of plies that have been played so far,
-  encoded as an 8-bit unsigned integer.
-
-## Timeless state representation (40 bits total)
-
-The timeless state is a 40-bit integer that stores the positions and allegiances, and promotion statuses of the 8 pieces.
-Most pieces require 5 bits (1 for allegiance, 4 for position).
+A state stores the positions, allegiances, and promotion statuses of the 8 pieces.
+Most pieces require 5 bits (1 bit for allegiance, 4 bits for position).
 However:
 
 - The 2 lions do not have an allegiance bit, since lions cannot change allegiance. Therefore, lions require 4 bits each.
@@ -204,6 +202,8 @@ An action is represented by 7 bits.
 Note that action representation is **not** unique.
 For example, if the active player has two chicks in hand, then dropping `chick0` in square `(0, 0)` and dropping `chick1` in the same square would have to distinct representations, even though they are the same action.
 However, we have deemed this inefficiency to be acceptable.
+
+The value `0b000_0000` represents a "null action". We use this when a node has no remaining actions to explore.
 
 ## Board representation (48 bits total)
 
@@ -262,23 +262,3 @@ The bit at index `4 * row + column` is set if the square is in the set.
 | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit |
 
 Since there are only 3 columns, for any `n`, the bit for square `(row: n, column: 3)` is always zero.
-
-## Backward node representation (64 bits total)
-
-Backward nodes are used during the first step of the algorithm (i.e., retrograde analysis).
-
-| state   | unknownChildCount | bestKnownOutcome |
-| ------- | ----------------- | ---------------- |
-| 48 bits | 7 bits            | 9 bits           |
-
-Observe that the format is very similar to [that of forward nodes](#forward-node-representation-64-bits-total). The only differences are:
-
-1. Instead of storing the `nextAction`, we store the `unknownChildCount`. Every time a node with a known best outcome is visited, we decrement the `unknownChildCount` of its parent. When the `unknownChildCount` reaches zero, the parent's best outcome is now known.
-2. We also store the `bestKnownOutcome`.
-   This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
-
-   - `0` represents a draw.
-   - A positive number `n` represents a win for the active player
-     in `201 - n` plies.
-   - A negative number `-n` represents a win for the passive player
-     in `201 + n` plies.
