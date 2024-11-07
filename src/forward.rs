@@ -341,8 +341,6 @@ impl ForwardNode {
         let active_lion: u64 = 0b00_01;
         let passive_lion: u64 = 0b11_01;
 
-        let ply_count: u64 = 0;
-
         let next_action: u64 = 0b001_0000;
 
         Self(
@@ -354,14 +352,13 @@ impl ForwardNode {
                 | (giraffe1 << offsets::GIRAFFE1)
                 | (active_lion << offsets::ACTIVE_LION)
                 | (passive_lion << offsets::PASSIVE_LION)
-                | (ply_count << offsets::PLY_COUNT)
-                | (next_action << offsets::forward::NEXT_ACTION),
+                | (next_action << offsets::NEXT_ACTION),
         )
     }
 
     fn next_child(mut self) -> (Self, OptionalForwardNode) {
         loop {
-            let raw = ((self.0 >> offsets::forward::NEXT_ACTION) & 0b111_1111) as u8;
+            let raw = ((self.0 >> offsets::NEXT_ACTION) & 0b111_1111) as u8;
             if raw == 0 {
                 return (self, OptionalForwardNode::NONE);
             }
@@ -386,7 +383,6 @@ impl ForwardNode {
             child_builder
                 .unchecked_unwrap()
                 .invert_active_player()
-                .increment_ply_count()
                 .init_next_action()
                 .build()
                 .into_optional()
@@ -396,10 +392,7 @@ impl ForwardNode {
 
     const fn set_next_action(self, next_action: OptionalAction) -> Self {
         let raw = next_action.0 as u64;
-        Self(
-            (self.0 & !(0b111_1111 << offsets::forward::NEXT_ACTION))
-                | (raw << offsets::forward::NEXT_ACTION),
-        )
+        Self((self.0 & !(0b111_1111 << offsets::NEXT_ACTION)) | (raw << offsets::NEXT_ACTION))
     }
 
     const fn into_builder(self) -> NodeBuilder {
@@ -474,21 +467,13 @@ impl NodeBuilder {
         r3c2 - coords
     }
 
-    const fn increment_ply_count(self) -> Self {
-        const C: u64 = 1 << offsets::PLY_COUNT;
-        Self(self.0 + C)
-    }
-
-    /// If the this is terminal, then we set the best discovered outcome
-    /// to the outcome of the game, and we set the next action to `None`.
-    /// Otherwise, we set the best discovered outcome to `-200`,
-    /// and we set the next action `to Action(0b001_0000)`.
+    /// If the this is terminal, then we set the next action to `None`.
+    /// Otherwise, we set the next action `to Action(0b001_0000)`.
     const fn init_next_action(self) -> Self {
         const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
 
-        let with_no_next_action = Self(
-            (self.0 & !0xFFFF) | ((OptionalAction::NONE.0 as u64) << offsets::forward::NEXT_ACTION),
-        );
+        let with_no_next_action =
+            Self((self.0 & !0xFFFF) | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION));
 
         // If the active lion is in the passive player's hand,
         // the active player has lost.
@@ -504,16 +489,8 @@ impl NodeBuilder {
             return with_no_next_action;
         }
 
-        const PLY_COUNT_MASK: u64 = 0xFF << offsets::PLY_COUNT;
-        const MAX_PLY_COUNT_SHIFTED: u64 = (MAX_PLY_COUNT as u64) << offsets::PLY_COUNT;
-        if self.0 & PLY_COUNT_MASK == MAX_PLY_COUNT_SHIFTED {
-            return with_no_next_action;
-        }
-
         const DEFAULT_FIRST_ACTION: Action = Action(0b001_0000);
-        Self(
-            (self.0 & !0xFFFF) | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::forward::NEXT_ACTION),
-        )
+        Self((self.0 & !0xFFFF) | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION))
     }
 
     const fn build(self) -> ForwardNode {
@@ -656,10 +633,6 @@ impl OptionalForwardNode {
 impl OptionalNodeBuilder {
     const NONE: Self = Self(0);
 
-    const fn is_some(self) -> bool {
-        self.0 != 0
-    }
-
     const fn is_none(self) -> bool {
         self.0 == 0
     }
@@ -671,18 +644,6 @@ impl OptionalNodeBuilder {
 
 impl OptionalAction {
     const NONE: Self = Self(0);
-
-    const fn is_some(self) -> bool {
-        self.0 != 0
-    }
-
-    const fn is_none(self) -> bool {
-        self.0 == 0
-    }
-
-    const fn unchecked_unwrap(self) -> Action {
-        Action(self.0)
-    }
 }
 
 macro_rules! action_handlers_for_piece {
@@ -1457,15 +1418,17 @@ impl Action {
 
 /// All offsets are given relative to the right (i.e., least significant) bit.
 mod offsets {
-    pub const CHICK0: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5 + 6;
-    pub const CHICK1: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5 + 5;
-    pub const ELEPHANT0: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5 + 5;
-    pub const ELEPHANT1: u64 = 9 + 7 + 8 + 4 + 4 + 5 + 5;
-    pub const GIRAFFE0: u64 = 9 + 7 + 8 + 4 + 4 + 5;
-    pub const GIRAFFE1: u64 = 9 + 7 + 8 + 4 + 4;
-    pub const ACTIVE_LION: u64 = 9 + 7 + 8 + 4;
-    pub const PASSIVE_LION: u64 = 9 + 7 + 8;
-    pub const PLY_COUNT: u64 = 9 + 7;
+    pub const BEST_KNOWN_OUTCOME: u64 = 0;
+    pub const NEXT_ACTION: u64 = BEST_KNOWN_OUTCOME + 9;
+    pub const UNKNOWN_CHILD_COUNT: u64 = NEXT_ACTION;
+    pub const PASSIVE_LION: u64 = NEXT_ACTION + 7;
+    pub const ACTIVE_LION: u64 = PASSIVE_LION + 4;
+    pub const GIRAFFE1: u64 = ACTIVE_LION + 4;
+    pub const GIRAFFE0: u64 = GIRAFFE1 + 5;
+    pub const ELEPHANT1: u64 = GIRAFFE0 + 5;
+    pub const ELEPHANT0: u64 = ELEPHANT1 + 5;
+    pub const CHICK1: u64 = ELEPHANT0 + 5;
+    pub const CHICK0: u64 = CHICK1 + 6;
 
     pub const CHICK0_PROMOTION: u64 = CHICK0;
     pub const CHICK0_COLUMN: u64 = CHICK0_PROMOTION + 1;
@@ -1497,13 +1460,4 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
-
-    pub mod forward {
-        pub const NEXT_ACTION: u64 = 9;
-    }
-
-    pub mod backward {
-        pub const UNKNOWN_CHILD_COUNT: u64 = 9;
-        pub const BEST_KNOWN_OUTCOME: u64 = 0;
-    }
 }
