@@ -12,11 +12,14 @@ I'm creating a new solver because I want to try a different approach.
    1. [The Try Rule](#the-try-rule)
    2. [Threefold Repetition Rule](#threefold-repetition-rule)
 3. [Definition of optimal play](#definition-of-optimal-play)
-4. [State representation](#state-representation)
-5. [Action representation](#action-representation)
-6. [Search node representation](#search-node-representation)
-7. [Board representation](#board-representation)
-8. [Square set representation](#square-set-representation)
+4. [Algorithm](#algorithm)
+5. [Forward node representation](#forward-node-representation)
+6. [State representation](#state-representation)
+7. [Timeless state representation](#timeless-state-representation-40-bits-total)
+8. [Action representation](#action-representation)
+9. [Board representation](#board-representation)
+10. [Square set representation](#square-set-representation)
+11. [Backward node representation](#backward-node-representation)
 
 ## Official rules
 
@@ -96,164 +99,143 @@ The objective function `F` is defined as follows:
 
 More intuitively, it means players will try to win as quickly as possible, and if they can't win, they will try to delay the opponent's win as long as possible.
 
+## Algorithm
+
+We solve the game in two steps:
+
+1. We calculate the set of all reachable states.
+2. We calculate the best outcome for each state
+   using retrograde analysis.
+
+   That is, we create a set of states with known outcomes.
+   We initialize the set with terminal states.
+   Then, we iterate over the set of states with known outcomes,
+   and update each state's parents' best known outcomes.
+   When all of a parent's children have been visited,
+   the parent's best known outcome equals the best known outcome
+   (since there are no more children to explore).
+   Thus, we add the parent to the set of states with known outcomes.
+
+## Forward node representation (64 bits total)
+
+Forward nodes are used during the first step of the algorithm (i.e., calculating the set of all reachable states).
+
+| state   | childCount | ZERO   | nextAction |
+| ------- | ---------- | ------ | ---------- |
+| 48 bits | 7 bits     | 2 bits | 7 bits     |
+
+- `state`: see [State representation](#state-representation)
+- `childCount`: the number of children that have been explored.
+- `nextAction`: see [Action representation](#action-representation).
+  If there are no remaining actions to explore, then this is zero.
+- `ZERO`: These bits are unused, so we set them to zero.
+
 ## State representation (48 bits total)
-
-A given game state is represented by 48 bits,
-which stores the _timeless state_ and the number of plies played.
-
-The _timeless state_ is a 40-bit integer that stores the positions and allegiances of the 8 pieces.
-Normally, one might use the term "board" instead, especially in
-chess contexts.
-However, the "board" does not capture all the piece information
-in Dobutsu Shogi, since pieces can also be in the _hand_.
-So, we use the term "timeless state" to collectively refer to
-both the board and the players' hands.
-
-### State format (48 bits total)
 
 | timelessState | plyCount |
 | ------------- | -------- |
 | 40 bits       | 8 bits   |
 
-### Timeless state format (40 bits total)
+- `timelessState`: See [Timeless state format](#timeless-state-format-40-bits-total). This stores the positions, allegiances, and promotion statuses of the pieces.
+- `plyCount`: The number of plies that have been played so far,
+  encoded as an 8-bit unsigned integer.
 
-The timeless state is a 40-bit integer that stores the positions and allegiances of the 8 pieces.
-The 2 lions do not have an allegiance stored, since they do not change allegiance (because if they are captured, the game is over).
-The 2 chicks have an additional bit to store their promotion status.
+## Timeless state representation (40 bits total)
+
+The timeless state is a 40-bit integer that stores the positions and allegiances, and promotion statuses of the 8 pieces.
+Most pieces require 5 bits (1 for allegiance, 4 for position).
+However:
+
+- The 2 lions do not have an allegiance bit, since lions cannot change allegiance. Therefore, lions require 4 bits each.
+- The chicks have an additional promotion bit (since they are the only piece that can be promoted). Therefore, chicks require 6 bits each.
 
 | chick0 | chick1 | elephant0 | elephant1 | giraffe0 | giraffe1 | lionActive | lionPassive |
 | ------ | ------ | --------- | --------- | -------- | -------- | ---------- | ----------- |
 | 6 bits | 6 bits | 5 bits    | 5 bits    | 5 bits   | 5 bits   | 4 bit      | 4 bit       |
 
-Most significant bits are on the left.
+The format for each piece's state is:
 
-### Chick state format (6 bits total)
+| allegiance (if applicable) | row    | column | promotion (if applicable) |
+| -------------------------- | ------ | ------ | ------------------------- |
+| 1 bit                      | 2 bits | 2 bits | 1 bit                     |
 
-| allegiance | row    | column | promotion |
-| ---------- | ------ | ------ | --------- |
-| 1 bit      | 2 bits | 2 bits | 1 bit     |
+- `allegiance`: The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player.
 
-The allegiance bit is `0` if the chick belongs to the active player, and `1` if the chick belongs to the passive player. This convention is used for all pieces.
+- `row` and `column`:
 
-If the chick is on the board, then the row and column fields hold the row and column of the chick on the board, respectively (zero-based indexing).
-Row zero is defined as the active player's home row.
-For columns, the direction of counting doesn't matter
-due to horizontal symmetry.
-If the chick is in the hand, the both the row field and the column field are `0b11`.
-This convention is used for all pieces.
+  - If the piece is on the board, then the `row` and `column` fields hold the row and column of the piece on the board, respectively (zero-based indexing).
 
-The promotion bit is `1` if the chick is promoted, and `0` if the chick is not promoted.
+    Row zero is defined as the active player's home row.
 
-There is an added requirement that `chick0 <= chick1`,
-when `chick0` and `chick1` are treated as unsigned 6-bit integers. The same requirement holds for elephants and giraffes.
+    Column zero is defined as the column where sente's elephant is located in the initial position.
 
-This requirement ensures that the each state has a unique representation.
-If we didn't have this requirement, then we could have two representations that are identical except for the order of the pieces (e.g., one representation where `chick0` is `0b000000` and `chick1` is `0b101010`, and another representation where `chick0` is `0b101010` and `chick1` is `0b000000`), which would both map to the same state.
+  - If the piece is in the hand, then the `row` field and the `column` field are both `0b11`.
 
-### Elephant and giraffe state format (5 bits total)
-
-| allegiance | row    | column |
-| ---------- | ------ | ------ |
-| 1 bit      | 2 bits | 2 bits |
-
-### Lion state format (4 bits total)
-
-| row    | column |
-| ------ | ------ |
-| 2 bits | 2 bits |
-
-### Ply count (8 bits total)
-
-The ply count holds the number of plies that have been played so far.
+- `promotion`: The promotion bit is `1` if the piece is promoted, and `0` if the piece is not promoted.
 
 ## Action representation
 
 An action is represented by 7 bits.
 
-| actor  | destination row | destination column |
-| ------ | --------------- | ------------------ |
-| 3 bits | 2 bits          | 2 bits             |
+| actor  | destinationRow | destinationColumn |
+| ------ | -------------- | ----------------- |
+| 3 bits | 2 bits         | 2 bits            |
 
-The actor encoding is as follows:
+- `actor`: The actor is the piece being moved or dropped.
 
-- `0b001` for activeLion
-- `0b010` for chick0
-- `0b011` for chick1
-- `0b100` for elephant0
-- `0b101` for elephant1
-- `0b110` for giraffe0
-- `0b111` for giraffe1
+  We use the following encoding:
 
-The passive lion cannot move (by definition), so we do not assign an encoding to it.
+  - `0b001` for activeLion
+  - `0b010` for chick0
+  - `0b011` for chick1
+  - `0b100` for elephant0
+  - `0b101` for elephant1
+  - `0b110` for giraffe0
+  - `0b111` for giraffe1
+
+  The passive lion cannot move (by definition), so we do not assign an encoding to it.
+
+- `destinationRow` and `destinationColumn`: Self-explanatory.
 
 Note that action representation is **not** unique.
 For example, if the active player has two chicks in hand, then dropping `chick0` in square `(0, 0)` and dropping `chick1` in the same square would have to distinct representations, even though they are the same action.
 However, we have deemed this inefficiency to be acceptable.
 
-## Search node representation (64 bits total)
-
-A search node is represented by 64 bits.
-
-| state   | nextAction | bestDiscoveredOutcome |
-| ------- | ---------- | --------------------- |
-| 48 bits | 7 bits     | 9 bits                |
-
-### State
-
-We described the state format [above](#state-representation).
-
-### Next action
-
-The `nextAction` field is a 7-bit unsigned integer. For non-terminal nodes, it is initialized to `0b001_0000`.
-When all legal actions have been explored, it is set to `0b000_0000`.
-For terminal nodes, there are no legal actions to begin with, so the field is immediately initialized as `0b000_0000`.
-
-### Best discovered outcome
-
-The `bestDiscoveredOutcome` field is a 9-bit signed integer in two's complement format.
-
-- If the value is zero, it means the best discovered outcome is a draw.
-- If the value is `n` for `n > 0`, it means the best discovered outcome is a forced win for the active player in `201 - n` plies from the current state.
-- If the value is `n` for `n < 0`, it means the best discovered outcome is a forced win for the passive player in `201 + n` plies from the current state.
-
-"Best" is relative to the active player.
-
-## Solution representation (64 bits total)
-
-| timelessState | dontCare | bestOutcome |
-| ------------- | -------- | ----------- |
-| 40 bits       | 15 bits  | 9 bits      |
-
 ## Board representation (48 bits total)
+
+A board is 12 squares. Each square is represented by 4 bits.
 
 | r3c2   | r3c1   | r3c0   | r2c2   | r2c1   | r2c0   | r1c2   | r1c1   | r1c0   | r0c2   | r0c1   | r0c0   |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
 | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits |
 
-### Square format (4 bits total)
+### Square representation (4 bits total)
 
 | allegiance | piece  |
 | ---------- | ------ |
 | 1 bit      | 3 bits |
 
-The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player. If the square is empty, the allegiance bit is zero.
+- `allegiance`: The allegiance bit is `0` if the piece belongs to the active player, and `1` if the piece belongs to the passive player.
 
-The piece bits are as follows:
+  If the square is empty, the allegiance bit is zero.
 
-- `0b000` for an empty square
-- `0b001` for active lion and passive lion
+- The `piece` bits represent the piece on the square.
+  We use the following encoding:
+
+  - `0b000` for an empty square
+  - `0b001` for active lion and passive lion
 
   You can use the `allegiance` bit to determine which lion it is.
 
-- `0b010` for chick0
-- `0b011` for chick1
-- `0b100` for elephant0
-- `0b101` for elephant1
-- `0b110` for giraffe0
-- `0b111` for giraffe1
+  - `0b010` for chick0
+  - `0b011` for chick1
+  - `0b100` for elephant0
+  - `0b101` for elephant1
+  - `0b110` for giraffe0
+  - `0b111` for giraffe1
 
-The piece bits use a similar encoding to the actor bits in the action representation,
-except `0b001` is used for both lions.
+Observe that the `piece` encoding is similar to the `actor` encoding we use in the action representation.
+The only difference is that `0b001` is used for both lions.
 
 ## Square set representation (16 bits total)
 
@@ -276,3 +258,23 @@ The bit at index `4 * row + column` is set if the square is in the set.
 | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit |
 
 Since there are only 3 columns, for any `n`, the bit for square `(row: n, column: 3)` is always zero.
+
+## Backward node representation (64 bits total)
+
+Backward nodes are used during the first step of the algorithm (i.e., retrograde analysis).
+
+| state   | unknownChildCount | bestKnownOutcome |
+| ------- | ----------------- | ---------------- |
+| 48 bits | 7 bits            | 9 bits           |
+
+Observe that the format is very similar to [that of forward nodes](#forward-node-representation-64-bits-total). The only differences are:
+
+1. Instead of storing the `childCount`, we store the `unknownChildCount`. Every time a node with a known best outcome is visited, we decrement the `unknownChildCount` of its parent. When the `unknownChildCount` reaches zero, the parent's best outcome is now known.
+2. Instead of storing the `nextAction`, we store the `bestKnownOutcome`.
+   This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
+
+   - `0` represents a draw.
+   - A positive number `n` represents a win for the active player
+     in `201 - n` plies.
+   - A negative number `-n` represents a win for the passive player
+     in `201 + n` plies.
