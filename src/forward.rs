@@ -3,8 +3,6 @@
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
-pub const MAX_PLY_COUNT: u8 = 200;
-
 /// Returns a sorted vector of all states reachable from the provided initial state.
 pub fn reachable_states(initial_state: ForwardNode) -> Vec<BackwardNode> {
     let mut reachable_states = StateSet::empty();
