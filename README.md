@@ -120,14 +120,18 @@ We solve the game in two steps:
 
 Forward nodes are used during the first step of the algorithm (i.e., calculating the set of all reachable states).
 
-| state   | childCount | ZERO   | nextAction |
-| ------- | ---------- | ------ | ---------- |
-| 48 bits | 7 bits     | 2 bits | 7 bits     |
+| state   | nextAction | ZERO   |
+| ------- | ---------- | ------ |
+| 48 bits | 7 bits     | 9 bits |
 
 - `state`: see [State representation](#state-representation)
-- `childCount`: the number of children that have been explored.
 - `nextAction`: see [Action representation](#action-representation).
+
   If there are no remaining actions to explore, then this is zero.
+
+  When a node is newly created,
+  we initialize `nextAction` to `0b001_0000` if the node state is non-terminal, and `0` if the node state is terminal.
+
 - `ZERO`: These bits are unused, so we set them to zero.
 
 ## State representation (48 bits total)
@@ -269,8 +273,8 @@ Backward nodes are used during the first step of the algorithm (i.e., retrograde
 
 Observe that the format is very similar to [that of forward nodes](#forward-node-representation-64-bits-total). The only differences are:
 
-1. Instead of storing the `childCount`, we store the `unknownChildCount`. Every time a node with a known best outcome is visited, we decrement the `unknownChildCount` of its parent. When the `unknownChildCount` reaches zero, the parent's best outcome is now known.
-2. Instead of storing the `nextAction`, we store the `bestKnownOutcome`.
+1. Instead of storing the `nextAction`, we store the `unknownChildCount`. Every time a node with a known best outcome is visited, we decrement the `unknownChildCount` of its parent. When the `unknownChildCount` reaches zero, the parent's best outcome is now known.
+2. We also store the `bestKnownOutcome`.
    This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
 
    - `0` represents a draw.

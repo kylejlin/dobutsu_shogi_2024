@@ -1,102 +1,59 @@
-#![warn(clippy::all)]
-#![allow(clippy::unusual_byte_groupings)]
-#![allow(clippy::type_complexity)]
-
 // A note about fileds with the comment "This must be non-zero":
 // I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
-#[cfg(test)]
-mod tests;
-
-pub mod forward;
-
 pub const MAX_PLY_COUNT: u8 = 200;
 
-pub fn calculate() -> CompactSolutionMap {
-    let mut solution_cache = SolutionCache::new();
+/// Returns a sorted vector of all states reachable from the provided initial state.
+pub fn reachable_states(initial_state: ForwardNode) -> Vec<BackwardNode> {
+    let mut reachable_states = StateSet::empty();
+    reachable_states.add(initial_state);
 
-    let mut stack: Vec<SearchNode> = Vec::with_capacity(MAX_PLY_COUNT as usize);
-    stack.push(SearchNode::initial());
+    let mut stack = vec![initial_state];
 
     loop {
-        let last_node = *stack.last().unwrap();
+        let top_mut = stack.last_mut().unwrap();
+        let (new_top, new_child) = top_mut.next_child();
+        *top_mut = new_top;
 
-        let action = match last_node.next_action() {
-            Ok(action) => action,
+        if new_child.is_some() && !reachable_states.contains(new_child.unchecked_unwrap()) {
+            let new_child = new_child.unchecked_unwrap();
+            reachable_states.add(new_child);
+            stack.push(new_child);
+        }
 
-            Err(solution) => {
-                stack.pop();
+        if new_child.is_none() {
+            stack.pop();
 
-                if solution.is_nondraw() {
-                    solution_cache.set(solution);
-                }
-
-                if stack.is_empty() {
-                    break;
-                }
-
-                let last_node_mut = stack.last_mut().unwrap();
-                *last_node_mut = last_node_mut.record_solution(solution);
-
-                continue;
+            if stack.is_empty() {
+                break;
             }
-        };
-
-        let last_node_mut = stack.last_mut().unwrap();
-        let (new_parent, child) = last_node_mut.explore(action);
-        *last_node_mut = new_parent;
-
-        if child.is_none() {
-            continue;
         }
-        let child = child.unchecked_unwrap();
-
-        let solution = solution_cache.get(child);
-        if solution.is_some() {
-            *last_node_mut = last_node_mut.record_solution(solution.unchecked_unwrap());
-            continue;
-        }
-
-        stack.push(child);
     }
 
-    solution_cache.into()
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CompactSolutionMap {
-    raw: Vec<Solution>,
+    reachable_states.into_sorted_vec()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Solution(
-    /// This must be non-zero.
-    pub u64,
-);
-
-/// An optional solution `o` represents None if and only if `o.0 == 0`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct OptionalSolution(pub u64);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct SearchNode(
-    // This must be non-zero.
+pub struct BackwardNode(
+    // Must be non-zero.
     u64,
 );
 
-/// An optional node `o` represents None if and only if `o.0 == 0`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct OptionalSearchNode(u64);
+#[derive(Clone, Copy, Debug)]
+pub struct ForwardNode(
+    // Must be non-zero.
+    u64,
+);
 
-/// This is like a `SearchNode`,
+/// This is like a `ForwardNode`,
 /// but with the `chick0 <= chick1` invariant
 /// (and all similar invariants) removed.
 /// In other words, `NodeBuilder` represents a
-/// possibly "corrupted" node,
-/// and `SearchNode` is the subset of `NodeBuilder`
-/// representing "valid" nodes.
+/// possibly "corrupted" forward node,
+/// and `ForwardNode` is the subset of `NodeBuilder`
+/// representing "valid" forward nodes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct NodeBuilder(
     /// This must be non-zero.
@@ -107,147 +64,288 @@ struct NodeBuilder(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalNodeBuilder(u64);
 
+#[derive(Clone, Copy, Debug)]
+pub struct OptionalForwardNode(
+    // This is zero if and only if
+    // the option is `NONE`.
+    u64,
+);
+
 /// The **least** significant 7 bits are used.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 struct Action(
     /// This must be non-zero.
     u8,
 );
 
 /// The **least** significant 7 bits are used.
-/// An optional action `o` represents None if and only if `o.0 == 0`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct OptionalAction(u8);
+#[derive(Clone, Copy, Debug)]
+struct OptionalAction(
+    /// This is zero if and only if
+    /// the option is `NONE`.
+    u8,
+);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct SolutionCache {
+/// For any node with state `s`,
+/// a given state set can contain at most
+/// one node with state `s`.
+#[derive(Clone, Debug)]
+struct StateSet {
     raw: [Option<
-        Box<CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>>,
+        Box<
+            StateSetNode<
+                StateSetNode<
+                    StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
+                >,
+            >,
+        >,
     >; 256 * 256],
 }
 
-type CacheBin<T> = [Option<Box<T>>; 16];
+type StateSetNode<T> = [Option<Box<T>>; 16];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct OptionalCachedEvaluation(i16);
+#[derive(Clone, Copy, Debug, Default)]
+struct Bitset16(u16);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The **least** significant 48 bits are used.
+#[derive(Clone, Copy, Debug)]
 struct Board(u64);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 struct SquareSet(u16);
 
-type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
+type ActionHandler = fn(ForwardNode) -> (OptionalNodeBuilder, OptionalAction);
 
-impl CompactSolutionMap {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(self.raw.len() * 8);
+impl StateSet {
+    fn empty() -> Self {
+        let empty: Option<
+            Box<
+                StateSetNode<
+                    StateSetNode<
+                        StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
+                    >,
+                >,
+            >,
+        > = Default::default();
 
-        for solution in &self.raw {
-            let solution = solution.0.to_le_bytes();
-            bytes.extend_from_slice(&solution);
+        let mut v = Vec::with_capacity(256 * 256);
+
+        for _ in 0..256 * 256 {
+            v.push(empty.clone());
         }
 
-        bytes
+        Self {
+            raw: v.try_into().unwrap(),
+        }
+    }
+
+    fn contains(&self, node: ForwardNode) -> bool {
+        let Some(bin0) = &self.raw[(node.0 >> 48) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin1) = bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin2) = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin3) = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin4) = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin5) = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let Some(bin6) = &bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].as_ref() else {
+            return false;
+        };
+        let bin7 = &bin6[((node.0 >> (48 - 7 * 4)) & 0b1111) as usize];
+
+        let i7 = (node.0 >> (48 - 8 * 4)) & 0b1111;
+        bin7.0 & (1 << i7) != 0
+    }
+
+    fn add(&mut self, node: ForwardNode) {
+        let bin0 = self.raw[(node.0 >> 48) as usize].get_or_insert_with(Default::default);
+        let bin1 =
+            bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin2 =
+            bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin3 =
+            bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin4 =
+            bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin5 =
+            bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin6 =
+            bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
+        let bin7 = &mut bin6[((node.0 >> (48 - 7 * 4)) & 0b1111) as usize];
+
+        let i7 = (node.0 >> (48 - 8 * 4)) & 0b1111;
+        bin7.0 |= 1 << i7;
+    }
+
+    fn into_sorted_vec(self) -> Vec<BackwardNode> {
+        let mut raw = Vec::new();
+
+        self.write(&mut raw);
+
+        raw.sort_unstable();
+
+        raw
+    }
+
+    fn write(&self, out: &mut Vec<BackwardNode>) {
+        for (i0, bin0) in self.raw.iter().enumerate() {
+            let Some(bin0) = bin0 else {
+                continue;
+            };
+            let prefix = (i0 as u64) << 48;
+            self.write_bin0(prefix, bin0, out);
+        }
+    }
+
+    fn write_bin0(
+        &self,
+        prefix: u64,
+        bin0: &StateSetNode<
+            StateSetNode<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
+        >,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i1, bin1) in bin0.iter().enumerate() {
+            let Some(bin1) = bin1 else {
+                continue;
+            };
+            let prefix = prefix | ((i1 as u64) << (48 - 4));
+            self.write_bin1(prefix, bin1, out);
+        }
+    }
+
+    fn write_bin1(
+        &self,
+        prefix: u64,
+        bin1: &StateSetNode<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i2, bin2) in bin1.iter().enumerate() {
+            let Some(bin2) = bin2 else {
+                continue;
+            };
+            let prefix = prefix | ((i2 as u64) << (48 - 2 * 4));
+            self.write_bin2(prefix, bin2, out);
+        }
+    }
+
+    fn write_bin2(
+        &self,
+        prefix: u64,
+        bin2: &StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i3, bin3) in bin2.iter().enumerate() {
+            let Some(bin3) = bin3 else {
+                continue;
+            };
+            let prefix = prefix | ((i3 as u64) << (48 - 3 * 4));
+            self.write_bin3(prefix, bin3, out);
+        }
+    }
+
+    fn write_bin3(
+        &self,
+        prefix: u64,
+        bin3: &StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i4, bin4) in bin3.iter().enumerate() {
+            let Some(bin4) = bin4 else {
+                continue;
+            };
+            let prefix = prefix | ((i4 as u64) << (48 - 4 * 4));
+            self.write_bin4(prefix, bin4, out);
+        }
+    }
+
+    fn write_bin4(
+        &self,
+        prefix: u64,
+        bin4: &StateSetNode<StateSetNode<[Bitset16; 16]>>,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i5, bin5) in bin4.iter().enumerate() {
+            let Some(bin5) = bin5 else {
+                continue;
+            };
+            let prefix = prefix | ((i5 as u64) << (48 - 5 * 4));
+            self.write_bin5(prefix, bin5, out);
+        }
+    }
+
+    fn write_bin5(
+        &self,
+        prefix: u64,
+        bin5: &StateSetNode<[Bitset16; 16]>,
+        out: &mut Vec<BackwardNode>,
+    ) {
+        for (i6, bin6) in bin5.iter().enumerate() {
+            let Some(bin6) = bin6 else {
+                continue;
+            };
+            let prefix = prefix | ((i6 as u64) << (48 - 6 * 4));
+            self.write_bin6(prefix, bin6, out);
+        }
+    }
+
+    fn write_bin6(&self, prefix: u64, bin6: &[Bitset16; 16], out: &mut Vec<BackwardNode>) {
+        for (i7, bin7) in bin6.iter().enumerate() {
+            let prefix = prefix | ((i7 as u64) << (48 - 7 * 4));
+            self.write_bin7(prefix, *bin7, out);
+        }
+    }
+
+    fn write_bin7(&self, prefix: u64, bin7: Bitset16, out: &mut Vec<BackwardNode>) {
+        for i8 in 0..16 {
+            if bin7.0 & (1 << i8) != 0 {
+                let prefix = prefix | ((i8 as u64) << (48 - 8 * 4));
+                out.push(BackwardNode(prefix));
+            }
+        }
     }
 }
 
-impl SearchNode {
-    const fn initial() -> SearchNode {
-        const fn ascending(a: u64, b: u64) -> (u64, u64) {
-            if a <= b {
-                (a, b)
-            } else {
-                (b, a)
+impl ForwardNode {
+    fn next_child(mut self) -> (Self, OptionalForwardNode) {
+        loop {
+            let raw = ((self.0 >> offsets::forward::NEXT_ACTION) & 0b111_1111) as u8;
+            if raw == 0 {
+                return (self, OptionalForwardNode::NONE);
             }
+
+            let (new_self, new_child) = self.explore(Action(raw));
+
+            if new_child.is_some() {
+                return (new_self, new_child);
+            }
+
+            self = new_self;
         }
-
-        let active_chick: u64 = 0b0_01_01_0;
-        let passive_chick: u64 = 0b1_10_01_0;
-        let (chick0, chick1) = ascending(active_chick, passive_chick);
-
-        let active_elephant: u64 = 0b0_00_00;
-        let passive_elephant: u64 = 0b1_11_10;
-        let (elephant0, elephant1) = ascending(active_elephant, passive_elephant);
-
-        let active_giraffe: u64 = 0b0_00_10;
-        let passive_giraffe: u64 = 0b1_11_00;
-        let (giraffe0, giraffe1) = ascending(active_giraffe, passive_giraffe);
-
-        let active_lion: u64 = 0b00_01;
-        let passive_lion: u64 = 0b11_01;
-
-        let ply_count: u64 = 0;
-
-        let next_action: u64 = 0b001_0000;
-
-        let best_discovered_outcome: u64 = NEGATIVE_201_I9;
-
-        SearchNode(
-            (chick0 << offsets::CHICK0)
-                | (chick1 << offsets::CHICK1)
-                | (elephant0 << offsets::ELEPHANT0)
-                | (elephant1 << offsets::ELEPHANT1)
-                | (giraffe0 << offsets::GIRAFFE0)
-                | (giraffe1 << offsets::GIRAFFE1)
-                | (active_lion << offsets::ACTIVE_LION)
-                | (passive_lion << offsets::PASSIVE_LION)
-                | (ply_count << offsets::PLY_COUNT)
-                | (next_action << offsets::NEXT_ACTION)
-                | (best_discovered_outcome << offsets::BEST_DISCOVERED_OUTCOME),
-        )
     }
 
-    fn record_solution(self, solution: Solution) -> Self {
-        let incumbent_score = i16::from_zero_padded_i9(self.0 & 0b1_1111_1111);
-
-        let challenger_score = i16::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
-
-        // We need to invert the solution's score, since the solution is from one ply in the future.
-        // A win for the next ply's active player
-        // is a loss for the current ply's active player, and vice-versa.
-        // Therefore, we must invert.
-        let challenger_score = -challenger_score;
-
-        // Furthermore, we must increase the time-until-win (or time-until-loss) by 1,
-        // since the solution is from one ply in the future.
-        // - If the score is positive, then we must decrease it by 1
-        //   (since a longer time-until-win is worse).
-        // - If the score is negative, then we must increase it by 1
-        //   (since a longer time-until-loss is better).
-        // - If the score is zero, then we must leave it as is.
-        let challenger_score =
-            challenger_score - ((challenger_score > 0) as i16) + ((challenger_score < 0) as i16);
-
-        if challenger_score > incumbent_score {
-            return Self(
-                (self.0 & !0b1_1111_1111) | challenger_score.into_zero_padded_i9_unchecked(),
-            );
-        }
-
-        self
-    }
-
-    const fn next_action(self) -> Result<Action, Solution> {
-        let raw = ((self.0 >> 9) & 0b111_1111) as u8;
-        if raw == 0 {
-            return Err(Solution(self.0));
-        }
-        Ok(Action(raw))
-    }
-
-    fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
+    fn explore(self, action: Action) -> (Self, OptionalForwardNode) {
         let (child_builder, next_action) = ACTION_HANDLERS[(action.0 - 16) as usize](self);
 
         let new_self = self.set_next_action(next_action);
         let child = if child_builder.is_none() {
-            OptionalSearchNode::NONE
+            OptionalForwardNode::NONE
         } else {
             child_builder
                 .unchecked_unwrap()
                 .invert_active_player()
                 .increment_ply_count()
-                .init_best_discovered_outcome_and_next_action()
+                .init_next_action()
                 .build()
                 .into_optional()
         };
@@ -256,7 +354,18 @@ impl SearchNode {
 
     const fn set_next_action(self, next_action: OptionalAction) -> Self {
         let raw = next_action.0 as u64;
-        Self((self.0 & !(0b111_1111 << 9)) | (raw << 9))
+        Self(
+            (self.0 & !(0b111_1111 << offsets::forward::NEXT_ACTION))
+                | (raw << offsets::forward::NEXT_ACTION),
+        )
+    }
+
+    const fn into_builder(self) -> NodeBuilder {
+        NodeBuilder(self.0)
+    }
+
+    const fn into_optional(self) -> OptionalForwardNode {
+        OptionalForwardNode(self.0)
     }
 }
 
@@ -332,13 +441,17 @@ impl NodeBuilder {
     /// to the outcome of the game, and we set the next action to `None`.
     /// Otherwise, we set the best discovered outcome to `-200`,
     /// and we set the next action `to Action(0b001_0000)`.
-    const fn init_best_discovered_outcome_and_next_action(self) -> Self {
+    const fn init_next_action(self) -> Self {
         const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
+
+        let with_no_next_action = Self(
+            (self.0 & !0xFFFF) | ((OptionalAction::NONE.0 as u64) << offsets::forward::NEXT_ACTION),
+        );
 
         // If the active lion is in the passive player's hand,
         // the active player has lost.
         if self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK {
-            return self.init_best_discovered_outcome_and_next_action_assuming_loss();
+            return with_no_next_action;
         }
 
         const ACTIVE_LION_TRY_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
@@ -346,48 +459,22 @@ impl NodeBuilder {
         // If the active lion is in the last row,
         // the active player has won.
         if self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK {
-            return self.init_best_discovered_outcome_and_next_action_assuming_win();
+            return with_no_next_action;
         }
 
         const PLY_COUNT_MASK: u64 = 0xFF << offsets::PLY_COUNT;
         const MAX_PLY_COUNT_SHIFTED: u64 = (MAX_PLY_COUNT as u64) << offsets::PLY_COUNT;
         if self.0 & PLY_COUNT_MASK == MAX_PLY_COUNT_SHIFTED {
-            return self.init_best_discovered_outcome_and_next_action_assuming_draw();
+            return with_no_next_action;
         }
 
         const DEFAULT_FIRST_ACTION: Action = Action(0b001_0000);
         Self(
-            (self.0 & !0xFFFF)
-                | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION)
-                | (NEGATIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME),
+            (self.0 & !0xFFFF) | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::forward::NEXT_ACTION),
         )
     }
 
-    const fn init_best_discovered_outcome_and_next_action_assuming_loss(self) -> Self {
-        Self(
-            (self.0 & !0xFFFF)
-                | (NEGATIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME)
-                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
-        )
-    }
-
-    const fn init_best_discovered_outcome_and_next_action_assuming_win(self) -> Self {
-        Self(
-            (self.0 & !0xFFFF)
-                | (POSITIVE_201_I9 << offsets::BEST_DISCOVERED_OUTCOME)
-                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
-        )
-    }
-
-    const fn init_best_discovered_outcome_and_next_action_assuming_draw(self) -> Self {
-        Self(
-            (self.0 & !0xFFFF)
-                | (0 << offsets::BEST_DISCOVERED_OUTCOME)
-                | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
-        )
-    }
-
-    const fn build(self) -> SearchNode {
+    const fn build(self) -> ForwardNode {
         let nonflipped = self.build_without_horizontal_normalization();
         let flipped = self
             .horizontally_flip()
@@ -401,7 +488,7 @@ impl NodeBuilder {
     }
 
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
-    const fn build_without_horizontal_normalization(self) -> SearchNode {
+    const fn build_without_horizontal_normalization(self) -> ForwardNode {
         const CHICK0_MASK: u64 = 0b11_1111 << offsets::CHICK0;
         const CHICK1_MASK: u64 = 0b11_1111 << offsets::CHICK1;
         const ELEPHANT0_MASK: u64 = 0b1_1111 << offsets::ELEPHANT0;
@@ -446,7 +533,7 @@ impl NodeBuilder {
         };
 
         const NONLION_MASK: u64 = 0xFFFF_FFFF << offsets::GIRAFFE1;
-        SearchNode(
+        ForwardNode(
             (self.0 & !NONLION_MASK)
                 | chick0
                 | chick1
@@ -502,279 +589,37 @@ impl NodeBuilder {
                 | passive_lion_col_flipped,
         )
     }
-}
 
-impl SolutionCache {
-    fn new() -> SolutionCache {
-        let empty: Option<
-            Box<CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>>,
-        > = Default::default();
-
-        let mut v = Vec::with_capacity(256 * 256);
-
-        for _ in 0..256 * 256 {
-            v.push(empty.clone());
-        }
-
-        SolutionCache {
-            raw: v.try_into().unwrap(),
-        }
-    }
-
-    fn get(&self, node: SearchNode) -> OptionalSolution {
-        let Some(bin0) = &self.raw[(node.0 >> 48) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(bin1) = bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(bin2) = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(bin3) = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(bin4) = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(bin5) = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref() else {
-            return OptionalSolution::NONE;
-        };
-        let Some(raw) = bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].into_zero_padded_i9()
-        else {
-            return OptionalSolution::NONE;
-        };
-
-        let left = node.0 & 0xFFFF_FFFF_FF00_0000;
-        let right = raw;
-        OptionalSolution(left | right)
-    }
-
-    fn set(&mut self, solution: Solution) {
-        let bin0 = self.raw[(solution.0 >> 48) as usize].get_or_insert_with(Default::default);
-        let bin1 =
-            bin0[((solution.0 >> (48 - 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin2 = bin1[((solution.0 >> (48 - 2 * 4)) & 0b1111) as usize]
-            .get_or_insert_with(Default::default);
-        let bin3 = bin2[((solution.0 >> (48 - 3 * 4)) & 0b1111) as usize]
-            .get_or_insert_with(Default::default);
-        let bin4 = bin3[((solution.0 >> (48 - 4 * 4)) & 0b1111) as usize]
-            .get_or_insert_with(Default::default);
-        let bin5 = bin4[((solution.0 >> (48 - 5 * 4)) & 0b1111) as usize]
-            .get_or_insert_with(Default::default);
-        let raw = &mut bin5[((solution.0 >> (48 - 6 * 4)) & 0b1111) as usize];
-
-        *raw = OptionalCachedEvaluation::from_zero_padded_i9(solution.0 & 0b1_1111_1111);
+    const fn into_optional(self) -> OptionalNodeBuilder {
+        OptionalNodeBuilder(self.0)
     }
 }
 
-impl Solution {
-    const fn is_nondraw(self) -> bool {
-        self.0 & 0b1_1111_1111 != 0
-    }
-}
-
-impl From<SolutionCache> for CompactSolutionMap {
-    fn from(cache: SolutionCache) -> Self {
-        let mut raw = Vec::new();
-
-        cache.write(&mut raw);
-
-        raw.sort_unstable();
-
-        CompactSolutionMap { raw }
-    }
-}
-
-impl SolutionCache {
-    fn write(&self, out: &mut Vec<Solution>) {
-        for (i0, bin0) in self.raw.iter().enumerate() {
-            let Some(bin0) = bin0 else {
-                continue;
-            };
-            let prefix = (i0 as u64) << 48;
-            self.write_bin0(prefix, bin0, out);
-        }
-    }
-
-    fn write_bin0(
-        &self,
-        prefix: u64,
-        bin0: &CacheBin<CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>>,
-        out: &mut Vec<Solution>,
-    ) {
-        for (i1, bin1) in bin0.iter().enumerate() {
-            let Some(bin1) = bin1 else {
-                continue;
-            };
-            let prefix = prefix | ((i1 as u64) << (48 - 4));
-            self.write_bin1(prefix, bin1, out);
-        }
-    }
-
-    fn write_bin1(
-        &self,
-        prefix: u64,
-        bin1: &CacheBin<CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>>,
-        out: &mut Vec<Solution>,
-    ) {
-        for (i2, bin2) in bin1.iter().enumerate() {
-            let Some(bin2) = bin2 else {
-                continue;
-            };
-            let prefix = prefix | ((i2 as u64) << (48 - 2 * 4));
-            self.write_bin2(prefix, bin2, out);
-        }
-    }
-
-    fn write_bin2(
-        &self,
-        prefix: u64,
-        bin2: &CacheBin<CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>>,
-        out: &mut Vec<Solution>,
-    ) {
-        for (i3, bin3) in bin2.iter().enumerate() {
-            let Some(bin3) = bin3 else {
-                continue;
-            };
-            let prefix = prefix | ((i3 as u64) << (48 - 3 * 4));
-            self.write_bin3(prefix, bin3, out);
-        }
-    }
-
-    fn write_bin3(
-        &self,
-        prefix: u64,
-        bin3: &CacheBin<CacheBin<[OptionalCachedEvaluation; 16]>>,
-        out: &mut Vec<Solution>,
-    ) {
-        for (i4, bin4) in bin3.iter().enumerate() {
-            let Some(bin4) = bin4 else {
-                continue;
-            };
-            let prefix = prefix | ((i4 as u64) << (48 - 4 * 4));
-            self.write_bin4(prefix, bin4, out);
-        }
-    }
-
-    fn write_bin4(
-        &self,
-        prefix: u64,
-        bin4: &CacheBin<[OptionalCachedEvaluation; 16]>,
-        out: &mut Vec<Solution>,
-    ) {
-        for (i5, bin5) in bin4.iter().enumerate() {
-            let Some(bin5) = bin5 else {
-                continue;
-            };
-            let prefix = prefix | ((i5 as u64) << (48 - 5 * 4));
-            self.write_bin5(prefix, bin5, out);
-        }
-    }
-
-    fn write_bin5(
-        &self,
-        prefix: u64,
-        bin5: &[OptionalCachedEvaluation; 16],
-        out: &mut Vec<Solution>,
-    ) {
-        for (i6, raw) in bin5.iter().enumerate() {
-            let Some(outcome_score) = raw.into_zero_padded_i9() else {
-                continue;
-            };
-            let solution = prefix | ((i6 as u64) << (48 - 6 * 4)) | outcome_score;
-            out.push(Solution(solution));
-        }
-    }
-}
-
-impl OptionalCachedEvaluation {
-    const NONE: Self = OptionalCachedEvaluation(i16::MIN);
-
-    fn into_zero_padded_i9(self) -> Option<u64> {
-        if self == Self::NONE {
-            return None;
-        }
-
-        Some(self.0.into_zero_padded_i9_unchecked())
-    }
-}
-
-trait FromZeroPaddedI9<T> {
-    fn from_zero_padded_i9(value: T) -> Self;
-}
-
-impl FromZeroPaddedI9<u64> for OptionalCachedEvaluation {
-    fn from_zero_padded_i9(value: u64) -> OptionalCachedEvaluation {
-        OptionalCachedEvaluation(i16::from_zero_padded_i9(value))
-    }
-}
-
-impl FromZeroPaddedI9<u64> for i16 {
-    fn from_zero_padded_i9(value: u64) -> i16 {
-        // Handle negative values
-        if (value & (1 << 8)) != 0 {
-            const C: i16 = -(1 << 8);
-            let v8 = (value & 0b1111_1111) as i16;
-            return C + v8;
-        }
-
-        value as i16
-    }
-}
-
-trait IntoZeroPaddedI9Unchecked<T> {
-    /// If `self` does not fit into a 9-bit
-    /// two's complement signed integer,
-    /// then the behavior is undefined.
-    fn into_zero_padded_i9_unchecked(self) -> T;
-}
-
-impl IntoZeroPaddedI9Unchecked<u64> for i16 {
-    fn into_zero_padded_i9_unchecked(self) -> u64 {
-        if self < 0 {
-            return ((1 << 9) + self) as u64;
-        }
-
-        self as u64
-    }
-}
-
-impl Default for OptionalCachedEvaluation {
-    fn default() -> Self {
-        Self::NONE
-    }
-}
-
-impl OptionalSolution {
-    const NONE: Self = OptionalSolution(0);
+impl OptionalForwardNode {
+    const NONE: Self = Self(0);
 
     const fn is_some(self) -> bool {
-        self.0 != Self::NONE.0
+        self.0 != 0
     }
-
-    const fn unchecked_unwrap(self) -> Solution {
-        Solution(self.0)
-    }
-}
-
-impl OptionalSearchNode {
-    const NONE: Self = OptionalSearchNode(0);
 
     const fn is_none(self) -> bool {
-        self.0 == Self::NONE.0
+        self.0 == 0
     }
 
-    const fn unchecked_unwrap(self) -> SearchNode {
-        SearchNode(self.0)
+    const fn unchecked_unwrap(self) -> ForwardNode {
+        ForwardNode(self.0)
     }
 }
 
 impl OptionalNodeBuilder {
-    const NONE: Self = OptionalNodeBuilder(0);
+    const NONE: Self = Self(0);
+
+    const fn is_some(self) -> bool {
+        self.0 != 0
+    }
 
     const fn is_none(self) -> bool {
-        self.0 == Self::NONE.0
+        self.0 == 0
     }
 
     const fn unchecked_unwrap(self) -> NodeBuilder {
@@ -783,126 +628,20 @@ impl OptionalNodeBuilder {
 }
 
 impl OptionalAction {
-    const NONE: Self = OptionalAction(0);
-}
+    const NONE: Self = Self(0);
 
-impl SearchNode {
-    const fn into_builder(self) -> NodeBuilder {
-        NodeBuilder(self.0)
+    const fn is_some(self) -> bool {
+        self.0 != 0
     }
 
-    const fn into_optional(self) -> OptionalSearchNode {
-        OptionalSearchNode(self.0)
-    }
-}
-
-impl NodeBuilder {
-    const fn board(self) -> Board {
-        const CHICK0_COORDS_MASK: u64 = 0b1111 << offsets::CHICK0_COLUMN;
-        const CHICK1_COORDS_MASK: u64 = 0b1111 << offsets::CHICK1_COLUMN;
-        const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT0_COLUMN;
-        const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT1_COLUMN;
-        const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE0_COLUMN;
-        const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE1_COLUMN;
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION_COLUMN;
-        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::PASSIVE_LION_COLUMN;
-
-        let chick0_coords = self.0 & CHICK0_COORDS_MASK;
-        let chick1_coords = self.0 & CHICK1_COORDS_MASK;
-        let elephant0_coords = self.0 & ELEPHANT0_COORDS_MASK;
-        let elephant1_coords = self.0 & ELEPHANT1_COORDS_MASK;
-        let giraffe0_coords = self.0 & GIRAFFE0_COORDS_MASK;
-        let giraffe1_coords = self.0 & GIRAFFE1_COORDS_MASK;
-        let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
-        let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
-
-        const LION_SQUARE_PIECE: u64 = 0b001;
-        const CHICK0_SQUARE_PIECE: u64 = 0b010;
-        const CHICK1_SQUARE_PIECE: u64 = 0b011;
-        const ELEPHANT0_SQUARE_PIECE: u64 = 0b100;
-        const ELEPHANT1_SQUARE_PIECE: u64 = 0b101;
-        const GIRAFFE0_SQUARE_PIECE: u64 = 0b110;
-        const GIRAFFE1_SQUARE_PIECE: u64 = 0b111;
-
-        let mut board: u64 = 0;
-
-        // For each piece, we first check whether it's in the hand.
-        // If so, we skip it.
-        // Otherwise, we calculate the board offset and add the piece to the board.
-
-        if chick0_coords != CHICK0_COORDS_MASK {
-            let board_offset = coords_to_board_offset(chick0_coords >> offsets::CHICK0_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK0_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | CHICK0_SQUARE_PIECE) << board_offset;
-        }
-
-        if chick1_coords != CHICK1_COORDS_MASK {
-            let board_offset = coords_to_board_offset(chick1_coords >> offsets::CHICK1_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK1_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | CHICK1_SQUARE_PIECE) << board_offset;
-        }
-
-        if elephant0_coords != ELEPHANT0_COORDS_MASK {
-            let board_offset =
-                coords_to_board_offset(elephant0_coords >> offsets::ELEPHANT0_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT0_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | ELEPHANT0_SQUARE_PIECE) << board_offset;
-        }
-
-        if elephant1_coords != ELEPHANT1_COORDS_MASK {
-            let board_offset =
-                coords_to_board_offset(elephant1_coords >> offsets::ELEPHANT1_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT1_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | ELEPHANT1_SQUARE_PIECE) << board_offset;
-        }
-
-        if giraffe0_coords != GIRAFFE0_COORDS_MASK {
-            let board_offset = coords_to_board_offset(giraffe0_coords >> offsets::GIRAFFE0_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE0_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | GIRAFFE0_SQUARE_PIECE) << board_offset;
-        }
-
-        if giraffe1_coords != GIRAFFE1_COORDS_MASK {
-            let board_offset = coords_to_board_offset(giraffe1_coords >> offsets::GIRAFFE1_COLUMN);
-            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE1_ALLEGIANCE - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | GIRAFFE1_SQUARE_PIECE) << board_offset;
-        }
-
-        if active_lion_coords != ACTIVE_LION_COORDS_MASK {
-            let board_offset =
-                coords_to_board_offset(active_lion_coords >> offsets::ACTIVE_LION_COLUMN);
-            const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
-        }
-
-        if passive_lion_coords != PASSIVE_LION_COORDS_MASK {
-            let board_offset =
-                coords_to_board_offset(passive_lion_coords >> offsets::PASSIVE_LION_COLUMN);
-            const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
-        }
-
-        Board(board)
+    const fn is_none(self) -> bool {
+        self.0 == 0
     }
 
-    const fn into_optional(self) -> OptionalNodeBuilder {
-        OptionalNodeBuilder(self.0)
+    const fn unchecked_unwrap(self) -> Action {
+        Action(self.0)
     }
 }
-
-const fn coords_to_board_offset(coords: u64) -> u64 {
-    let col = coords & 0b11;
-    let row = coords >> 2;
-    (row * 3 + col) * 4
-}
-
-/// `-200`` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
-
-/// `200` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const POSITIVE_201_I9: u64 = 0b0_1100_1001;
 
 macro_rules! action_handlers_for_piece {
     ($piece:ident) => {
@@ -953,7 +692,7 @@ macro_rules! concat_action_handlers {
     }};
 }
 
-const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+const fn dummy_action_handler(_: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
     (OptionalNodeBuilder::NONE, OptionalAction::NONE)
 }
 
@@ -990,7 +729,7 @@ const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handlers!(
 
 macro_rules! define_action_handler {
     ($piece:literal, $name:ident, $dest_coords:literal) => {
-        pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+        pub const fn $name(state: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
             state
                 .into_builder()
                 .handle_action(Action(($piece << 4) | $dest_coords))
@@ -1032,7 +771,7 @@ mod action_handlers {
     define_all_action_handlers_for_piece!(giraffe0, 0b110);
     define_all_action_handlers_for_piece!(giraffe1, 0b111);
 
-    pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+    pub fn handle_bad_action(_: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
         panic!("Illegal action");
     }
 }
@@ -1279,6 +1018,94 @@ impl NodeBuilder {
 
         self
     }
+
+    const fn board(self) -> Board {
+        const CHICK0_COORDS_MASK: u64 = 0b1111 << offsets::CHICK0_COLUMN;
+        const CHICK1_COORDS_MASK: u64 = 0b1111 << offsets::CHICK1_COLUMN;
+        const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT0_COLUMN;
+        const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << offsets::ELEPHANT1_COLUMN;
+        const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE0_COLUMN;
+        const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << offsets::GIRAFFE1_COLUMN;
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION_COLUMN;
+        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::PASSIVE_LION_COLUMN;
+
+        let chick0_coords = self.0 & CHICK0_COORDS_MASK;
+        let chick1_coords = self.0 & CHICK1_COORDS_MASK;
+        let elephant0_coords = self.0 & ELEPHANT0_COORDS_MASK;
+        let elephant1_coords = self.0 & ELEPHANT1_COORDS_MASK;
+        let giraffe0_coords = self.0 & GIRAFFE0_COORDS_MASK;
+        let giraffe1_coords = self.0 & GIRAFFE1_COORDS_MASK;
+        let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
+        let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
+
+        const LION_SQUARE_PIECE: u64 = 0b001;
+        const CHICK0_SQUARE_PIECE: u64 = 0b010;
+        const CHICK1_SQUARE_PIECE: u64 = 0b011;
+        const ELEPHANT0_SQUARE_PIECE: u64 = 0b100;
+        const ELEPHANT1_SQUARE_PIECE: u64 = 0b101;
+        const GIRAFFE0_SQUARE_PIECE: u64 = 0b110;
+        const GIRAFFE1_SQUARE_PIECE: u64 = 0b111;
+
+        let mut board: u64 = 0;
+
+        // For each piece, we first check whether it's in the hand.
+        // If so, we skip it.
+        // Otherwise, we calculate the board offset and add the piece to the board.
+
+        if chick0_coords != CHICK0_COORDS_MASK {
+            let board_offset = coords_to_board_offset(chick0_coords >> offsets::CHICK0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | CHICK0_SQUARE_PIECE) << board_offset;
+        }
+
+        if chick1_coords != CHICK1_COORDS_MASK {
+            let board_offset = coords_to_board_offset(chick1_coords >> offsets::CHICK1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::CHICK1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | CHICK1_SQUARE_PIECE) << board_offset;
+        }
+
+        if elephant0_coords != ELEPHANT0_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(elephant0_coords >> offsets::ELEPHANT0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | ELEPHANT0_SQUARE_PIECE) << board_offset;
+        }
+
+        if elephant1_coords != ELEPHANT1_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(elephant1_coords >> offsets::ELEPHANT1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::ELEPHANT1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | ELEPHANT1_SQUARE_PIECE) << board_offset;
+        }
+
+        if giraffe0_coords != GIRAFFE0_COORDS_MASK {
+            let board_offset = coords_to_board_offset(giraffe0_coords >> offsets::GIRAFFE0_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE0_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | GIRAFFE0_SQUARE_PIECE) << board_offset;
+        }
+
+        if giraffe1_coords != GIRAFFE1_COORDS_MASK {
+            let board_offset = coords_to_board_offset(giraffe1_coords >> offsets::GIRAFFE1_COLUMN);
+            let allegiance_in_bit3 = (self.0 >> (offsets::GIRAFFE1_ALLEGIANCE - 3)) & (1 << 3);
+            board |= (allegiance_in_bit3 | GIRAFFE1_SQUARE_PIECE) << board_offset;
+        }
+
+        if active_lion_coords != ACTIVE_LION_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(active_lion_coords >> offsets::ACTIVE_LION_COLUMN);
+            const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
+            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+        }
+
+        if passive_lion_coords != PASSIVE_LION_COORDS_MASK {
+            let board_offset =
+                coords_to_board_offset(passive_lion_coords >> offsets::PASSIVE_LION_COLUMN);
+            const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
+            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+        }
+
+        Board(board)
+    }
 }
 
 impl Board {
@@ -1307,6 +1134,12 @@ impl Board {
         let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
         self.is_dest_square_empty(action) | is_passive
     }
+}
+
+const fn coords_to_board_offset(coords: u64) -> u64 {
+    let col = coords & 0b11;
+    let row = coords >> 2;
+    (row * 3 + col) * 4
 }
 
 impl Action {
@@ -1591,8 +1424,6 @@ mod offsets {
     pub const ACTIVE_LION: u64 = 9 + 7 + 8 + 4;
     pub const PASSIVE_LION: u64 = 9 + 7 + 8;
     pub const PLY_COUNT: u64 = 9 + 7;
-    pub const NEXT_ACTION: u64 = 9;
-    pub const BEST_DISCOVERED_OUTCOME: u64 = 0;
 
     pub const CHICK0_PROMOTION: u64 = CHICK0;
     pub const CHICK0_COLUMN: u64 = CHICK0_PROMOTION + 1;
@@ -1624,4 +1455,13 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
+
+    pub mod forward {
+        pub const NEXT_ACTION: u64 = 9;
+    }
+
+    pub mod backward {
+        pub const UNKNOWN_CHILD_COUNT: u64 = 9;
+        pub const BEST_KNOWN_OUTCOME: u64 = 0;
+    }
 }
