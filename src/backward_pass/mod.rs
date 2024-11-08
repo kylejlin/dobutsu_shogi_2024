@@ -5,8 +5,11 @@ mod tests;
 
 /// This function will solve the game when provided
 /// with a slice of all reachable states.
-/// **The slice must be sorted.**
+///
+/// The slice of states will be sorted.
 pub fn solve(states: &mut [SearchNode]) {
+    states.sort_unstable();
+
     init_unknown_child_count_and_best_known_outcome(states);
 
     let mut stack = vec![];
