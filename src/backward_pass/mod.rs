@@ -15,14 +15,14 @@ pub fn solve(states: &mut [SearchNode]) {
     let mut known_stack = vec![];
     add_terminal_nodes(states, &mut known_stack);
 
-    let mut temp = Vec::with_capacity(8 * 12);
+    let mut parent_buffer = vec![];
 
     while let Some(top) = known_stack.pop() {
         let outcome = top.best_known_outcome();
 
-        top.write_parents(&mut temp);
+        top.write_parents(&mut parent_buffer);
 
-        for parent in temp.iter().copied() {
+        for parent in parent_buffer.iter().copied() {
             let Ok(parent_index) = states.binary_search(&parent) else {
                 // It's possible that a theoretical parent is actually unreachable.
                 continue;
