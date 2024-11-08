@@ -548,10 +548,6 @@ impl OptionalSearchNode {
         self.0 != 0
     }
 
-    const fn is_none(self) -> bool {
-        self.0 == 0
-    }
-
     const fn unchecked_unwrap(self) -> SearchNode {
         SearchNode(self.0)
     }
