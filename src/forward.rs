@@ -395,27 +395,29 @@ impl NodeBuilder {
     /// If the this is terminal, then we set the next action to `None`.
     /// Otherwise, we set the next action `to Action(0b001_0000)`.
     const fn init_next_action(self) -> Self {
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
-
-        let with_no_next_action =
-            Self((self.0 & !0xFFFF) | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION));
-
-        // If the active lion is in the passive player's hand,
-        // the active player has lost.
-        if self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK {
-            return with_no_next_action;
-        }
-
-        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
-
-        // If the active lion is in the last row,
-        // the active player has won.
-        if self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK {
-            return with_no_next_action;
+        if self.is_terminal() {
+            return Self(
+                (self.0 & !(0b111_1111 << offsets::NEXT_ACTION))
+                    | ((OptionalAction::NONE.0 as u64) << offsets::NEXT_ACTION),
+            );
         }
 
         const DEFAULT_FIRST_ACTION: Action = Action(0b001_0000);
-        Self((self.0 & !0xFFFF) | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION))
+        Self(
+            (self.0 & !(0b111_1111 << offsets::NEXT_ACTION))
+                | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION),
+        )
+    }
+
+    const fn is_terminal(self) -> bool {
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
+        let active_player_in_passive_hand =
+            self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK;
+
+        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
+        let active_lion_in_last_row = self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK;
+
+        active_player_in_passive_hand || active_lion_in_last_row
     }
 
     const fn build(self) -> SearchNode {
