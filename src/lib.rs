@@ -119,6 +119,62 @@ impl OptionalAction {
 }
 
 impl SearchNode {
+    pub const fn initial() -> Self {
+        const fn ascending(a: u64, b: u64) -> (u64, u64) {
+            if a <= b {
+                (a, b)
+            } else {
+                (b, a)
+            }
+        }
+
+        let active_chick: u64 = 0b0_01_01_0;
+        let passive_chick: u64 = 0b1_10_01_0;
+        let (chick0, chick1) = ascending(active_chick, passive_chick);
+
+        let active_elephant: u64 = 0b0_00_00;
+        let passive_elephant: u64 = 0b1_11_10;
+        let (elephant0, elephant1) = ascending(active_elephant, passive_elephant);
+
+        let active_giraffe: u64 = 0b0_00_10;
+        let passive_giraffe: u64 = 0b1_11_00;
+        let (giraffe0, giraffe1) = ascending(active_giraffe, passive_giraffe);
+
+        let active_lion: u64 = 0b00_01;
+        let passive_lion: u64 = 0b11_01;
+
+        let next_action: u64 = 0b001_0000;
+
+        Self(
+            (chick0 << offsets::CHICK0)
+                | (chick1 << offsets::CHICK1)
+                | (elephant0 << offsets::ELEPHANT0)
+                | (elephant1 << offsets::ELEPHANT1)
+                | (giraffe0 << offsets::GIRAFFE0)
+                | (giraffe1 << offsets::GIRAFFE1)
+                | (active_lion << offsets::ACTIVE_LION)
+                | (passive_lion << offsets::PASSIVE_LION)
+                | (next_action << offsets::NEXT_ACTION),
+        )
+    }
+
+    fn next_child(mut self) -> (Self, OptionalSearchNode) {
+        loop {
+            let raw = ((self.0 >> offsets::NEXT_ACTION) & 0b111_1111) as u8;
+            if raw == 0 {
+                return (self, OptionalSearchNode::NONE);
+            }
+
+            let (new_self, new_child) = self.explore(Action(raw));
+
+            if new_child.is_some() {
+                return (new_self, new_child);
+            }
+
+            self = new_self;
+        }
+    }
+
     fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
         let (child, next_action) = self.apply_action(action);
         let new_self = self.set_next_action(next_action);
