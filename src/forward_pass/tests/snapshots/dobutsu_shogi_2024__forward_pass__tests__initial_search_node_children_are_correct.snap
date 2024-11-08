@@ -1,0 +1,42 @@
+---
+source: src/forward_pass/tests/mod.rs
+expression: "SearchNode::initial().children().pretty()"
+---
+SearchNodeSet(len = 4) [
+    0:
+    |---|                |---|
+    |G*E|                |GLE|
+    |*CL|                |*C*|
+    |*c*|                |lc*|
+    |elg|                |e*g|
+    |---|                |---|
+    next_action: active_lion to r0c0
+    ==========================
+    1:
+    |---|                |---|
+    |G*E|                |GLE|
+    |LC*|                |*C*|
+    |*c*|                |*cl|
+    |elg|                |e*g|
+    |---|                |---|
+    next_action: active_lion to r0c0
+    ==========================
+    2:
+    |---|                |---|
+    |GLE|                |GLE|
+    |***|                |*c*|
+    |*C*|                |***|
+    |elg|                |elg|
+    |---|                |---|
+    next_action: active_lion to r0c0
+    ==========================
+    3:
+    |---|                |---|
+    |*LE|                |GLE|
+    |GC*|                |*C*|
+    |*c*|                |*cg|
+    |elg|                |el*|
+    |---|                |---|
+    next_action: active_lion to r0c0
+    ==========================
+]

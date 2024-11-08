@@ -1,19 +1,7 @@
-// A note about fileds with the comment "This must be non-zero":
-// I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
-// but that would clutter the code with a bunch of unwraps,
-// which hurts readability and performance.
+use super::*;
 
-/// `states` must be sorted.
-pub fn solve(states: &mut Vec<SearchNode>) {
-    // init_nodes_for_retrograde_analysis(states);
-
-    // let mut stack = vec![];
-    // add_terminal_nodes(states, &mut stack);
-
-    // while let Some(top) = stack.pop() {
-    //     // TODO
-    // }
-}
+#[cfg(test)]
+mod tests;
 
 /// Returns a sorted vector of all states reachable from the provided initial state.
 pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
@@ -43,13 +31,6 @@ pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
 
     reachable_states.into_sorted_vec()
 }
-
-/// The **least** significant 4 bits are used.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SearchNode(
-    // Must be non-zero.
-    pub u64,
-);
 
 /// This is like a `SearchNode`,
 /// but with the `chick0 <= chick1` invariant

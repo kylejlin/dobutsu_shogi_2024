@@ -78,24 +78,8 @@ impl Debug for Pretty<SearchNode> {
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let board = self.0.board().pretty();
-        let ply_count = (self.0 .0 >> offsets::PLY_COUNT) & 0xFF;
-        let outcome = i16::from_zero_padded_i9(
-            (self.0 .0 >> offsets::BEST_DISCOVERED_OUTCOME) & 0b1_1111_1111,
-        );
-        let outcome = if outcome < 0 {
-            let t = 201 + outcome;
-            format!("{outcome} (lose in {t})")
-        } else if outcome > 0 {
-            let t = 201 - outcome;
-            format!("+{outcome} (win in {t})")
-        } else {
-            "0 (draw)".to_string()
-        };
         let next_action = Action(((self.0 .0 >> offsets::NEXT_ACTION) & 0b111_1111) as u8).pretty();
-        write!(
-            f,
-            "{board}\nply_count: {ply_count}\nbest_known_outcome: {outcome}\nnext_action: {next_action}",
-        )
+        write!(f, "{board}\nnext_action: {next_action}",)
     }
 }
 
@@ -224,19 +208,21 @@ impl SearchNode {
     pub fn children(mut self) -> SearchNodeSet {
         let mut out = vec![];
         loop {
-            let Ok(action) = self.next_action() else {
-                return SearchNodeSet(out);
-            };
-
-            let (new_self, child) = self.explore(action);
+            let (new_self, child) = self.next_child();
             self = new_self;
 
             if child.is_none() {
-                continue;
+                return SearchNodeSet(out);
             }
 
             out.push(child.unchecked_unwrap());
         }
+    }
+}
+
+impl OptionalSearchNode {
+    const fn is_none(self) -> bool {
+        self.0 == Self::NONE.0
     }
 }
 

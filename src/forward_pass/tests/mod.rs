@@ -1,7 +1,5 @@
 use super::*;
 
-mod i9;
-
 mod helpers;
 
 use helpers::IntoPretty;
@@ -20,18 +18,10 @@ fn initial_search_node_allegiance_inversion_is_correct() {
 }
 
 #[test]
-fn initial_search_node_with_incremented_ply_count_is_correct() {
+fn initial_search_node_with_initialized_next_action() {
     insta::assert_snapshot!(SearchNode::initial()
         .into_builder()
-        .increment_ply_count()
-        .pretty());
-}
-
-#[test]
-fn initial_search_node_with_initialized_best_discovered_outcome_and_next_action() {
-    insta::assert_snapshot!(SearchNode::initial()
-        .into_builder()
-        .init_best_discovered_outcome_and_next_action()
+        .init_next_action()
         .pretty());
 }
 

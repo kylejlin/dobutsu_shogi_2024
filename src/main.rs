@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use dobutsu_shogi_2024::forward::*;
+use dobutsu_shogi_2024::*;
 
 fn main() {
     println!("Starting tree search. This will probably take several hours.");

@@ -1,0 +1,11 @@
+---
+source: src/forward_pass/tests/mod.rs
+expression: "SearchNode::initial().into_builder().horizontally_flip().pretty()"
+---
+|---|                |---|
+|ELG|                |ELG|
+|*C*|                |*C*|
+|*c*|                |*c*|
+|gle|                |gle|
+|---|                |---|
+next_action: active_lion to r0c0

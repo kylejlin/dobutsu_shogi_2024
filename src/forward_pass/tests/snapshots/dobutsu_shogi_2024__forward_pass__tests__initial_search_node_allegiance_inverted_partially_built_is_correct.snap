@@ -1,0 +1,11 @@
+---
+source: src/forward_pass/tests/mod.rs
+expression: "SearchNode::initial().into_builder().invert_active_player().build_without_horizontal_normalization().pretty()"
+---
+|---|                |---|
+|GLE|                |GLE|
+|*C*|                |*C*|
+|*c*|                |*c*|
+|elg|                |elg|
+|---|                |---|
+next_action: active_lion to r0c0
