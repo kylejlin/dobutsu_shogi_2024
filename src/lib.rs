@@ -929,6 +929,11 @@ impl Board {
     }
 
     #[inline(always)]
+    const fn is_square_nonpassive_at_board_offset(self, board_offset: u64) -> bool {
+        self.0 & (0b1_000 << board_offset) == 0
+    }
+
+    #[inline(always)]
     const fn is_dest_square_nonactive(self, action: Action) -> bool {
         let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
         self.is_dest_square_empty(action) | is_passive
