@@ -20,9 +20,7 @@ pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
             if !reachable_states.add(new_child).did_addend_already_exist {
                 stack.push(new_child);
             }
-        }
-
-        if new_child.is_none() {
+        } else {
             stack.pop();
 
             if stack.is_empty() {
