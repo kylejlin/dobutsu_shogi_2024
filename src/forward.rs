@@ -39,12 +39,12 @@ pub struct SearchNode(
     pub u64,
 );
 
-/// This is like a `ForwardNode`,
+/// This is like a `SearchNode`,
 /// but with the `chick0 <= chick1` invariant
 /// (and all similar invariants) removed.
 /// In other words, `NodeBuilder` represents a
 /// possibly "corrupted" forward node,
-/// and `ForwardNode` is the subset of `NodeBuilder`
+/// and `SearchNode` is the subset of `NodeBuilder`
 /// representing "valid" forward nodes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct NodeBuilder(
@@ -57,7 +57,7 @@ struct NodeBuilder(
 struct OptionalNodeBuilder(u64);
 
 #[derive(Clone, Copy, Debug)]
-pub struct OptionalForwardNode(
+pub struct OptionalSearchNode(
     // This is zero if and only if
     // the option is `NONE`.
     u64,
@@ -78,9 +78,6 @@ struct OptionalAction(
     u8,
 );
 
-/// For any node with state `s`,
-/// a given state set can contain at most
-/// one node with state `s`.
 #[derive(Clone, Debug)]
 struct StateSet {
     raw: [Option<Box<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>>;
@@ -284,11 +281,11 @@ impl SearchNode {
         )
     }
 
-    fn next_child(mut self) -> (Self, OptionalForwardNode) {
+    fn next_child(mut self) -> (Self, OptionalSearchNode) {
         loop {
             let raw = ((self.0 >> offsets::NEXT_ACTION) & 0b111_1111) as u8;
             if raw == 0 {
-                return (self, OptionalForwardNode::NONE);
+                return (self, OptionalSearchNode::NONE);
             }
 
             let (new_self, new_child) = self.explore(Action(raw));
@@ -301,12 +298,12 @@ impl SearchNode {
         }
     }
 
-    fn explore(self, action: Action) -> (Self, OptionalForwardNode) {
+    fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
         let (child_builder, next_action) = ACTION_HANDLERS[(action.0 - 16) as usize](self);
 
         let new_self = self.set_next_action(next_action);
         let child = if child_builder.is_none() {
-            OptionalForwardNode::NONE
+            OptionalSearchNode::NONE
         } else {
             child_builder
                 .unchecked_unwrap()
@@ -327,8 +324,8 @@ impl SearchNode {
         NodeBuilder(self.0)
     }
 
-    const fn into_optional(self) -> OptionalForwardNode {
-        OptionalForwardNode(self.0)
+    const fn into_optional(self) -> OptionalSearchNode {
+        OptionalSearchNode(self.0)
     }
 }
 
@@ -542,7 +539,7 @@ impl NodeBuilder {
     }
 }
 
-impl OptionalForwardNode {
+impl OptionalSearchNode {
     const NONE: Self = Self(0);
 
     const fn is_some(self) -> bool {
