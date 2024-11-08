@@ -21,7 +21,7 @@ fn main() {
     fs::write(path, bytes).unwrap();
 }
 
-fn reachable_states_to_bytes(reachable_states: &[BackwardNode]) -> Vec<u8> {
+fn reachable_states_to_bytes(reachable_states: &[SearchNode]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(reachable_states.len() * std::mem::size_of::<u64>());
     for state in reachable_states {
         bytes.extend_from_slice(&state.0.to_le_bytes())
