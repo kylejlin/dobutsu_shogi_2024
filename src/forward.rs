@@ -4,7 +4,7 @@
 // which hurts readability and performance.
 
 /// Returns a sorted vector of all states reachable from the provided initial state.
-pub fn reachable_states(initial_state: ForwardNode) -> Vec<BackwardNode> {
+pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
     let mut reachable_states = StateSet::empty();
     reachable_states.add(initial_state);
 
@@ -15,10 +15,11 @@ pub fn reachable_states(initial_state: ForwardNode) -> Vec<BackwardNode> {
         let (new_top, new_child) = top_mut.next_child();
         *top_mut = new_top;
 
-        if new_child.is_some() && !reachable_states.contains(new_child.unchecked_unwrap()) {
+        if new_child.is_some() {
             let new_child = new_child.unchecked_unwrap();
-            reachable_states.add(new_child);
-            stack.push(new_child);
+            if !reachable_states.add(new_child).did_addend_already_exist {
+                stack.push(new_child);
+            }
         }
 
         if new_child.is_none() {
@@ -33,14 +34,9 @@ pub fn reachable_states(initial_state: ForwardNode) -> Vec<BackwardNode> {
     reachable_states.into_sorted_vec()
 }
 
+/// The **least** significant 4 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BackwardNode(
-    // Must be non-zero.
-    pub u64,
-);
-
-#[derive(Clone, Copy, Debug)]
-pub struct ForwardNode(
+pub struct SearchNode(
     // Must be non-zero.
     pub u64,
 );
@@ -89,15 +85,8 @@ struct OptionalAction(
 /// one node with state `s`.
 #[derive(Clone, Debug)]
 struct StateSet {
-    raw: [Option<
-        Box<
-            StateSetNode<
-                StateSetNode<
-                    StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
-                >,
-            >,
-        >,
-    >; 256 * 256],
+    raw: [Option<Box<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>>;
+        256 * 256],
 }
 
 type StateSetNode<T> = [Option<Box<T>>; 16];
@@ -112,18 +101,17 @@ struct Board(u64);
 #[derive(Clone, Copy, Debug)]
 struct SquareSet(u16);
 
-type ActionHandler = fn(ForwardNode) -> (OptionalNodeBuilder, OptionalAction);
+#[derive(Clone, Copy, Debug)]
+struct DidAddendAlreadyExist {
+    did_addend_already_exist: bool,
+}
+
+type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
 
 impl StateSet {
     fn empty() -> Self {
         let empty: Option<
-            Box<
-                StateSetNode<
-                    StateSetNode<
-                        StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
-                    >,
-                >,
-            >,
+            Box<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
         > = Default::default();
 
         let mut v = Vec::with_capacity(256 * 256);
@@ -137,55 +125,31 @@ impl StateSet {
         }
     }
 
-    fn contains(&self, node: ForwardNode) -> bool {
-        let Some(bin0) = &self.raw[(node.0 >> 48) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin1) = bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin2) = &bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin3) = &bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin4) = &bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin5) = &bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let Some(bin6) = &bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].as_ref() else {
-            return false;
-        };
-        let bin7 = &bin6[((node.0 >> (48 - 7 * 4)) & 0b1111) as usize];
+    fn add(&mut self, node: SearchNode) -> DidAddendAlreadyExist {
+        let bin0 = self.raw[(node.0 >> (56 - 16)) as usize].get_or_insert_with(Default::default);
+        let bin1 = bin0[((node.0 >> (56 - 16 - 4)) & 0b1111) as usize]
+            .get_or_insert_with(Default::default);
+        let bin2 = bin1[((node.0 >> (56 - 16 - 2 * 4)) & 0b1111) as usize]
+            .get_or_insert_with(Default::default);
+        let bin3 = bin2[((node.0 >> (56 - 16 - 3 * 4)) & 0b1111) as usize]
+            .get_or_insert_with(Default::default);
+        let bin4 = bin3[((node.0 >> (56 - 16 - 4 * 4)) & 0b1111) as usize]
+            .get_or_insert_with(Default::default);
+        let bin5 = &mut bin4[((node.0 >> (56 - 16 - 5 * 4)) & 0b1111) as usize];
 
-        let i7 = (node.0 >> (48 - 8 * 4)) & 0b1111;
-        bin7.0 & (1 << i7) != 0
+        let i6 = (node.0 >> (56 - 16 - 6 * 4)) & 0b1111;
+        let mask = 1 << i6;
+
+        let did_addend_already_exist = bin5.0 & mask != 0;
+
+        bin5.0 |= mask;
+
+        DidAddendAlreadyExist {
+            did_addend_already_exist,
+        }
     }
 
-    fn add(&mut self, node: ForwardNode) {
-        let bin0 = self.raw[(node.0 >> 48) as usize].get_or_insert_with(Default::default);
-        let bin1 =
-            bin0[((node.0 >> (48 - 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin2 =
-            bin1[((node.0 >> (48 - 2 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin3 =
-            bin2[((node.0 >> (48 - 3 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin4 =
-            bin3[((node.0 >> (48 - 4 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin5 =
-            bin4[((node.0 >> (48 - 5 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin6 =
-            bin5[((node.0 >> (48 - 6 * 4)) & 0b1111) as usize].get_or_insert_with(Default::default);
-        let bin7 = &mut bin6[((node.0 >> (48 - 7 * 4)) & 0b1111) as usize];
-
-        let i7 = (node.0 >> (48 - 8 * 4)) & 0b1111;
-        bin7.0 |= 1 << i7;
-    }
-
-    fn into_sorted_vec(self) -> Vec<BackwardNode> {
+    fn into_sorted_vec(self) -> Vec<SearchNode> {
         let mut raw = Vec::new();
 
         self.write(&mut raw);
@@ -195,12 +159,12 @@ impl StateSet {
         raw
     }
 
-    fn write(&self, out: &mut Vec<BackwardNode>) {
+    fn write(&self, out: &mut Vec<SearchNode>) {
         for (i0, bin0) in self.raw.iter().enumerate() {
             let Some(bin0) = bin0 else {
                 continue;
             };
-            let prefix = (i0 as u64) << 48;
+            let prefix = (i0 as u64) << (56 - 16);
             self.write_bin0(prefix, bin0, out);
         }
     }
@@ -208,16 +172,14 @@ impl StateSet {
     fn write_bin0(
         &self,
         prefix: u64,
-        bin0: &StateSetNode<
-            StateSetNode<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
-        >,
-        out: &mut Vec<BackwardNode>,
+        bin0: &StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
+        out: &mut Vec<SearchNode>,
     ) {
         for (i1, bin1) in bin0.iter().enumerate() {
             let Some(bin1) = bin1 else {
                 continue;
             };
-            let prefix = prefix | ((i1 as u64) << (48 - 4));
+            let prefix = prefix | ((i1 as u64) << (56 - 16 - 4));
             self.write_bin1(prefix, bin1, out);
         }
     }
@@ -225,14 +187,14 @@ impl StateSet {
     fn write_bin1(
         &self,
         prefix: u64,
-        bin1: &StateSetNode<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
-        out: &mut Vec<BackwardNode>,
+        bin1: &StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>,
+        out: &mut Vec<SearchNode>,
     ) {
         for (i2, bin2) in bin1.iter().enumerate() {
             let Some(bin2) = bin2 else {
                 continue;
             };
-            let prefix = prefix | ((i2 as u64) << (48 - 2 * 4));
+            let prefix = prefix | ((i2 as u64) << (56 - 16 - 2 * 4));
             self.write_bin2(prefix, bin2, out);
         }
     }
@@ -240,14 +202,14 @@ impl StateSet {
     fn write_bin2(
         &self,
         prefix: u64,
-        bin2: &StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>,
-        out: &mut Vec<BackwardNode>,
+        bin2: &StateSetNode<StateSetNode<[Bitset16; 16]>>,
+        out: &mut Vec<SearchNode>,
     ) {
         for (i3, bin3) in bin2.iter().enumerate() {
             let Some(bin3) = bin3 else {
                 continue;
             };
-            let prefix = prefix | ((i3 as u64) << (48 - 3 * 4));
+            let prefix = prefix | ((i3 as u64) << (56 - 16 - 3 * 4));
             self.write_bin3(prefix, bin3, out);
         }
     }
@@ -255,66 +217,36 @@ impl StateSet {
     fn write_bin3(
         &self,
         prefix: u64,
-        bin3: &StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>,
-        out: &mut Vec<BackwardNode>,
+        bin3: &StateSetNode<[Bitset16; 16]>,
+        out: &mut Vec<SearchNode>,
     ) {
         for (i4, bin4) in bin3.iter().enumerate() {
             let Some(bin4) = bin4 else {
                 continue;
             };
-            let prefix = prefix | ((i4 as u64) << (48 - 4 * 4));
+            let prefix = prefix | ((i4 as u64) << (56 - 16 - 4 * 4));
             self.write_bin4(prefix, bin4, out);
         }
     }
 
-    fn write_bin4(
-        &self,
-        prefix: u64,
-        bin4: &StateSetNode<StateSetNode<[Bitset16; 16]>>,
-        out: &mut Vec<BackwardNode>,
-    ) {
+    fn write_bin4(&self, prefix: u64, bin4: &[Bitset16; 16], out: &mut Vec<SearchNode>) {
         for (i5, bin5) in bin4.iter().enumerate() {
-            let Some(bin5) = bin5 else {
-                continue;
-            };
-            let prefix = prefix | ((i5 as u64) << (48 - 5 * 4));
-            self.write_bin5(prefix, bin5, out);
+            let prefix = prefix | ((i5 as u64) << (56 - 16 - 5 * 4));
+            self.write_bin5(prefix, *bin5, out);
         }
     }
 
-    fn write_bin5(
-        &self,
-        prefix: u64,
-        bin5: &StateSetNode<[Bitset16; 16]>,
-        out: &mut Vec<BackwardNode>,
-    ) {
-        for (i6, bin6) in bin5.iter().enumerate() {
-            let Some(bin6) = bin6 else {
-                continue;
-            };
-            let prefix = prefix | ((i6 as u64) << (48 - 6 * 4));
-            self.write_bin6(prefix, bin6, out);
-        }
-    }
-
-    fn write_bin6(&self, prefix: u64, bin6: &[Bitset16; 16], out: &mut Vec<BackwardNode>) {
-        for (i7, bin7) in bin6.iter().enumerate() {
-            let prefix = prefix | ((i7 as u64) << (48 - 7 * 4));
-            self.write_bin7(prefix, *bin7, out);
-        }
-    }
-
-    fn write_bin7(&self, prefix: u64, bin7: Bitset16, out: &mut Vec<BackwardNode>) {
-        for i8 in 0..16 {
-            if bin7.0 & (1 << i8) != 0 {
-                let prefix = prefix | ((i8 as u64) << (48 - 8 * 4));
-                out.push(BackwardNode(prefix));
+    fn write_bin5(&self, prefix: u64, bin5: Bitset16, out: &mut Vec<SearchNode>) {
+        for i6 in 0..16 {
+            if bin5.0 & (1 << i6) != 0 {
+                let prefix = prefix | ((i6 as u64) << (56 - 16 - 8 * 4));
+                out.push(SearchNode(prefix));
             }
         }
     }
 }
 
-impl ForwardNode {
+impl SearchNode {
     pub const fn initial() -> Self {
         const fn ascending(a: u64, b: u64) -> (u64, u64) {
             if a <= b {
@@ -491,7 +423,7 @@ impl NodeBuilder {
         Self((self.0 & !0xFFFF) | ((DEFAULT_FIRST_ACTION.0 as u64) << offsets::NEXT_ACTION))
     }
 
-    const fn build(self) -> ForwardNode {
+    const fn build(self) -> SearchNode {
         let nonflipped = self.build_without_horizontal_normalization();
         let flipped = self
             .horizontally_flip()
@@ -505,7 +437,7 @@ impl NodeBuilder {
     }
 
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
-    const fn build_without_horizontal_normalization(self) -> ForwardNode {
+    const fn build_without_horizontal_normalization(self) -> SearchNode {
         const CHICK0_MASK: u64 = 0b11_1111 << offsets::CHICK0;
         const CHICK1_MASK: u64 = 0b11_1111 << offsets::CHICK1;
         const ELEPHANT0_MASK: u64 = 0b1_1111 << offsets::ELEPHANT0;
@@ -550,7 +482,7 @@ impl NodeBuilder {
         };
 
         const NONLION_MASK: u64 = 0xFFFF_FFFF << offsets::GIRAFFE1;
-        ForwardNode(
+        SearchNode(
             (self.0 & !NONLION_MASK)
                 | chick0
                 | chick1
@@ -623,8 +555,8 @@ impl OptionalForwardNode {
         self.0 == 0
     }
 
-    const fn unchecked_unwrap(self) -> ForwardNode {
-        ForwardNode(self.0)
+    const fn unchecked_unwrap(self) -> SearchNode {
+        SearchNode(self.0)
     }
 }
 
@@ -693,7 +625,7 @@ macro_rules! concat_action_handlers {
     }};
 }
 
-const fn dummy_action_handler(_: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
+const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
     (OptionalNodeBuilder::NONE, OptionalAction::NONE)
 }
 
@@ -730,7 +662,7 @@ const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handlers!(
 
 macro_rules! define_action_handler {
     ($piece:literal, $name:ident, $dest_coords:literal) => {
-        pub const fn $name(state: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
+        pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
             state
                 .into_builder()
                 .handle_action(Action(($piece << 4) | $dest_coords))
@@ -772,7 +704,7 @@ mod action_handlers {
     define_all_action_handlers_for_piece!(giraffe0, 0b110);
     define_all_action_handlers_for_piece!(giraffe1, 0b111);
 
-    pub fn handle_bad_action(_: ForwardNode) -> (OptionalNodeBuilder, OptionalAction) {
+    pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
         panic!("Illegal action");
     }
 }

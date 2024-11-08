@@ -7,7 +7,7 @@ use dobutsu_shogi_2024::forward::*;
 fn main() {
     println!("Starting tree search. This will probably take several hours.");
     let now = Instant::now();
-    let reachable_states = reachable_states(ForwardNode::initial());
+    let reachable_states = reachable_states(SearchNode::initial());
     let elapsed = now.elapsed();
     println!("Completed tree search. It took {:?}.", elapsed);
 
