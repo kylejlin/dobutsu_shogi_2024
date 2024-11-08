@@ -118,7 +118,21 @@ fn add_terminal_nodes(states: &[SearchNode], stack: &mut Vec<SearchNode>) {
 
 impl SearchNode {
     fn total_child_count(self) -> u8 {
-        todo!()
+        let mut current_action = Action(0b001_0000);
+        let mut count = 0;
+
+        loop {
+            let (child, next_action) = self.apply_action(current_action);
+            if child.is_some() {
+                count += 1;
+            }
+
+            if next_action.is_none() {
+                return count;
+            }
+
+            current_action = next_action.unchecked_unwrap();
+        }
     }
 
     fn unknown_child_count(self) -> u8 {
