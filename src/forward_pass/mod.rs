@@ -1,8 +1,5 @@
 use super::*;
 
-#[cfg(test)]
-mod tests;
-
 /// Returns a sorted vector of all states reachable from the provided initial state.
 pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
     let mut reachable_states = StateSet::empty();

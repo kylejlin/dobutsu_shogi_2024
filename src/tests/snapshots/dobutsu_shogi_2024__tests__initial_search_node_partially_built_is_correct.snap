@@ -1,6 +1,6 @@
 ---
-source: src/forward_pass/tests/mod.rs
-expression: "SearchNode::initial().into_builder().init_next_action().pretty()"
+source: src/tests/mod.rs
+expression: "SearchNode::initial().into_builder().build_without_horizontal_normalization().pretty()"
 ---
 |---|                |---|
 |GLE|                |GLE|

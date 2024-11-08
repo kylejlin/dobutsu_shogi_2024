@@ -5,9 +5,6 @@ use std::fmt::{self, Debug, Display, Formatter};
 #[derive(Clone, Copy)]
 pub struct Pretty<T>(pub T);
 
-#[derive(Clone)]
-pub struct SearchNodeSet(pub Vec<SearchNode>);
-
 #[derive(Clone, Copy)]
 struct Indented<'a> {
     s: &'a str,
@@ -48,7 +45,7 @@ impl IntoPretty for Action {
     }
 }
 
-impl IntoPretty for SearchNodeSet {
+impl IntoPretty for Vec<SearchNode> {
     fn pretty(self) -> Pretty<Self> {
         Pretty(self)
     }
@@ -205,14 +202,14 @@ impl Debug for Pretty<Action> {
 }
 
 impl SearchNode {
-    pub fn children(mut self) -> SearchNodeSet {
+    pub fn children(mut self) -> Vec<SearchNode> {
         let mut out = vec![];
         loop {
             let (new_self, child) = self.next_child();
             self = new_self;
 
             if child.is_none() {
-                return SearchNodeSet(out);
+                return out;
             }
 
             out.push(child.unchecked_unwrap());
@@ -226,15 +223,15 @@ impl OptionalSearchNode {
     }
 }
 
-impl Display for Pretty<SearchNodeSet> {
+impl Display for Pretty<Vec<SearchNode>> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let divider = "=".repeat("|---|".len() * 2 + GAP.len());
 
-        let len = self.0 .0.len();
+        let len = self.0.len();
 
         writeln!(f, "SearchNodeSet(len = {len}) [")?;
 
-        for (i, node) in self.0 .0.iter().enumerate() {
+        for (i, node) in self.0.iter().enumerate() {
             let node = node.pretty();
             let node = format!("{i}:\n{node}\n{divider}\n");
             let indented = node.indented(4);

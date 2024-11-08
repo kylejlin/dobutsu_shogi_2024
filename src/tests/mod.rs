@@ -57,7 +57,7 @@ fn initial_search_node_children_are_correct() {
 
 #[test]
 fn initial_search_node_child0_children_are_correct() {
-    let child0 = SearchNode::initial().children().0[0].pretty();
+    let child0 = SearchNode::initial().children()[0].pretty();
     let children = child0.0.children().pretty();
     insta::assert_snapshot!(format!("parent:\n{child0}\n\nchildren:\n{children}"));
 }
