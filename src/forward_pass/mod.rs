@@ -403,14 +403,10 @@ impl NodeBuilder {
     }
 
     const fn is_terminal(self) -> bool {
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << offsets::ACTIVE_LION;
-        let active_player_in_passive_hand =
-            self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK;
-
-        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << offsets::ACTIVE_LION_ROW;
-        let active_lion_in_last_row = self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK;
-
-        active_player_in_passive_hand || active_lion_in_last_row
+        // At this point, the node is not guaranteed to be normalized.
+        // However, this does not matter for terminality checks.
+        // Thus, we can safely cast this to a `SearchNode`.
+        SearchNode(self.0).is_terminal()
     }
 
     const fn build(self) -> SearchNode {
@@ -1330,50 +1326,4 @@ impl Action {
 
         [SquareSet(nonpromoted_squares), SquareSet(promoted_squares)]
     }
-}
-
-/// All offsets are given relative to the right (i.e., least significant) bit.
-mod offsets {
-    pub const BEST_KNOWN_OUTCOME: u64 = 0;
-    pub const NEXT_ACTION: u64 = BEST_KNOWN_OUTCOME + 9;
-    pub const UNKNOWN_CHILD_COUNT: u64 = NEXT_ACTION;
-    pub const PASSIVE_LION: u64 = NEXT_ACTION + 7;
-    pub const ACTIVE_LION: u64 = PASSIVE_LION + 4;
-    pub const GIRAFFE1: u64 = ACTIVE_LION + 4;
-    pub const GIRAFFE0: u64 = GIRAFFE1 + 5;
-    pub const ELEPHANT1: u64 = GIRAFFE0 + 5;
-    pub const ELEPHANT0: u64 = ELEPHANT1 + 5;
-    pub const CHICK1: u64 = ELEPHANT0 + 5;
-    pub const CHICK0: u64 = CHICK1 + 6;
-
-    pub const CHICK0_PROMOTION: u64 = CHICK0;
-    pub const CHICK0_COLUMN: u64 = CHICK0_PROMOTION + 1;
-    pub const CHICK0_ROW: u64 = CHICK0_COLUMN + 2;
-    pub const CHICK0_ALLEGIANCE: u64 = CHICK0_ROW + 2;
-
-    pub const CHICK1_PROMOTION: u64 = CHICK1;
-    pub const CHICK1_COLUMN: u64 = CHICK1_PROMOTION + 1;
-    pub const CHICK1_ROW: u64 = CHICK1_COLUMN + 2;
-    pub const CHICK1_ALLEGIANCE: u64 = CHICK1_ROW + 2;
-
-    pub const ELEPHANT0_COLUMN: u64 = ELEPHANT0;
-    pub const ELEPHANT0_ROW: u64 = ELEPHANT0_COLUMN + 2;
-    pub const ELEPHANT0_ALLEGIANCE: u64 = ELEPHANT0_ROW + 2;
-
-    pub const ELEPHANT1_COLUMN: u64 = ELEPHANT1;
-    pub const ELEPHANT1_ROW: u64 = ELEPHANT1_COLUMN + 2;
-    pub const ELEPHANT1_ALLEGIANCE: u64 = ELEPHANT1_ROW + 2;
-
-    pub const GIRAFFE0_COLUMN: u64 = GIRAFFE0;
-    pub const GIRAFFE0_ROW: u64 = GIRAFFE0_COLUMN + 2;
-    pub const GIRAFFE0_ALLEGIANCE: u64 = GIRAFFE0_ROW + 2;
-
-    pub const GIRAFFE1_COLUMN: u64 = GIRAFFE1;
-    pub const GIRAFFE1_ROW: u64 = GIRAFFE1_COLUMN + 2;
-    pub const GIRAFFE1_ALLEGIANCE: u64 = GIRAFFE1_ROW + 2;
-
-    pub const ACTIVE_LION_COLUMN: u64 = ACTIVE_LION;
-    pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
-
-    pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
 }

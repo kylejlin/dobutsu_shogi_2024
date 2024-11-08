@@ -4,17 +4,17 @@ use super::*;
 mod tests;
 
 /// This function will solve the game when provided
-/// with a vector of all reachable states.
-/// The vector must be sorted.
-pub fn solve(states: &mut Vec<SearchNode>) {
-    // init_nodes_for_retrograde_analysis(states);
+/// with a slice of all reachable states.
+/// **The slice must be sorted.**
+pub fn solve(states: &mut [SearchNode]) {
+    init_unknown_child_count_and_best_known_outcome(states);
 
-    // let mut stack = vec![];
-    // add_terminal_nodes(states, &mut stack);
+    let mut stack = vec![];
+    add_terminal_nodes(states, &mut stack);
 
-    // while let Some(top) = stack.pop() {
-    //     // TODO
-    // }
+    while let Some(top) = stack.pop() {
+        todo!()
+    }
 }
 
 trait FromZeroPaddedI9<T> {
@@ -48,6 +48,47 @@ impl IntoZeroPaddedI9Unchecked<u64> for i16 {
         }
 
         self as u64
+    }
+}
+
+fn init_unknown_child_count_and_best_known_outcome(states: &mut [SearchNode]) {
+    const DELETION_MASK: u64 = !((0b111_1111 << offsets::UNKNOWN_CHILD_COUNT)
+        | (0b1_1111_1111 << offsets::BEST_KNOWN_OUTCOME));
+
+    for state in states {
+        match state.terminality() {
+            Terminality::Nonterminal => {
+                state.0 = (state.0 & DELETION_MASK)
+                    | (state.total_child_count() << offsets::UNKNOWN_CHILD_COUNT)
+                    | (NEGATIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+            }
+
+            Terminality::Win => {
+                state.0 = (state.0 & DELETION_MASK)
+                    | (0 << offsets::UNKNOWN_CHILD_COUNT)
+                    | (POSITIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+            }
+
+            Terminality::Loss => {
+                state.0 = (state.0 & DELETION_MASK)
+                    | (0 << offsets::UNKNOWN_CHILD_COUNT)
+                    | (NEGATIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+            }
+        }
+    }
+}
+
+fn add_terminal_nodes(states: &[SearchNode], stack: &mut Vec<SearchNode>) {
+    for state in states {
+        if state.is_terminal() {
+            stack.push(*state);
+        }
+    }
+}
+
+impl SearchNode {
+    fn total_child_count(self) -> u64 {
+        todo!()
     }
 }
 
