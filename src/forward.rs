@@ -237,7 +237,7 @@ impl StateSet {
     fn write_bin5(&self, prefix: u64, bin5: Bitset16, out: &mut Vec<SearchNode>) {
         for i6 in 0..16 {
             if bin5.0 & (1 << i6) != 0 {
-                let prefix = prefix | ((i6 as u64) << (56 - 16 - 8 * 4));
+                let prefix = prefix | ((i6 as u64) << (56 - 16 - 6 * 4));
                 out.push(SearchNode(prefix));
             }
         }
