@@ -12,13 +12,40 @@ pub fn solve(states: &mut [SearchNode]) {
 
     init_unknown_child_count_and_best_known_outcome(states);
 
-    let mut stack = vec![];
-    add_terminal_nodes(states, &mut stack);
+    let mut known_stack = vec![];
+    add_terminal_nodes(states, &mut known_stack);
 
-    while let Some(top) = stack.pop() {
-        todo!()
+    let mut temp = Vec::with_capacity(8 * 12);
+
+    while let Some(top) = known_stack.pop() {
+        let outcome = top.best_known_outcome();
+
+        top.write_parents(&mut temp);
+
+        for parent in temp.iter().copied() {
+            let Ok(parent_index) = states.binary_search(&parent) else {
+                // It's possible that a theoretical parent is actually unreachable.
+                continue;
+            };
+
+            let parent_mut = &mut states[parent_index];
+            *parent_mut = parent_mut.record_child_outcome(outcome);
+            if parent_mut.unknown_child_count() == 0 {
+                known_stack.push(*parent_mut);
+            }
+        }
     }
 }
+
+///  - `0` represents a draw.
+///
+///  - A positive number `n` represents a win for the active player
+///    in `201 - n` plies.
+///
+///  - A negative number `-n` represents a win for the passive player
+///    in `201 + n` plies.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Outcome(i16);
 
 trait FromZeroPaddedI9<T> {
     fn from_zero_padded_i9(value: T) -> Self;
@@ -62,7 +89,7 @@ fn init_unknown_child_count_and_best_known_outcome(states: &mut [SearchNode]) {
         match state.terminality() {
             Terminality::Nonterminal => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | (state.total_child_count() << offsets::UNKNOWN_CHILD_COUNT)
+                    | ((state.total_child_count() as u64) << offsets::UNKNOWN_CHILD_COUNT)
                     | (NEGATIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
             }
 
@@ -90,8 +117,47 @@ fn add_terminal_nodes(states: &[SearchNode], stack: &mut Vec<SearchNode>) {
 }
 
 impl SearchNode {
-    fn total_child_count(self) -> u64 {
+    fn total_child_count(self) -> u8 {
         todo!()
+    }
+
+    fn unknown_child_count(self) -> u8 {
+        ((self.0 >> offsets::UNKNOWN_CHILD_COUNT) & 0b111_1111) as u8
+    }
+
+    fn best_known_outcome(self) -> Outcome {
+        Outcome(i16::from_zero_padded_i9(
+            (self.0 >> offsets::BEST_KNOWN_OUTCOME) & 0b1_1111_1111,
+        ))
+    }
+
+    fn record_child_outcome(self, child_outcome: Outcome) -> Self {
+        let incumbent = self.best_known_outcome();
+        let challenger = child_outcome.invert().delay_by_one();
+        if challenger > incumbent {
+            Self(
+                self.0 & !(0b1_1111_1111 << offsets::BEST_KNOWN_OUTCOME)
+                    | (challenger.0.into_zero_padded_i9_unchecked() << offsets::BEST_KNOWN_OUTCOME),
+            )
+        } else {
+            self
+        }
+    }
+
+    fn write_parents(self, out: &mut Vec<SearchNode>) {
+        out.clear();
+
+        todo!()
+    }
+}
+
+impl Outcome {
+    const fn invert(self) -> Self {
+        Self(-self.0)
+    }
+
+    const fn delay_by_one(self) -> Self {
+        Self(self.0 + -self.0.signum())
     }
 }
 
