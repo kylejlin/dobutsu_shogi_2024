@@ -3,6 +3,18 @@
 // but that would clutter the code with a bunch of unwraps,
 // which hurts readability and performance.
 
+/// `states` must be sorted.
+pub fn solve(states: &mut Vec<SearchNode>) {
+    // init_nodes_for_retrograde_analysis(states);
+
+    // let mut stack = vec![];
+    // add_terminal_nodes(states, &mut stack);
+
+    // while let Some(top) = stack.pop() {
+    //     // TODO
+    // }
+}
+
 /// Returns a sorted vector of all states reachable from the provided initial state.
 pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
     let mut reachable_states = StateSet::empty();
