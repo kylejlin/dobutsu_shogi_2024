@@ -1218,6 +1218,45 @@ impl Actor {
     /// vector to use.
     #[inline(always)]
     const fn legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
+        macro_rules! lookup_table_row_for_piece {
+            ($piece:expr) => {
+                [
+                    $piece.compute_legal_starting_squares(Coords::R0C0),
+                    $piece.compute_legal_starting_squares(Coords::R0C1),
+                    $piece.compute_legal_starting_squares(Coords::R0C2),
+                    [CoordVec::EMPTY; 2],
+                    $piece.compute_legal_starting_squares(Coords::R1C0),
+                    $piece.compute_legal_starting_squares(Coords::R1C1),
+                    $piece.compute_legal_starting_squares(Coords::R1C2),
+                    [CoordVec::EMPTY; 2],
+                    $piece.compute_legal_starting_squares(Coords::R2C0),
+                    $piece.compute_legal_starting_squares(Coords::R2C1),
+                    $piece.compute_legal_starting_squares(Coords::R2C2),
+                    [CoordVec::EMPTY; 2],
+                    $piece.compute_legal_starting_squares(Coords::R3C0),
+                    $piece.compute_legal_starting_squares(Coords::R3C1),
+                    $piece.compute_legal_starting_squares(Coords::R3C2),
+                    [CoordVec::EMPTY; 2],
+                ]
+            };
+        }
+
+        const LOOKUP_TABLE: [[[CoordVec; 2]; 16]; 8] = [
+            [[CoordVec::EMPTY; 2]; 16],
+            lookup_table_row_for_piece!(Actor::LION),
+            lookup_table_row_for_piece!(Actor::CHICK0),
+            lookup_table_row_for_piece!(Actor::CHICK1),
+            lookup_table_row_for_piece!(Actor::ELEPHANT0),
+            lookup_table_row_for_piece!(Actor::ELEPHANT1),
+            lookup_table_row_for_piece!(Actor::GIRAFFE0),
+            lookup_table_row_for_piece!(Actor::GIRAFFE1),
+        ];
+
+        LOOKUP_TABLE[self.0 .0 as usize][dest.0 as usize]
+    }
+
+    /// This function is suboptimally slow, so we only call it at compile time.
+    const fn compute_legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
         /// This function should only be called during compile-time.
         /// Consequently, we don't have to worry about the performance
         /// inside of it.
@@ -1370,6 +1409,7 @@ impl Actor {
         [nonpromoted_squares, promoted_squares]
     }
 }
+
 impl Offset {
     const BEST_KNOWN_OUTCOME: Self = Self(0);
     const NEXT_ACTION: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
