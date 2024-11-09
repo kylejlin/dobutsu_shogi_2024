@@ -710,9 +710,9 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_promoted(self, action: Action) -> bool {
-        let offset = match action.0 >> 4 {
-            0b010 => Offset::CHICK0_PROMOTION,
-            0b011 => Offset::CHICK1_PROMOTION,
+        let offset = match action.actor() {
+            Piece::CHICK0 => Offset::CHICK0_PROMOTION,
+            Piece::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
