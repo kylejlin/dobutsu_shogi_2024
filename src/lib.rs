@@ -75,8 +75,18 @@ struct OptionalAction(
 #[derive(Clone, Copy, Debug)]
 struct Board(u64);
 
+/// This is a C-string-inspired vector of
+/// up to 8 board coordinates.
+/// The first coordinate is in the first (i.e., least significant) 4 bits,
+/// the second coordinate is in the second 4 bits, and so on.
+/// If a coordinate is `0b1111`, this is a "null terminator"
+/// (analogous `'\0'` in C strings) which indicates the end of the vector.
 #[derive(Clone, Copy, Debug)]
-struct SquareSet(u16);
+struct CoordVec(u64);
+
+/// This is a bitset of up to 12 board coordinates.
+#[derive(Clone, Copy, Debug)]
+struct CoordSet(u16);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Piece(u8);
@@ -99,15 +109,6 @@ struct Offset(u8);
 /// are on the board.
 #[derive(Clone, Copy, Debug)]
 struct Coords(u8);
-
-/// This is a C-string-inspired vector of
-/// up to 8 board coordinates.
-/// The first coordinate is in the first (i.e., least significant) 4 bits,
-/// the second coordinate is in the second 4 bits, and so on.
-/// If a coordinate is `0b1111`, this is a "null terminator"
-/// (analogous `'\0'` in C strings) which indicates the end of the vector.
-#[derive(Clone, Copy, Debug)]
-struct CoordVec(u64);
 
 type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
 
@@ -521,6 +522,7 @@ impl Coords {
 
 impl CoordVec {
     const EMPTY: Self = Self(0b1111);
+    const MAX_ELEMENTS: usize = 8;
     const TERMINATOR: Coords = Coords(0b1111);
 
     /// If the vector is already full, then this function
@@ -528,17 +530,39 @@ impl CoordVec {
     #[inline(always)]
     const fn push(self, coords: Coords) -> Self {
         let mut i = 0;
-        while i < 8 {
+        while i < Self::MAX_ELEMENTS {
             let mask = 0b1111 << (i * 4);
+
             if self.0 & mask == mask {
                 return Self(
                     (self.0 & !mask) | ((coords.0 as u64) << (i * 4)) | (0b1111 << ((i + 1) * 4)),
                 );
             }
+
             i += 1;
         }
 
         self
+    }
+
+    #[inline(always)]
+    const fn into_coord_set(self) -> CoordSet {
+        let mut out = CoordSet(0);
+
+        let mut i = 0;
+        while i < Self::MAX_ELEMENTS {
+            let coords = (self.0 >> (i * 4)) & 0b1111;
+
+            if coords == Self::TERMINATOR.0 as u64 {
+                break;
+            }
+
+            out.0 |= 1 << coords;
+
+            i += 1;
+        }
+
+        return out;
     }
 }
 
@@ -1148,164 +1172,16 @@ impl Action {
     /// It is the consumer's responsibility to select the correct
     /// set to use.
     #[inline(always)]
-    const fn legal_starting_squares(self) -> [SquareSet; 2] {
-        /// This function should only be called during compile-time.
-        /// Consequently, we don't have to worry about the performance
-        /// inside of it.
-        /// Thus, we can use a simple struct with 8 boolean fields
-        /// instead of a more efficient `u8` bitset.
-        #[derive(Copy, Clone)]
-        struct DirectionSet {
-            n: bool,
-            ne: bool,
-            e: bool,
-            se: bool,
-            s: bool,
-            sw: bool,
-            w: bool,
-            nw: bool,
-        }
-
-        impl DirectionSet {
-            const fn union(self, rhs: Self) -> Self {
-                Self {
-                    n: self.n | rhs.n,
-                    ne: self.ne | rhs.ne,
-                    e: self.e | rhs.e,
-                    se: self.se | rhs.se,
-                    s: self.s | rhs.s,
-                    sw: self.sw | rhs.sw,
-                    w: self.w | rhs.w,
-                    nw: self.nw | rhs.nw,
-                }
-            }
-
-            /// Returns whether there is a way to move from `from` to `to`
-            /// by taking one step in some direction contained in this set.
-            const fn connects(self, from: Coords, to: Coords) -> bool {
-                let from_column = (from.0 & 0b11) as i8;
-                let from_row = (from.0 >> 2) as i8;
-                let to_column = (to.0 & 0b11) as i8;
-                let to_row = (to.0 >> 2) as i8;
-
-                (self.n && from_row + 1 == to_row && from_column == to_column)
-                    || (self.ne && from_row + 1 == to_row && from_column + 1 == to_column)
-                    || (self.e && from_row == to_row && from_column + 1 == to_column)
-                    || (self.se && from_row - 1 == to_row && from_column + 1 == to_column)
-                    || (self.s && from_row - 1 == to_row && from_column == to_column)
-                    || (self.sw && from_row - 1 == to_row && from_column - 1 == to_column)
-                    || (self.w && from_row == to_row && from_column - 1 == to_column)
-                    || (self.nw && from_row + 1 == to_row && from_column - 1 == to_column)
-            }
-        }
-
-        const EMPTY: DirectionSet = DirectionSet {
-            n: false,
-            ne: false,
-            e: false,
-            se: false,
-            s: false,
-            sw: false,
-            w: false,
-            nw: false,
-        };
-        const N: DirectionSet = DirectionSet { n: true, ..EMPTY };
-        const NE: DirectionSet = DirectionSet { ne: true, ..EMPTY };
-        const E: DirectionSet = DirectionSet { e: true, ..EMPTY };
-        const SE: DirectionSet = DirectionSet { se: true, ..EMPTY };
-        const S: DirectionSet = DirectionSet { s: true, ..EMPTY };
-        const SW: DirectionSet = DirectionSet { sw: true, ..EMPTY };
-        const W: DirectionSet = DirectionSet { w: true, ..EMPTY };
-        const NW: DirectionSet = DirectionSet { nw: true, ..EMPTY };
-
-        const CARDINAL: DirectionSet = N.union(E).union(S).union(W);
-        const DIAGONAL: DirectionSet = NE.union(SE).union(SW).union(NW);
-
-        const CHICK: DirectionSet = N;
-        const HEN: DirectionSet = CARDINAL.union(NE).union(NW);
-        const ELEPHANT: DirectionSet = DIAGONAL;
-        const GIRAFFE: DirectionSet = CARDINAL;
-        const LION: DirectionSet = CARDINAL.union(DIAGONAL);
-
-        let [nonpromoted_dirset, promoted_dirset] = match self.actor() {
-            ActivePiece::LION => [LION, EMPTY],
-            ActivePiece::CHICK0 => [CHICK, HEN],
-            ActivePiece::CHICK1 => [CHICK, HEN],
-            ActivePiece::ELEPHANT0 => [ELEPHANT, EMPTY],
-            ActivePiece::ELEPHANT1 => [ELEPHANT, EMPTY],
-            ActivePiece::GIRAFFE0 => [GIRAFFE, EMPTY],
-            ActivePiece::GIRAFFE1 => [GIRAFFE, EMPTY],
-
-            _ => [EMPTY, EMPTY],
-        };
-
-        let nonpromoted_squares = {
-            let mut out: u16 = 0;
-
-            macro_rules! check_start_square {
-                ($start_square:expr) => {
-                    if nonpromoted_dirset.connects($start_square, self.dest_coords()) {
-                        out |= 1 << $start_square.0;
-                    }
-                };
-            }
-
-            check_start_square!(Coords::R0C0);
-            check_start_square!(Coords::R0C1);
-            check_start_square!(Coords::R0C2);
-
-            check_start_square!(Coords::R1C0);
-            check_start_square!(Coords::R1C1);
-            check_start_square!(Coords::R1C2);
-
-            check_start_square!(Coords::R2C0);
-            check_start_square!(Coords::R2C1);
-            check_start_square!(Coords::R2C2);
-
-            check_start_square!(Coords::R3C0);
-            check_start_square!(Coords::R3C1);
-            check_start_square!(Coords::R3C2);
-
-            out
-        };
-        let promoted_squares = {
-            let mut out: u16 = 0;
-
-            macro_rules! check_start_square {
-                ($start_square:expr) => {
-                    if promoted_dirset.connects($start_square, self.dest_coords()) {
-                        out |= 1 << $start_square.0;
-                    }
-                };
-            }
-
-            check_start_square!(Coords::R0C0);
-            check_start_square!(Coords::R0C1);
-            check_start_square!(Coords::R0C2);
-
-            check_start_square!(Coords::R1C0);
-            check_start_square!(Coords::R1C1);
-            check_start_square!(Coords::R1C2);
-
-            check_start_square!(Coords::R2C0);
-            check_start_square!(Coords::R2C1);
-            check_start_square!(Coords::R2C2);
-
-            check_start_square!(Coords::R3C0);
-            check_start_square!(Coords::R3C1);
-            check_start_square!(Coords::R3C2);
-
-            out
-        };
-
-        [SquareSet(nonpromoted_squares), SquareSet(promoted_squares)]
+    const fn legal_starting_squares(self) -> [CoordSet; 2] {
+        let [nonpromoted, promoted] = self.actor().legal_starting_squares(self.dest_coords());
+        [nonpromoted.into_coord_set(), promoted.into_coord_set()]
     }
 }
 
-impl Coords {
+impl ActivePiece {
     /// The set of legal starting squares depends on whether the
     /// actor is promoted.
-    /// We cannot determine this from the coords alone.
+    /// We cannot determine this from the actor and the destination coordinates alone.
     ///
     /// So, we return an array of two coordinate vectors.
     /// The first set is for the non-promoted actor,
@@ -1314,7 +1190,7 @@ impl Coords {
     /// It is the consumer's responsibility to select the correct
     /// vector to use.
     #[inline(always)]
-    const fn legal_starting_squares(self, actor: ActivePiece) -> [CoordVec; 2] {
+    const fn legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
         /// This function should only be called during compile-time.
         /// Consequently, we don't have to worry about the performance
         /// inside of it.
@@ -1393,7 +1269,7 @@ impl Coords {
         const GIRAFFE: DirectionSet = CARDINAL;
         const LION: DirectionSet = CARDINAL.union(DIAGONAL);
 
-        let [nonpromoted_dirset, promoted_dirset] = match actor {
+        let [nonpromoted_dirset, promoted_dirset] = match self {
             ActivePiece::LION => [LION, EMPTY],
             ActivePiece::CHICK0 => [CHICK, HEN],
             ActivePiece::CHICK1 => [CHICK, HEN],
@@ -1410,7 +1286,7 @@ impl Coords {
 
             macro_rules! check_start_square {
                 ($start_square:expr) => {
-                    if nonpromoted_dirset.connects($start_square, self) {
+                    if nonpromoted_dirset.connects($start_square, dest) {
                         out = out.push($start_square);
                     }
                 };
@@ -1439,7 +1315,7 @@ impl Coords {
 
             macro_rules! check_start_square {
                 ($start_square:expr) => {
-                    if promoted_dirset.connects($start_square, self) {
+                    if promoted_dirset.connects($start_square, dest) {
                         out = out.push($start_square);
                     }
                 };
