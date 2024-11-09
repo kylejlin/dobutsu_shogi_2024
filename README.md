@@ -266,7 +266,7 @@ This is because even if we omitted the squares in column 3, the size of the `Boa
 Observe that the `piece` encoding is similar to the `actor` encoding we use in the action representation.
 The only difference is that `0b001` is used for both lions.
 
-## Square set representation (16 bits total)
+## Coordinate set representation (16 bits total)
 
 When calculating which actions are legal in a given state,
 we check whether a piece of a given species can legally move
