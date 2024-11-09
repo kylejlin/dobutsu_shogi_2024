@@ -81,10 +81,20 @@ struct Board(u64);
 /// the second coordinate is in the second 4 bits, and so on.
 /// If a coordinate is `0b1111`, this is a "null terminator"
 /// (analogous `'\0'` in C strings) which indicates the end of the vector.
+///
+/// The advantage of `CoordVec` over `CoordSet` is that
+/// iteration is fast.
+///
+/// The disadvantage is that inclusion lookups are O(n).
 #[derive(Clone, Copy, Debug)]
 struct CoordVec(u64);
 
 /// This is a bitset of up to 12 board coordinates.
+///
+/// The advantage of `CoordSet` over `CoordVec` is that
+/// inclusion lookups are O(1).
+///
+/// The disadvantage is that iteration is slow.
 #[derive(Clone, Copy, Debug)]
 struct CoordSet(u16);
 
