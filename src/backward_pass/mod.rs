@@ -175,8 +175,8 @@ impl NodeBuilder {
             return;
         }
 
-        // You cannot directly drop a hen.
-        if self.is_nonpromoted(actor) {
+        // You cannot drop a hen or a lion.
+        if self.is_nonpromoted(actor) && actor.0 != Actor::LION.0 {
             visitor(self.dropping_parent_of_nonpromoted_actor(actor).build());
         }
 
@@ -195,7 +195,7 @@ impl NodeBuilder {
             Actor::CHICK0 => Offset::CHICK0_PROMOTION,
             Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
-            _ => return false,
+            _ => return true,
         };
 
         (self.0 & (1 << promotion_bit_offset.0)) == 0
