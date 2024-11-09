@@ -234,8 +234,8 @@ impl NodeBuilder {
         actor: ActivePiece,
         mut visitor: impl FnMut(SearchNode),
     ) {
-        let starting_squares = self.actor_coords(actor).starting_squares(actor);
-        for starting_square in starting_squares.iter().copied() {
+        let starting_squares = self.actor_coords(actor).legal_starting_squares(actor)[0];
+        for starting_square in starting_squares {
             self.visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
                 actor,
                 starting_square,
@@ -303,13 +303,6 @@ impl NodeBuilder {
         // 1. The parent where a chick moved onto the last row.
         // 2-6. The parents where the hen moved onto the last row.
 
-        todo!()
-    }
-}
-
-impl Coords {
-    #[inline(always)]
-    const fn starting_squares(self, actor: ActivePiece) -> &'static [Coords] {
         todo!()
     }
 }
