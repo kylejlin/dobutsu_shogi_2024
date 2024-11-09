@@ -712,7 +712,7 @@ impl NodeBuilder {
     const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
         macro_rules! check_square {
             ($coords:expr) => {
-                if action.0 & 0b1111 < $coords.0
+                if action.dest_coords().0 < $coords.0
                     && board.is_square_empty_at_board_offset($coords.board_offset())
                 {
                     return action.set_dest_square($coords).into_optional();
@@ -740,7 +740,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        let actor_coords = (self.0 >> action.actor().coords_offset().0) & 0b1111;
+        let actor_coords = self.actor_coords(action.actor());
 
         let legal_squares = action.legal_starting_squares();
 
@@ -749,7 +749,12 @@ impl NodeBuilder {
         // However, we don't have to explicitly check this case,
         // because if the actor is in hand, then `actor_coords == 15`,
         // and bit 15 of `legal_squares` is guaranteed to be 0.
-        legal_squares[self.is_actor_promoted(action) as usize].0 & (1 << actor_coords) == 0
+        legal_squares[self.is_actor_promoted(action) as usize].0 & (1 << actor_coords.0) == 0
+    }
+
+    #[inline(always)]
+    const fn actor_coords(self, actor: Actor) -> Coords {
+        Coords(((self.0 >> actor.coords_offset().0) as u8) & 0b1111)
     }
 
     #[inline(always)]
@@ -1338,4 +1343,6 @@ impl Coords {
     const R3C0: Self = Self(0b1100);
     const R3C1: Self = Self(0b1101);
     const R3C2: Self = Self(0b1110);
+
+    const HAND: Self = Self(0b1111);
 }

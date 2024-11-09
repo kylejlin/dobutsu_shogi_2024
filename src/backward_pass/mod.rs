@@ -170,8 +170,57 @@ impl SearchNode {
 }
 
 impl NodeBuilder {
+    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+        if self.is_actor_passive(actor) || self.is_in_hand(actor) {
+            return;
+        }
+
+        // You cannot directly drop a hen.
+        if self.is_nonpromoted(actor) {
+            visitor(self.dropping_parent_of_nonpromoted_actor(actor).build());
+        }
+
+        self.visit_moving_parents_assuming_actor_is_active_and_on_board(actor, visitor);
+    }
+
     #[inline(always)]
-    fn visit_parents_with_actor(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
+    const fn is_in_hand(self, actor: Actor) -> bool {
+        self.actor_coords(actor).0 == Coords::HAND.0
+    }
+
+    #[inline(always)]
+    const fn is_nonpromoted(self, actor: Actor) -> bool {
+        let promotion_bit_offset = match actor {
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return false,
+        };
+
+        (self.0 & (1 << promotion_bit_offset.0)) == 0
+    }
+
+    #[inline(always)]
+    const fn dropping_parent_of_nonpromoted_actor(self, actor: Actor) -> Self {
+        self.set_coords_without_demoting(actor, Coords::HAND)
+    }
+
+    #[inline(always)]
+    const fn set_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
+        Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents_assuming_actor_is_active_and_on_board(
+        self,
+        actor: Actor,
+        visitor: impl FnMut(SearchNode),
+    ) {
+        // TODO: Consider the case where a hen is on the last row.
+        // We need to visit up to 6 parents (instead of 1):
+        // 1. The parent where a chick moved onto the last row.
+        // 2-6. The parents where the hen moved onto the last row.
+
         todo!()
     }
 }
