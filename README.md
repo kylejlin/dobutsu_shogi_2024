@@ -205,13 +205,38 @@ However, we have deemed this inefficiency to be acceptable.
 
 The value `0b000_0000` represents a "null action". We use this when a node has no remaining actions to explore.
 
-## Board representation (48 bits total)
+## Board representation (64 bits total)
 
 A board is 12 squares. Each square is represented by 4 bits.
+However, the squares in column 3 contain "don't care" bits.
 
-| r3c2   | r3c1   | r3c0   | r2c2   | r2c1   | r2c0   | r1c2   | r1c1   | r1c0   | r0c2   | r0c1   | r0c0   |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits |
+| DONTCARE | r3c2 | r3c1 | r3c0 | DONTCARE | r2c2 | r2c1 | r2c0 | DONTCARE | r1c2 | r1c1 | r1c0 | DONTCARE | r0c2 | r0c1 | r0c0 |
+| r3c3 | r3c2 | r3c1 | r3c0 | r2c3 | r2c2 | r2c1 | r2c0 | r1c3 | r1c2 | r1c1 | r1c0 | r0c3 | r0c2 | r0c1 | r0c0 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits | 4 bits |
+
+The reason we store the "don't care" bits instead of simply omitting the squares in column 3.
+This is to make it easy to calculate a bit offset from a set of coordinates.
+If we omitted the squares in column 3, the code would be:
+
+```rust
+fn offset(coords: u8) -> u8 {
+    let row = coords >> 2;
+    let column = coords & 0b11;
+    (row * 3 + column) * 4
+}
+```
+
+But since we include the squares in column 3, the code can be simplified to:
+
+```rust
+fn offset(coords: u8) -> u8 {
+    coords * 4
+}
+```
+
+This code simplification comes at no additional memory cost.
+This is because even if we omitted the squares in column 3, the size of the `Board` struct would only shrink to 48 bits, which still requires a 64-bit integer to store.
 
 ### Square representation (4 bits total)
 

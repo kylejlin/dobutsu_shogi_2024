@@ -119,7 +119,7 @@ impl Pretty<Board> {
         array
     }
 
-    fn char_at_offset(self, offset: u64) -> char {
+    fn char_at_offset(self, offset: u8) -> char {
         let square = (self.0 .0 >> offset) & 0b1111;
         match square {
             0b0_000 => '*',

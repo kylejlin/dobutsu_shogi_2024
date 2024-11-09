@@ -471,10 +471,8 @@ impl Piece {
 
 impl Coords {
     #[inline(always)]
-    const fn board_offset(self: Coords) -> u64 {
-        let col = self.0 & 0b11;
-        let row = self.0 >> 2;
-        ((row * 3 + col) * 4) as u64
+    const fn board_offset(self: Coords) -> u8 {
+        self.0 * 4
     }
 }
 
@@ -958,7 +956,7 @@ impl Board {
     }
 
     #[inline(always)]
-    const fn is_square_empty_at_board_offset(self, board_offset: u64) -> bool {
+    const fn is_square_empty_at_board_offset(self, board_offset: u8) -> bool {
         self.0 & (0b111 << board_offset) == 0
     }
 
@@ -1049,7 +1047,7 @@ impl Action {
     }
 
     #[inline(always)]
-    const fn dest_square_board_offset(self) -> u64 {
+    const fn dest_square_board_offset(self) -> u8 {
         self.dest_coords().board_offset()
     }
 
