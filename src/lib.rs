@@ -1022,7 +1022,7 @@ impl Action {
 
     #[inline(always)]
     const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
-        ((self.0 as u64) & 0b1111) << self.actor().active_coords_offset().0
+        (self.dest_coords().0 as u64) << self.actor().active_coords_offset().0
     }
 
     #[inline(always)]
@@ -1100,11 +1100,11 @@ impl Action {
 
             /// Returns whether there is a way to move from `from` to `to`
             /// by taking one step in some direction contained in this set.
-            const fn connects(self, from: u8, to: u8) -> bool {
-                let from_column = (from & 0b11) as i8;
-                let from_row = (from >> 2) as i8;
-                let to_column = (to & 0b11) as i8;
-                let to_row = (to >> 2) as i8;
+            const fn connects(self, from: Coords, to: Coords) -> bool {
+                let from_column = (from.0 & 0b11) as i8;
+                let from_row = (from.0 >> 2) as i8;
+                let to_column = (to.0 & 0b11) as i8;
+                let to_row = (to.0 >> 2) as i8;
 
                 (self.n && from_row + 1 == to_row && from_column == to_column)
                     || (self.ne && from_row + 1 == to_row && from_column + 1 == to_column)
@@ -1157,34 +1157,32 @@ impl Action {
             _ => [EMPTY, EMPTY],
         };
 
-        let dest_coords = self.0 & 0b1111;
-
         let nonpromoted_squares = {
             let mut out: u16 = 0;
 
             macro_rules! check_start_square {
-                ($start_square:literal) => {
-                    if nonpromoted_dirset.connects($start_square, dest_coords) {
-                        out |= 1 << $start_square;
+                ($start_square:expr) => {
+                    if nonpromoted_dirset.connects($start_square, self.dest_coords()) {
+                        out |= 1 << $start_square.0;
                     }
                 };
             }
 
-            check_start_square!(0b0000);
-            check_start_square!(0b0001);
-            check_start_square!(0b0010);
+            check_start_square!(Coords::R0C0);
+            check_start_square!(Coords::R0C1);
+            check_start_square!(Coords::R0C2);
 
-            check_start_square!(0b0100);
-            check_start_square!(0b0101);
-            check_start_square!(0b0110);
+            check_start_square!(Coords::R1C0);
+            check_start_square!(Coords::R1C1);
+            check_start_square!(Coords::R1C2);
 
-            check_start_square!(0b1000);
-            check_start_square!(0b1001);
-            check_start_square!(0b1010);
+            check_start_square!(Coords::R2C0);
+            check_start_square!(Coords::R2C1);
+            check_start_square!(Coords::R2C2);
 
-            check_start_square!(0b1100);
-            check_start_square!(0b1101);
-            check_start_square!(0b1110);
+            check_start_square!(Coords::R3C0);
+            check_start_square!(Coords::R3C1);
+            check_start_square!(Coords::R3C2);
 
             out
         };
@@ -1192,28 +1190,28 @@ impl Action {
             let mut out: u16 = 0;
 
             macro_rules! check_start_square {
-                ($start_square:literal) => {
-                    if promoted_dirset.connects($start_square, dest_coords) {
-                        out |= 1 << $start_square;
+                ($start_square:expr) => {
+                    if promoted_dirset.connects($start_square, self.dest_coords()) {
+                        out |= 1 << $start_square.0;
                     }
                 };
             }
 
-            check_start_square!(0b0000);
-            check_start_square!(0b0001);
-            check_start_square!(0b0010);
+            check_start_square!(Coords::R0C0);
+            check_start_square!(Coords::R0C1);
+            check_start_square!(Coords::R0C2);
 
-            check_start_square!(0b0100);
-            check_start_square!(0b0101);
-            check_start_square!(0b0110);
+            check_start_square!(Coords::R1C0);
+            check_start_square!(Coords::R1C1);
+            check_start_square!(Coords::R1C2);
 
-            check_start_square!(0b1000);
-            check_start_square!(0b1001);
-            check_start_square!(0b1010);
+            check_start_square!(Coords::R2C0);
+            check_start_square!(Coords::R2C1);
+            check_start_square!(Coords::R2C2);
 
-            check_start_square!(0b1100);
-            check_start_square!(0b1101);
-            check_start_square!(0b1110);
+            check_start_square!(Coords::R3C0);
+            check_start_square!(Coords::R3C1);
+            check_start_square!(Coords::R3C2);
 
             out
         };
@@ -1278,6 +1276,7 @@ impl Piece {
 }
 
 impl Coords {
+    const R0C0: Self = Self(0b0000);
     const R0C1: Self = Self(0b0001);
     const R0C2: Self = Self(0b0010);
 
