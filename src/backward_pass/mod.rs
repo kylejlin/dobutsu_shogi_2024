@@ -159,19 +159,19 @@ impl SearchNode {
 impl SearchNode {
     fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
         let inverted = self.into_builder().invert_active_player();
-        inverted.visit_parents_with_actor(ActivePiece::LION, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::CHICK0, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::CHICK1, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::ELEPHANT0, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::ELEPHANT1, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::GIRAFFE0, &mut visitor);
-        inverted.visit_parents_with_actor(ActivePiece::GIRAFFE1, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::LION, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::CHICK0, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::CHICK1, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::ELEPHANT0, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::ELEPHANT1, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::GIRAFFE0, &mut visitor);
+        inverted.visit_parents_with_actor(Actor::GIRAFFE1, &mut visitor);
     }
 }
 
 impl NodeBuilder {
-    fn visit_parents_with_actor(self, actor: ActivePiece, mut visitor: impl FnMut(SearchNode)) {
-        if self.is_actor_passive(actor) || self.is_in_hand(actor) {
+    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+        if self.is_actor_passive(actor) || self.is_actor_in_hand(actor) {
             return;
         }
 
@@ -184,15 +184,16 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn is_in_hand(self, actor: ActivePiece) -> bool {
-        self.actor_coords(actor).0 == Coords::HAND.0
+    const fn is_actor_in_hand(self, actor: Actor) -> bool {
+        let mask = actor.coords_mask();
+        self.0 & mask == mask
     }
 
     #[inline(always)]
-    const fn is_nonpromoted(self, actor: ActivePiece) -> bool {
+    const fn is_nonpromoted(self, actor: Actor) -> bool {
         let promotion_bit_offset = match actor {
-            ActivePiece::CHICK0 => Offset::CHICK0_PROMOTION,
-            ActivePiece::CHICK1 => Offset::CHICK1_PROMOTION,
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
@@ -201,19 +202,19 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn dropping_parent_of_nonpromoted_actor(self, actor: ActivePiece) -> Self {
+    const fn dropping_parent_of_nonpromoted_actor(self, actor: Actor) -> Self {
         self.set_coords_without_demoting(actor, Coords::HAND)
     }
 
     #[inline(always)]
-    const fn set_coords_without_demoting(self, actor: ActivePiece, coords: Coords) -> Self {
+    const fn set_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
         Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
     }
 
     #[inline(always)]
     fn visit_moving_parents_assuming_actor_is_active_and_on_board(
         self,
-        actor: ActivePiece,
+        actor: Actor,
         visitor: impl FnMut(SearchNode),
     ) {
         if self.is_nonpromoted(actor) {
@@ -231,7 +232,7 @@ impl NodeBuilder {
     #[inline(always)]
     fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_nonpromoted(
         self,
-        actor: ActivePiece,
+        actor: Actor,
         mut visitor: impl FnMut(SearchNode),
     ) {
         let starting_squares = actor.legal_starting_squares(self.actor_coords(actor))[0];
@@ -243,30 +244,30 @@ impl NodeBuilder {
             );
 
             macro_rules! visit {
-                ($captive:expr) => {
+                ($captive_candidate:expr) => {
                     self.visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
                         actor,
                         starting_square,
-                        $captive,
+                        $captive_candidate,
                         &mut visitor,
                     );
                 };
             }
 
-            visit!(PassivePiece::LION);
-            visit!(PassivePiece::CHICK0);
-            visit!(PassivePiece::CHICK1);
-            visit!(PassivePiece::ELEPHANT0);
-            visit!(PassivePiece::ELEPHANT1);
-            visit!(PassivePiece::GIRAFFE0);
-            visit!(PassivePiece::GIRAFFE1);
+            visit!(Captive::LION);
+            visit!(Captive::CHICK0);
+            visit!(Captive::CHICK1);
+            visit!(Captive::ELEPHANT0);
+            visit!(Captive::ELEPHANT1);
+            visit!(Captive::GIRAFFE0);
+            visit!(Captive::GIRAFFE1);
         }
     }
 
     #[inline(always)]
     fn visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
         self,
-        actor: ActivePiece,
+        actor: Actor,
         starting_square: Coords,
         mut visitor: impl FnMut(SearchNode),
     ) {
@@ -279,11 +280,15 @@ impl NodeBuilder {
     #[inline(always)]
     fn visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
         self,
-        actor: ActivePiece,
+        actor: Actor,
         starting_square: Coords,
-        captive: PassivePiece,
+        captive_candidate: Captive,
         mut visitor: impl FnMut(SearchNode),
     ) {
+        if !self.is_in_active_hand(captive_candidate) {
+            return;
+        }
+
         // TODO: If the captive is a chick,
         // then in the parent state,
         // the captive could have been a chick
@@ -293,9 +298,37 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
+    fn is_in_active_hand(self, piece: Captive) -> bool {
+        self.is_captive_candidate_in_hand(piece) && self.is_captive_candidate_active(piece)
+    }
+
+    #[inline(always)]
+    const fn is_captive_candidate_in_hand(self, piece: Captive) -> bool {
+        let mask = piece.coords_mask();
+        self.0 & mask == mask
+    }
+
+    #[inline(always)]
+    const fn is_captive_candidate_active(self, piece: Captive) -> bool {
+        let allegiance_bit_offset = match piece {
+            Captive::LION => return self.is_captive_candidate_in_hand(Captive::LION),
+
+            Captive::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Captive::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Captive::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Captive::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Captive::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Captive::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return false,
+        };
+        self.0 & (1 << allegiance_bit_offset.0) == 0
+    }
+
+    #[inline(always)]
     fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_promoted(
         self,
-        actor: ActivePiece,
+        actor: Actor,
         visitor: impl FnMut(SearchNode),
     ) {
         // TODO: Consider the case where a hen is on the last row.
