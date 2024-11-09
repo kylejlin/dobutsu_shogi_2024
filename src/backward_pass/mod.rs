@@ -15,17 +15,13 @@ pub fn solve(states: &mut [SearchNode]) {
     let mut known_stack = vec![];
     add_terminal_nodes(states, &mut known_stack);
 
-    let mut parent_buffer = vec![];
-
     while let Some(top) = known_stack.pop() {
         let outcome = top.best_known_outcome();
 
-        top.write_parents(&mut parent_buffer);
-
-        for parent in parent_buffer.iter().copied() {
+        top.visit_parents(|parent| {
             let Ok(parent_index) = states.binary_search(&parent) else {
                 // It's possible that a theoretical parent is actually unreachable.
-                continue;
+                return;
             };
 
             let parent_mut = &mut states[parent_index];
@@ -33,7 +29,7 @@ pub fn solve(states: &mut [SearchNode]) {
             if parent_mut.unknown_child_count() == 0 {
                 known_stack.push(*parent_mut);
             }
-        }
+        });
     }
 }
 
@@ -160,106 +156,8 @@ impl SearchNode {
 }
 
 impl SearchNode {
-    fn write_parents(self, out: &mut Vec<SearchNode>) {
-        out.clear();
-
+    fn visit_parents(self, visitor: impl FnMut(SearchNode)) {
         let board = self.into_builder().board();
-
-        self.write_parents_with_dest_coords(out, board, 0b0000);
-        self.write_parents_with_dest_coords(out, board, 0b0001);
-        self.write_parents_with_dest_coords(out, board, 0b0010);
-
-        self.write_parents_with_dest_coords(out, board, 0b0100);
-        self.write_parents_with_dest_coords(out, board, 0b0101);
-        self.write_parents_with_dest_coords(out, board, 0b0110);
-
-        self.write_parents_with_dest_coords(out, board, 0b1000);
-        self.write_parents_with_dest_coords(out, board, 0b1001);
-        self.write_parents_with_dest_coords(out, board, 0b1010);
-
-        self.write_parents_with_dest_coords(out, board, 0b1100);
-        self.write_parents_with_dest_coords(out, board, 0b1101);
-        self.write_parents_with_dest_coords(out, board, 0b1110);
-    }
-
-    #[inline(always)]
-    fn write_parents_with_dest_coords(
-        self,
-        out: &mut Vec<SearchNode>,
-        board: Board,
-        dest_coords: u64,
-    ) {
-        let dest_offset = coords_to_board_offset(dest_coords);
-
-        if board.is_square_nonpassive_at_board_offset(dest_offset) {
-            return;
-        }
-
-        const ROW_MASK: u64 = 0b1100;
-        const COLUMN_MASK: u64 = 0b0011;
-        const MAX_ROW: u64 = 0b1100;
-        const MAX_COLUMN: u64 = 0b0010;
-        const ROW_DELTA: u64 = 0b0100;
-        const COLUMN_DELTA: u64 = 0b0001;
-
-        // start = dest.north()
-        if (dest_coords & ROW_MASK) < MAX_ROW {
-            let start_coords = dest_coords + ROW_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.northeast()
-        if (dest_coords & ROW_MASK) < MAX_ROW && (dest_coords & COLUMN_MASK) < MAX_COLUMN {
-            let start_coords = dest_coords + ROW_DELTA + COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.east()
-        if (dest_coords & COLUMN_MASK) < MAX_COLUMN {
-            let start_coords = dest_coords + COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.southeast()
-        if (dest_coords & ROW_MASK) > 0 && (dest_coords & COLUMN_MASK) < MAX_COLUMN {
-            let start_coords = dest_coords - ROW_DELTA + COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.south()
-        if (dest_coords & ROW_MASK) > 0 {
-            let start_coords = dest_coords - ROW_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.southwest()
-        if (dest_coords & ROW_MASK) > 0 && (dest_coords & COLUMN_MASK) > 0 {
-            let start_coords = dest_coords - ROW_DELTA - COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.west()
-        if (dest_coords & COLUMN_MASK) > 0 {
-            let start_coords = dest_coords - COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-
-        // start = dest.northwest()
-        if (dest_coords & ROW_MASK) < MAX_ROW && (dest_coords & COLUMN_MASK) > 0 {
-            let start_coords = dest_coords + ROW_DELTA - COLUMN_DELTA;
-            self.write_parents_with_dest_and_start_coords(out, board, dest_coords, start_coords)
-        }
-    }
-
-    #[inline(always)]
-    fn write_parents_with_dest_and_start_coords(
-        self,
-        out: &mut Vec<SearchNode>,
-        board: Board,
-        dest_coords: u64,
-        start_coords: u64,
-    ) {
-        todo!()
     }
 }
 
