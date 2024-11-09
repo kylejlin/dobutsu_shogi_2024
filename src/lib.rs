@@ -84,6 +84,8 @@ struct Piece(u8);
 #[derive(Clone, Copy, Debug)]
 struct Offset(u8);
 
+/// WARNING: This struct may possibly represent an invalid coordinate
+/// (i.e., a coordinate where the column is 3).
 #[derive(Clone, Copy, Debug)]
 struct Coords(u8);
 
@@ -448,13 +450,15 @@ impl NodeBuilder {
 }
 
 impl Piece {
+    /// If `self == Piece::LION`, then this returns the **active** lion's coordinate mask.
     #[inline(always)]
-    const fn coords_mask(self) -> u64 {
-        0b1111 << self.coords_offset().0
+    const fn active_coords_mask(self) -> u64 {
+        0b1111 << self.active_coords_offset().0
     }
 
+    /// If `self == Piece::LION`, then this returns the **active** lion's offset.
     #[inline(always)]
-    const fn coords_offset(self) -> Offset {
+    const fn active_coords_offset(self) -> Offset {
         match self {
             Piece::LION => Offset::ACTIVE_LION_COLUMN,
             Piece::CHICK0 => Offset::CHICK0_COLUMN,
@@ -690,7 +694,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        let actor_coords = (self.0 >> action.actor().coords_offset().0) & 0b1111;
+        let actor_coords = (self.0 >> action.actor().active_coords_offset().0) & 0b1111;
 
         let legal_squares = action.legal_starting_squares();
 
@@ -853,97 +857,70 @@ impl NodeBuilder {
     }
 
     const fn board(self) -> Board {
-        const CHICK0_COORDS_MASK: u64 = 0b1111 << Offset::CHICK0_COLUMN.0;
-        const CHICK1_COORDS_MASK: u64 = 0b1111 << Offset::CHICK1_COLUMN.0;
-        const ELEPHANT0_COORDS_MASK: u64 = 0b1111 << Offset::ELEPHANT0_COLUMN.0;
-        const ELEPHANT1_COORDS_MASK: u64 = 0b1111 << Offset::ELEPHANT1_COLUMN.0;
-        const GIRAFFE0_COORDS_MASK: u64 = 0b1111 << Offset::GIRAFFE0_COLUMN.0;
-        const GIRAFFE1_COORDS_MASK: u64 = 0b1111 << Offset::GIRAFFE1_COLUMN.0;
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << Offset::ACTIVE_LION_COLUMN.0;
-        const PASSIVE_LION_COORDS_MASK: u64 = 0b1111 << Offset::PASSIVE_LION_COLUMN.0;
-
-        let chick0_coords = self.0 & CHICK0_COORDS_MASK;
-        let chick1_coords = self.0 & CHICK1_COORDS_MASK;
-        let elephant0_coords = self.0 & ELEPHANT0_COORDS_MASK;
-        let elephant1_coords = self.0 & ELEPHANT1_COORDS_MASK;
-        let giraffe0_coords = self.0 & GIRAFFE0_COORDS_MASK;
-        let giraffe1_coords = self.0 & GIRAFFE1_COORDS_MASK;
-        let active_lion_coords = self.0 & ACTIVE_LION_COORDS_MASK;
-        let passive_lion_coords = self.0 & PASSIVE_LION_COORDS_MASK;
-
-        const LION_SQUARE_PIECE: u64 = 0b001;
-        const CHICK0_SQUARE_PIECE: u64 = 0b010;
-        const CHICK1_SQUARE_PIECE: u64 = 0b011;
-        const ELEPHANT0_SQUARE_PIECE: u64 = 0b100;
-        const ELEPHANT1_SQUARE_PIECE: u64 = 0b101;
-        const GIRAFFE0_SQUARE_PIECE: u64 = 0b110;
-        const GIRAFFE1_SQUARE_PIECE: u64 = 0b111;
-
         let mut board: u64 = 0;
 
         // For each piece, we first check whether it's in the hand.
         // If so, we skip it.
         // Otherwise, we calculate the board offset and add the piece to the board.
 
-        if chick0_coords != CHICK0_COORDS_MASK {
-            let board_offset =
-                Coords((chick0_coords >> Offset::CHICK0_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::CHICK0_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | CHICK0_SQUARE_PIECE) << board_offset;
+        macro_rules! add_nonlion {
+            ($piece:expr) => {{
+                let board_offset = self.active_coords_of($piece).board_offset();
+                let allegiance_in_bit3 = self.allegiance_in_bit_3_of_nonlion($piece);
+                board |= (allegiance_in_bit3 | ($piece.0 as u64)) << board_offset;
+            }};
         }
 
-        if chick1_coords != CHICK1_COORDS_MASK {
-            let board_offset =
-                Coords((chick1_coords >> Offset::CHICK1_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::CHICK1_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | CHICK1_SQUARE_PIECE) << board_offset;
-        }
+        add_nonlion!(Piece::CHICK0);
+        add_nonlion!(Piece::CHICK1);
+        add_nonlion!(Piece::ELEPHANT0);
+        add_nonlion!(Piece::ELEPHANT1);
+        add_nonlion!(Piece::GIRAFFE0);
+        add_nonlion!(Piece::GIRAFFE1);
 
-        if elephant0_coords != ELEPHANT0_COORDS_MASK {
-            let board_offset =
-                Coords((elephant0_coords >> Offset::ELEPHANT0_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::ELEPHANT0_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | ELEPHANT0_SQUARE_PIECE) << board_offset;
-        }
-
-        if elephant1_coords != ELEPHANT1_COORDS_MASK {
-            let board_offset =
-                Coords((elephant1_coords >> Offset::ELEPHANT1_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::ELEPHANT1_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | ELEPHANT1_SQUARE_PIECE) << board_offset;
-        }
-
-        if giraffe0_coords != GIRAFFE0_COORDS_MASK {
-            let board_offset =
-                Coords((giraffe0_coords >> Offset::GIRAFFE0_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::GIRAFFE0_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | GIRAFFE0_SQUARE_PIECE) << board_offset;
-        }
-
-        if giraffe1_coords != GIRAFFE1_COORDS_MASK {
-            let board_offset =
-                Coords((giraffe1_coords >> Offset::GIRAFFE1_COLUMN.0) as u8).board_offset();
-            let allegiance_in_bit3 = (self.0 >> (Offset::GIRAFFE1_ALLEGIANCE.0 - 3)) & (1 << 3);
-            board |= (allegiance_in_bit3 | GIRAFFE1_SQUARE_PIECE) << board_offset;
-        }
-
-        if active_lion_coords != ACTIVE_LION_COORDS_MASK {
-            let board_offset =
-                Coords((active_lion_coords >> Offset::ACTIVE_LION_COLUMN.0) as u8).board_offset();
+        {
+            let board_offset = self.active_coords_of(Piece::LION).board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+            board |= (ALLEGIANCE_IN_BIT3 | (Piece::LION.0 as u64)) << board_offset;
         }
 
-        if passive_lion_coords != PASSIVE_LION_COORDS_MASK {
-            let board_offset =
-                Coords((passive_lion_coords >> Offset::PASSIVE_LION_COLUMN.0) as u8).board_offset();
+        {
+            let board_offset = self.passive_lion_coords().board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
+            board |= (ALLEGIANCE_IN_BIT3 | (Piece::LION.0 as u64)) << board_offset;
         }
 
         Board(board)
     }
 
+    #[inline(always)]
+    const fn active_coords_of(self, piece: Piece) -> Coords {
+        Coords(((self.0 >> piece.active_coords_offset().0) & 0b1111) as u8)
+    }
+
+    #[inline(always)]
+    const fn allegiance_in_bit_3_of_nonlion(self, piece: Piece) -> u64 {
+        let allegiance_offset = match piece {
+            Piece::LION => return 0,
+
+            Piece::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Piece::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Piece::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Piece::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Piece::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Piece::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return 0,
+        };
+        (self.0 >> (allegiance_offset.0 - 3)) & (1 << 3)
+    }
+
+    #[inline(always)]
+    const fn passive_lion_coords(self) -> Coords {
+        Coords(((self.0 >> Offset::PASSIVE_LION_COLUMN.0) & 0b1111) as u8)
+    }
+
+    #[inline(always)]
     const fn into_optional(self) -> OptionalNodeBuilder {
         OptionalNodeBuilder(self.0)
     }
@@ -1038,12 +1015,12 @@ impl Action {
 
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
-        self.actor().coords_mask()
+        self.actor().active_coords_mask()
     }
 
     #[inline(always)]
     const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
-        ((self.0 as u64) & 0b1111) << self.actor().coords_offset().0
+        ((self.0 as u64) & 0b1111) << self.actor().active_coords_offset().0
     }
 
     #[inline(always)]
