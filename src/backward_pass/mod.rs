@@ -157,6 +157,7 @@ impl SearchNode {
 }
 
 impl SearchNode {
+    // TODO: Eliminate duplicate parents.
     fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
         let inverted = self.into_builder().invert_active_player();
         inverted.visit_parents_with_actor(Actor::LION, &mut visitor);
