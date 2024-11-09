@@ -113,7 +113,7 @@ impl Pretty<Board> {
         for (row, row_array) in array.iter_mut().enumerate() {
             for (col, cell) in row_array.iter_mut().enumerate() {
                 let coords = (row << 2) | col;
-                *cell = self.char_at_offset(coords_to_board_offset(coords as u64));
+                *cell = self.char_at_offset(Coords(coords as u8).board_offset());
             }
         }
         array
@@ -152,7 +152,7 @@ impl Board {
         for row in 0..=3 {
             for col in 0..=2 {
                 let coords = (row << 2) | col;
-                let offset = coords_to_board_offset(coords);
+                let offset = Coords(coords).board_offset();
                 let square = (self.0 >> offset) & 0b1111;
                 let square_with_inverted_allegiance = if square == 0b0_000 {
                     square
@@ -163,7 +163,7 @@ impl Board {
                 let inv_row = 3 - row;
                 let inv_col = 2 - col;
                 let inv_coords = (inv_row << 2) | inv_col;
-                let inv_offset = coords_to_board_offset(inv_coords);
+                let inv_offset = Coords(inv_coords).board_offset();
 
                 out |= square_with_inverted_allegiance << inv_offset;
             }

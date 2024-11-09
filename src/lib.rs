@@ -84,6 +84,9 @@ struct Piece(u8);
 #[derive(Clone, Copy, Debug)]
 struct Offset(u8);
 
+#[derive(Clone, Copy, Debug)]
+struct Coords(u8);
+
 type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
 
 impl Terminality {
@@ -466,6 +469,15 @@ impl Piece {
     }
 }
 
+impl Coords {
+    #[inline(always)]
+    const fn board_offset(self: Coords) -> u64 {
+        let col = self.0 & 0b11;
+        let row = self.0 >> 2;
+        ((row * 3 + col) * 4) as u64
+    }
+}
+
 macro_rules! action_handlers_for_piece {
     ($piece:ident) => {
         [
@@ -651,29 +663,29 @@ impl NodeBuilder {
     #[inline(always)]
     const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
         macro_rules! check_square {
-            ($coords:literal) => {
-                if action.0 & 0b1111 < $coords
-                    && board.is_square_empty_at_board_offset(coords_to_board_offset($coords))
+            ($coords:expr) => {
+                if action.0 & 0b1111 < $coords.0
+                    && board.is_square_empty_at_board_offset($coords.board_offset())
                 {
                     return action.set_dest_square($coords).into_optional();
                 }
             };
         }
 
-        check_square!(0b0001);
-        check_square!(0b0010);
+        check_square!(Coords::R0C1);
+        check_square!(Coords::R0C2);
 
-        check_square!(0b0100);
-        check_square!(0b0101);
-        check_square!(0b0110);
+        check_square!(Coords::R1C0);
+        check_square!(Coords::R1C1);
+        check_square!(Coords::R1C2);
 
-        check_square!(0b1000);
-        check_square!(0b1001);
-        check_square!(0b1010);
+        check_square!(Coords::R2C0);
+        check_square!(Coords::R2C1);
+        check_square!(Coords::R2C2);
 
-        check_square!(0b1100);
-        check_square!(0b1101);
-        check_square!(0b1110);
+        check_square!(Coords::R3C0);
+        check_square!(Coords::R3C1);
+        check_square!(Coords::R3C2);
 
         action.next_piece_action()
     }
@@ -715,10 +727,10 @@ impl NodeBuilder {
         board: Board,
     ) -> OptionalAction {
         macro_rules! check_square {
-            ($coords:literal) => {{
+            ($coords:expr) => {{
                 let candidate = action.set_dest_square($coords);
 
-                if action.0 & 0b1111 < $coords
+                if action.dest_coords().0 < $coords.0
                     && board.is_dest_square_nonactive(candidate)
                     && self.is_actor_in_range_of_dest_square(candidate)
                 {
@@ -727,20 +739,20 @@ impl NodeBuilder {
             }};
         }
 
-        check_square!(0b0001);
-        check_square!(0b0010);
+        check_square!(Coords::R0C1);
+        check_square!(Coords::R0C2);
 
-        check_square!(0b0100);
-        check_square!(0b0101);
-        check_square!(0b0110);
+        check_square!(Coords::R1C0);
+        check_square!(Coords::R1C1);
+        check_square!(Coords::R1C2);
 
-        check_square!(0b1000);
-        check_square!(0b1001);
-        check_square!(0b1010);
+        check_square!(Coords::R2C0);
+        check_square!(Coords::R2C1);
+        check_square!(Coords::R2C2);
 
-        check_square!(0b1100);
-        check_square!(0b1101);
-        check_square!(0b1110);
+        check_square!(Coords::R3C0);
+        check_square!(Coords::R3C1);
+        check_square!(Coords::R3C2);
 
         action.next_piece_action()
     }
@@ -876,53 +888,57 @@ impl NodeBuilder {
         // Otherwise, we calculate the board offset and add the piece to the board.
 
         if chick0_coords != CHICK0_COORDS_MASK {
-            let board_offset = coords_to_board_offset(chick0_coords >> Offset::CHICK0_COLUMN.0);
+            let board_offset =
+                Coords((chick0_coords >> Offset::CHICK0_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::CHICK0_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | CHICK0_SQUARE_PIECE) << board_offset;
         }
 
         if chick1_coords != CHICK1_COORDS_MASK {
-            let board_offset = coords_to_board_offset(chick1_coords >> Offset::CHICK1_COLUMN.0);
+            let board_offset =
+                Coords((chick1_coords >> Offset::CHICK1_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::CHICK1_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | CHICK1_SQUARE_PIECE) << board_offset;
         }
 
         if elephant0_coords != ELEPHANT0_COORDS_MASK {
             let board_offset =
-                coords_to_board_offset(elephant0_coords >> Offset::ELEPHANT0_COLUMN.0);
+                Coords((elephant0_coords >> Offset::ELEPHANT0_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::ELEPHANT0_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | ELEPHANT0_SQUARE_PIECE) << board_offset;
         }
 
         if elephant1_coords != ELEPHANT1_COORDS_MASK {
             let board_offset =
-                coords_to_board_offset(elephant1_coords >> Offset::ELEPHANT1_COLUMN.0);
+                Coords((elephant1_coords >> Offset::ELEPHANT1_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::ELEPHANT1_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | ELEPHANT1_SQUARE_PIECE) << board_offset;
         }
 
         if giraffe0_coords != GIRAFFE0_COORDS_MASK {
-            let board_offset = coords_to_board_offset(giraffe0_coords >> Offset::GIRAFFE0_COLUMN.0);
+            let board_offset =
+                Coords((giraffe0_coords >> Offset::GIRAFFE0_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::GIRAFFE0_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | GIRAFFE0_SQUARE_PIECE) << board_offset;
         }
 
         if giraffe1_coords != GIRAFFE1_COORDS_MASK {
-            let board_offset = coords_to_board_offset(giraffe1_coords >> Offset::GIRAFFE1_COLUMN.0);
+            let board_offset =
+                Coords((giraffe1_coords >> Offset::GIRAFFE1_COLUMN.0) as u8).board_offset();
             let allegiance_in_bit3 = (self.0 >> (Offset::GIRAFFE1_ALLEGIANCE.0 - 3)) & (1 << 3);
             board |= (allegiance_in_bit3 | GIRAFFE1_SQUARE_PIECE) << board_offset;
         }
 
         if active_lion_coords != ACTIVE_LION_COORDS_MASK {
             let board_offset =
-                coords_to_board_offset(active_lion_coords >> Offset::ACTIVE_LION_COLUMN.0);
+                Coords((active_lion_coords >> Offset::ACTIVE_LION_COLUMN.0) as u8).board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
             board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
         }
 
         if passive_lion_coords != PASSIVE_LION_COORDS_MASK {
             let board_offset =
-                coords_to_board_offset(passive_lion_coords >> Offset::PASSIVE_LION_COLUMN.0);
+                Coords((passive_lion_coords >> Offset::PASSIVE_LION_COLUMN.0) as u8).board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
             board |= (ALLEGIANCE_IN_BIT3 | LION_SQUARE_PIECE) << board_offset;
         }
@@ -957,21 +973,10 @@ impl Board {
     }
 
     #[inline(always)]
-    const fn is_square_nonpassive_at_board_offset(self, board_offset: u64) -> bool {
-        self.0 & (0b1_000 << board_offset) == 0
-    }
-
-    #[inline(always)]
     const fn is_dest_square_nonactive(self, action: Action) -> bool {
         let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
         self.is_dest_square_empty(action) | is_passive
     }
-}
-
-const fn coords_to_board_offset(coords: u64) -> u64 {
-    let col = coords & 0b11;
-    let row = coords >> 2;
-    (row * 3 + col) * 4
 }
 
 impl Action {
@@ -1045,7 +1050,12 @@ impl Action {
 
     #[inline(always)]
     const fn dest_square_board_offset(self) -> u64 {
-        coords_to_board_offset((self.0 as u64) & 0b1111)
+        self.dest_coords().board_offset()
+    }
+
+    #[inline(always)]
+    const fn dest_coords(self) -> Coords {
+        Coords((self.0 & 0b1111) as u8)
     }
 
     #[inline(always)]
@@ -1059,8 +1069,8 @@ impl Action {
     }
 
     #[inline(always)]
-    const fn set_dest_square(self, coords: u8) -> Action {
-        Self((self.0 & !0b1111) | coords)
+    const fn set_dest_square(self, coords: Coords) -> Action {
+        Self((self.0 & !0b1111) | coords.0)
     }
 
     #[inline(always)]
@@ -1288,4 +1298,21 @@ impl Piece {
     const ELEPHANT1: Self = Self(0b101);
     const GIRAFFE0: Self = Self(0b110);
     const GIRAFFE1: Self = Self(0b111);
+}
+
+impl Coords {
+    const R0C1: Self = Self(0b0001);
+    const R0C2: Self = Self(0b0010);
+
+    const R1C0: Self = Self(0b0100);
+    const R1C1: Self = Self(0b0101);
+    const R1C2: Self = Self(0b0110);
+
+    const R2C0: Self = Self(0b1000);
+    const R2C1: Self = Self(0b1001);
+    const R2C2: Self = Self(0b1010);
+
+    const R3C0: Self = Self(0b1100);
+    const R3C1: Self = Self(0b1101);
+    const R3C2: Self = Self(0b1110);
 }
