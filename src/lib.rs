@@ -504,11 +504,6 @@ impl ActivePiece {
 
 impl Nonlion {
     #[inline(always)]
-    const fn coords_mask(self) -> u64 {
-        0b1111 << self.coords_offset().0
-    }
-
-    #[inline(always)]
     const fn coords_offset(self) -> Offset {
         match self {
             Nonlion::CHICK0 => Offset::CHICK0_COLUMN,
