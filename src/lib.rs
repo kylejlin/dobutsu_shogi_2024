@@ -78,6 +78,9 @@ struct Board(u64);
 #[derive(Clone, Copy, Debug)]
 struct SquareSet(u16);
 
+#[derive(Clone, Copy, Debug)]
+struct Piece(u8);
+
 type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
 
 impl Terminality {
@@ -1261,4 +1264,14 @@ mod offsets {
     pub const ACTIVE_LION_ROW: u64 = ACTIVE_LION_COLUMN + 2;
 
     pub const PASSIVE_LION_COLUMN: u64 = PASSIVE_LION;
+}
+
+impl Piece {
+    const LION: Self = Self(0b001);
+    const CHICK0: Self = Self(0b010);
+    const CHICK1: Self = Self(0b011);
+    const ELEPHANT0: Self = Self(0b100);
+    const ELEPHANT1: Self = Self(0b101);
+    const GIRAFFE0: Self = Self(0b110);
+    const GIRAFFE1: Self = Self(0b111);
 }

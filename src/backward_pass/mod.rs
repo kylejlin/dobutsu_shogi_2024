@@ -156,8 +156,22 @@ impl SearchNode {
 }
 
 impl SearchNode {
-    fn visit_parents(self, visitor: impl FnMut(SearchNode)) {
-        let board = self.into_builder().board();
+    fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
+        let inverted = self.into_builder().invert_active_player();
+        inverted.visit_parents_with_actor(Piece::LION, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::CHICK0, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::CHICK1, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::ELEPHANT0, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::ELEPHANT1, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::GIRAFFE0, &mut visitor);
+        inverted.visit_parents_with_actor(Piece::GIRAFFE1, &mut visitor);
+    }
+}
+
+impl NodeBuilder {
+    #[inline(always)]
+    fn visit_parents_with_actor(self, actor: Piece, visitor: impl FnMut(SearchNode)) {
+        todo!()
     }
 }
 
