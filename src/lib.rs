@@ -84,8 +84,10 @@ struct Piece(u8);
 #[derive(Clone, Copy, Debug)]
 struct Offset(u8);
 
-/// WARNING: This struct may possibly represent an invalid coordinate
-/// (i.e., a coordinate where the column is 3).
+/// WARNING: This struct may possibly be `Coords(0b1111)`,
+/// which represents the location of the hand.
+/// Thus, it is important not to assume that the coordinates
+/// are on the board.
 #[derive(Clone, Copy, Debug)]
 struct Coords(u8);
 
