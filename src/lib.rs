@@ -81,6 +81,12 @@ struct SquareSet(u16);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Piece(u8);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Actor(Piece);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Nonlion(Piece);
+
 #[derive(Clone, Copy, Debug)]
 struct Offset(u8);
 
@@ -451,24 +457,43 @@ impl NodeBuilder {
     }
 }
 
-impl Piece {
-    /// If `self == Piece::LION`, then this returns the **active** lion's coordinate mask.
+impl Actor {
     #[inline(always)]
-    const fn active_coords_mask(self) -> u64 {
-        0b1111 << self.active_coords_offset().0
+    const fn coords_mask(self) -> u64 {
+        0b1111 << self.coords_offset().0
     }
 
-    /// If `self == Piece::LION`, then this returns the **active** lion's offset.
     #[inline(always)]
-    const fn active_coords_offset(self) -> Offset {
+    const fn coords_offset(self) -> Offset {
         match self {
-            Piece::LION => Offset::ACTIVE_LION_COLUMN,
-            Piece::CHICK0 => Offset::CHICK0_COLUMN,
-            Piece::CHICK1 => Offset::CHICK1_COLUMN,
-            Piece::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
-            Piece::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
-            Piece::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
-            Piece::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
+            Actor::LION => Offset::ACTIVE_LION_COLUMN,
+            Actor::CHICK0 => Offset::CHICK0_COLUMN,
+            Actor::CHICK1 => Offset::CHICK1_COLUMN,
+            Actor::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
+            Actor::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
+            Actor::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
+            Actor::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
+
+            _ => Offset(0),
+        }
+    }
+}
+
+impl Nonlion {
+    #[inline(always)]
+    const fn coords_mask(self) -> u64 {
+        0b1111 << self.coords_offset().0
+    }
+
+    #[inline(always)]
+    const fn coords_offset(self) -> Offset {
+        match self {
+            Nonlion::CHICK0 => Offset::CHICK0_COLUMN,
+            Nonlion::CHICK1 => Offset::CHICK1_COLUMN,
+            Nonlion::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
+            Nonlion::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
+            Nonlion::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
+            Nonlion::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
 
             _ => Offset(0),
         }
@@ -618,7 +643,7 @@ mod action_handlers {
 impl NodeBuilder {
     #[inline(always)]
     const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
-        if self.0 & action.allegiance_mask() != 0 {
+        if self.is_actor_passive(action.actor()) {
             return (OptionalNodeBuilder::NONE, action.next_species_action());
         }
 
@@ -637,6 +662,25 @@ impl NodeBuilder {
         }
 
         self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action)
+    }
+
+    #[inline(always)]
+    const fn is_actor_passive(self, actor: Actor) -> bool {
+        let allegiance_bit_offset = match actor {
+            // The active lion can never be passive.
+            Actor::LION => return false,
+
+            Actor::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Actor::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Actor::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Actor::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Actor::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Actor::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return false,
+        };
+
+        self.0 & (1 << allegiance_bit_offset.0) != 0
     }
 
     #[inline(always)]
@@ -696,7 +740,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        let actor_coords = (self.0 >> action.actor().active_coords_offset().0) & 0b1111;
+        let actor_coords = (self.0 >> action.actor().coords_offset().0) & 0b1111;
 
         let legal_squares = action.legal_starting_squares();
 
@@ -711,8 +755,8 @@ impl NodeBuilder {
     #[inline(always)]
     const fn is_actor_promoted(self, action: Action) -> bool {
         let offset = match action.actor() {
-            Piece::CHICK0 => Offset::CHICK0_PROMOTION,
-            Piece::CHICK1 => Offset::CHICK1_PROMOTION,
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
@@ -867,54 +911,57 @@ impl NodeBuilder {
 
         macro_rules! add_nonlion {
             ($piece:expr) => {{
-                let board_offset = self.active_coords_of($piece).board_offset();
-                let allegiance_in_bit3 = self.allegiance_in_bit_3_of_nonlion($piece);
-                board |= (allegiance_in_bit3 | ($piece.0 as u64)) << board_offset;
+                let board_offset = self.nonlion_coords($piece).board_offset();
+                let allegiance_in_bit3 = self.nonlion_allegiance_in_bit_3($piece);
+                board |= (allegiance_in_bit3 | ($piece.0 .0 as u64)) << board_offset;
             }};
         }
 
-        add_nonlion!(Piece::CHICK0);
-        add_nonlion!(Piece::CHICK1);
-        add_nonlion!(Piece::ELEPHANT0);
-        add_nonlion!(Piece::ELEPHANT1);
-        add_nonlion!(Piece::GIRAFFE0);
-        add_nonlion!(Piece::GIRAFFE1);
+        add_nonlion!(Nonlion::CHICK0);
+        add_nonlion!(Nonlion::CHICK1);
+        add_nonlion!(Nonlion::ELEPHANT0);
+        add_nonlion!(Nonlion::ELEPHANT1);
+        add_nonlion!(Nonlion::GIRAFFE0);
+        add_nonlion!(Nonlion::GIRAFFE1);
 
         {
-            let board_offset = self.active_coords_of(Piece::LION).board_offset();
+            let board_offset = self.active_lion_coords().board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 0 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | (Piece::LION.0 as u64)) << board_offset;
+            board |= (ALLEGIANCE_IN_BIT3 | (Piece::AMBIGUOUS_LION.0 as u64)) << board_offset;
         }
 
         {
             let board_offset = self.passive_lion_coords().board_offset();
             const ALLEGIANCE_IN_BIT3: u64 = 1 << 3;
-            board |= (ALLEGIANCE_IN_BIT3 | (Piece::LION.0 as u64)) << board_offset;
+            board |= (ALLEGIANCE_IN_BIT3 | (Piece::AMBIGUOUS_LION.0 as u64)) << board_offset;
         }
 
         Board(board)
     }
 
     #[inline(always)]
-    const fn active_coords_of(self, piece: Piece) -> Coords {
-        Coords(((self.0 >> piece.active_coords_offset().0) & 0b1111) as u8)
+    const fn nonlion_coords(self, piece: Nonlion) -> Coords {
+        Coords(((self.0 >> piece.coords_offset().0) & 0b1111) as u8)
     }
 
     #[inline(always)]
-    const fn allegiance_in_bit_3_of_nonlion(self, piece: Piece) -> u64 {
+    const fn nonlion_allegiance_in_bit_3(self, piece: Nonlion) -> u64 {
         let allegiance_offset = match piece {
-            Piece::LION => return 0,
-
-            Piece::CHICK0 => Offset::CHICK0_ALLEGIANCE,
-            Piece::CHICK1 => Offset::CHICK1_ALLEGIANCE,
-            Piece::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
-            Piece::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
-            Piece::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
-            Piece::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+            Nonlion::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Nonlion::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Nonlion::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Nonlion::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Nonlion::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Nonlion::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
 
             _ => return 0,
         };
         (self.0 >> (allegiance_offset.0 - 3)) & (1 << 3)
+    }
+
+    #[inline(always)]
+    const fn active_lion_coords(self) -> Coords {
+        Coords(((self.0 >> Offset::ACTIVE_LION_COLUMN.0) & 0b1111) as u8)
     }
 
     #[inline(always)]
@@ -958,43 +1005,23 @@ impl Board {
 
 impl Action {
     #[inline(always)]
-    const fn allegiance_mask(self) -> u64 {
-        let offset = match self.actor() {
-            // There is no mask for the active lion, since it's allegiance
-            // is fixed.
-            Piece::LION => return 0,
-
-            Piece::CHICK0 => Offset::CHICK0_ALLEGIANCE,
-            Piece::CHICK1 => Offset::CHICK1_ALLEGIANCE,
-            Piece::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
-            Piece::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
-            Piece::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
-            Piece::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
-
-            _ => return 0,
-        };
-
-        1 << offset.0
-    }
-
-    #[inline(always)]
-    const fn actor(self) -> Piece {
-        Piece(self.0 >> 4)
+    const fn actor(self) -> Actor {
+        Actor(Piece(self.0 >> 4))
     }
 
     #[inline(always)]
     const fn next_species_action(self) -> OptionalAction {
         OptionalAction(match self.actor() {
-            Piece::LION => 0b010_0000,
+            Actor::LION => 0b010_0000,
 
-            Piece::CHICK0 => 0b100_0000,
-            Piece::CHICK1 => 0b100_0000,
+            Actor::CHICK0 => 0b100_0000,
+            Actor::CHICK1 => 0b100_0000,
 
-            Piece::ELEPHANT0 => 0b110_0000,
-            Piece::ELEPHANT1 => 0b110_0000,
+            Actor::ELEPHANT0 => 0b110_0000,
+            Actor::ELEPHANT1 => 0b110_0000,
 
-            Piece::GIRAFFE0 => 0,
-            Piece::GIRAFFE1 => 0,
+            Actor::GIRAFFE0 => 0,
+            Actor::GIRAFFE1 => 0,
 
             _ => 0,
         })
@@ -1003,13 +1030,13 @@ impl Action {
     #[inline(always)]
     const fn next_piece_action(self) -> OptionalAction {
         OptionalAction(match self.actor() {
-            Piece::LION => 0b010_0000,
-            Piece::CHICK0 => 0b011_0000,
-            Piece::CHICK1 => 0b100_0000,
-            Piece::ELEPHANT0 => 0b101_0000,
-            Piece::ELEPHANT1 => 0b110_0000,
-            Piece::GIRAFFE0 => 0b111_0000,
-            Piece::GIRAFFE1 => 0,
+            Actor::LION => 0b010_0000,
+            Actor::CHICK0 => 0b011_0000,
+            Actor::CHICK1 => 0b100_0000,
+            Actor::ELEPHANT0 => 0b101_0000,
+            Actor::ELEPHANT1 => 0b110_0000,
+            Actor::GIRAFFE0 => 0b111_0000,
+            Actor::GIRAFFE1 => 0,
 
             _ => 0,
         })
@@ -1017,12 +1044,12 @@ impl Action {
 
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
-        self.actor().active_coords_mask()
+        self.actor().coords_mask()
     }
 
     #[inline(always)]
     const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
-        (self.dest_coords().0 as u64) << self.actor().active_coords_offset().0
+        (self.dest_coords().0 as u64) << self.actor().coords_offset().0
     }
 
     #[inline(always)]
@@ -1037,12 +1064,12 @@ impl Action {
 
     #[inline(always)]
     const fn is_actor_chick0(self) -> bool {
-        self.actor().0 == Piece::CHICK0.0
+        self.actor().0 .0 == Actor::CHICK0.0 .0
     }
 
     #[inline(always)]
     const fn is_actor_chick1(self) -> bool {
-        self.actor().0 == Piece::CHICK1.0
+        self.actor().0 .0 == Actor::CHICK1.0 .0
     }
 
     #[inline(always)]
@@ -1146,13 +1173,13 @@ impl Action {
         const LION: DirectionSet = CARDINAL.union(DIAGONAL);
 
         let [nonpromoted_dirset, promoted_dirset] = match self.actor() {
-            Piece::LION => [LION, EMPTY],
-            Piece::CHICK0 => [CHICK, HEN],
-            Piece::CHICK1 => [CHICK, HEN],
-            Piece::ELEPHANT0 => [ELEPHANT, EMPTY],
-            Piece::ELEPHANT1 => [ELEPHANT, EMPTY],
-            Piece::GIRAFFE0 => [GIRAFFE, EMPTY],
-            Piece::GIRAFFE1 => [GIRAFFE, EMPTY],
+            Actor::LION => [LION, EMPTY],
+            Actor::CHICK0 => [CHICK, HEN],
+            Actor::CHICK1 => [CHICK, HEN],
+            Actor::ELEPHANT0 => [ELEPHANT, EMPTY],
+            Actor::ELEPHANT1 => [ELEPHANT, EMPTY],
+            Actor::GIRAFFE0 => [GIRAFFE, EMPTY],
+            Actor::GIRAFFE1 => [GIRAFFE, EMPTY],
 
             _ => [EMPTY, EMPTY],
         };
@@ -1266,13 +1293,33 @@ impl Offset {
 }
 
 impl Piece {
-    const LION: Self = Self(0b001);
+    const AMBIGUOUS_LION: Self = Self(0b001);
+
     const CHICK0: Self = Self(0b010);
     const CHICK1: Self = Self(0b011);
     const ELEPHANT0: Self = Self(0b100);
     const ELEPHANT1: Self = Self(0b101);
     const GIRAFFE0: Self = Self(0b110);
     const GIRAFFE1: Self = Self(0b111);
+}
+
+impl Actor {
+    const LION: Self = Self(Piece::AMBIGUOUS_LION);
+    const CHICK0: Self = Self(Piece::CHICK0);
+    const CHICK1: Self = Self(Piece::CHICK1);
+    const ELEPHANT0: Self = Self(Piece::ELEPHANT0);
+    const ELEPHANT1: Self = Self(Piece::ELEPHANT1);
+    const GIRAFFE0: Self = Self(Piece::GIRAFFE0);
+    const GIRAFFE1: Self = Self(Piece::GIRAFFE1);
+}
+
+impl Nonlion {
+    const CHICK0: Self = Self(Piece::CHICK0);
+    const CHICK1: Self = Self(Piece::CHICK1);
+    const ELEPHANT0: Self = Self(Piece::ELEPHANT0);
+    const ELEPHANT1: Self = Self(Piece::ELEPHANT1);
+    const GIRAFFE0: Self = Self(Piece::GIRAFFE0);
+    const GIRAFFE1: Self = Self(Piece::GIRAFFE1);
 }
 
 impl Coords {
