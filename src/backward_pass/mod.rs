@@ -159,18 +159,18 @@ impl SearchNode {
 impl SearchNode {
     fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
         let inverted = self.into_builder().invert_active_player();
-        inverted.visit_parents_with_actor(Actor::LION, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::CHICK0, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::CHICK1, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::ELEPHANT0, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::ELEPHANT1, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::GIRAFFE0, &mut visitor);
-        inverted.visit_parents_with_actor(Actor::GIRAFFE1, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::LION, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::CHICK0, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::CHICK1, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::ELEPHANT0, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::ELEPHANT1, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::GIRAFFE0, &mut visitor);
+        inverted.visit_parents_with_actor(ActivePiece::GIRAFFE1, &mut visitor);
     }
 }
 
 impl NodeBuilder {
-    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+    fn visit_parents_with_actor(self, actor: ActivePiece, mut visitor: impl FnMut(SearchNode)) {
         if self.is_actor_passive(actor) || self.is_in_hand(actor) {
             return;
         }
@@ -184,15 +184,15 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn is_in_hand(self, actor: Actor) -> bool {
+    const fn is_in_hand(self, actor: ActivePiece) -> bool {
         self.actor_coords(actor).0 == Coords::HAND.0
     }
 
     #[inline(always)]
-    const fn is_nonpromoted(self, actor: Actor) -> bool {
+    const fn is_nonpromoted(self, actor: ActivePiece) -> bool {
         let promotion_bit_offset = match actor {
-            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
-            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+            ActivePiece::CHICK0 => Offset::CHICK0_PROMOTION,
+            ActivePiece::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
@@ -201,19 +201,101 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn dropping_parent_of_nonpromoted_actor(self, actor: Actor) -> Self {
+    const fn dropping_parent_of_nonpromoted_actor(self, actor: ActivePiece) -> Self {
         self.set_coords_without_demoting(actor, Coords::HAND)
     }
 
     #[inline(always)]
-    const fn set_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
+    const fn set_coords_without_demoting(self, actor: ActivePiece, coords: Coords) -> Self {
         Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
     }
 
     #[inline(always)]
     fn visit_moving_parents_assuming_actor_is_active_and_on_board(
         self,
-        actor: Actor,
+        actor: ActivePiece,
+        visitor: impl FnMut(SearchNode),
+    ) {
+        if self.is_nonpromoted(actor) {
+            return self
+                .visit_moving_parents_assuming_actor_is_active_and_on_board_and_nonpromoted(
+                    actor, visitor,
+                );
+        }
+
+        self.visit_moving_parents_assuming_actor_is_active_and_on_board_and_promoted(
+            actor, visitor,
+        );
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_nonpromoted(
+        self,
+        actor: ActivePiece,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let starting_squares = self.actor_coords(actor).starting_squares(actor);
+        for starting_square in starting_squares.iter().copied() {
+            self.visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
+                actor,
+                starting_square,
+                &mut visitor,
+            );
+
+            macro_rules! visit {
+                ($captive:expr) => {
+                    self.visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
+                        actor,
+                        starting_square,
+                        $captive,
+                        &mut visitor,
+                    );
+                };
+            }
+
+            visit!(PassivePiece::LION);
+            visit!(PassivePiece::CHICK0);
+            visit!(PassivePiece::CHICK1);
+            visit!(PassivePiece::ELEPHANT0);
+            visit!(PassivePiece::ELEPHANT1);
+            visit!(PassivePiece::GIRAFFE0);
+            visit!(PassivePiece::GIRAFFE1);
+        }
+    }
+
+    #[inline(always)]
+    fn visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
+        self,
+        actor: ActivePiece,
+        starting_square: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        visitor(
+            self.set_coords_without_demoting(actor, starting_square)
+                .build(),
+        );
+    }
+
+    #[inline(always)]
+    fn visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
+        self,
+        actor: ActivePiece,
+        starting_square: Coords,
+        captive: PassivePiece,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        // TODO: If the captive is a chick,
+        // then in the parent state,
+        // the captive could have been a chick
+        // but it also could have been a hen.
+
+        todo!()
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_promoted(
+        self,
+        actor: ActivePiece,
         visitor: impl FnMut(SearchNode),
     ) {
         // TODO: Consider the case where a hen is on the last row.
@@ -221,6 +303,13 @@ impl NodeBuilder {
         // 1. The parent where a chick moved onto the last row.
         // 2-6. The parents where the hen moved onto the last row.
 
+        todo!()
+    }
+}
+
+impl Coords {
+    #[inline(always)]
+    const fn starting_squares(self, actor: ActivePiece) -> &'static [Coords] {
         todo!()
     }
 }
