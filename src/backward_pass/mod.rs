@@ -182,7 +182,7 @@ impl Outcome {
     }
 
     const fn delay_by_one(self) -> Self {
-        Self(self.0 + -self.0.signum())
+        Self(self.0 - self.0.signum())
     }
 }
 
