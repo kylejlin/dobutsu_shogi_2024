@@ -75,7 +75,8 @@ impl Debug for Pretty<SearchNode> {
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let board = self.0.board().pretty();
-        let next_action = Action(((self.0 .0 >> offsets::NEXT_ACTION) & 0b111_1111) as u8).pretty();
+        let next_action =
+            Action(((self.0 .0 >> Offset::NEXT_ACTION.0) & 0b111_1111) as u8).pretty();
         write!(f, "{board}\nnext_action: {next_action}",)
     }
 }

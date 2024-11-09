@@ -78,27 +78,27 @@ impl IntoZeroPaddedI9Unchecked<u64> for i16 {
 }
 
 fn init_unknown_child_count_and_best_known_outcome(states: &mut [SearchNode]) {
-    const DELETION_MASK: u64 = !((0b111_1111 << offsets::UNKNOWN_CHILD_COUNT)
-        | (0b1_1111_1111 << offsets::BEST_KNOWN_OUTCOME));
+    const DELETION_MASK: u64 = !((0b111_1111 << Offset::UNKNOWN_CHILD_COUNT.0)
+        | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
 
     for state in states {
         match state.terminality() {
             Terminality::Nonterminal => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | ((state.total_child_count() as u64) << offsets::UNKNOWN_CHILD_COUNT)
-                    | (NEGATIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+                    | ((state.total_child_count() as u64) << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Win => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | (0 << offsets::UNKNOWN_CHILD_COUNT)
-                    | (POSITIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+                    | (0 << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | (POSITIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Loss => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | (0 << offsets::UNKNOWN_CHILD_COUNT)
-                    | (NEGATIVE_201_I9 << offsets::BEST_KNOWN_OUTCOME);
+                    | (0 << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
         }
     }
@@ -132,12 +132,12 @@ impl SearchNode {
     }
 
     fn unknown_child_count(self) -> u8 {
-        ((self.0 >> offsets::UNKNOWN_CHILD_COUNT) & 0b111_1111) as u8
+        ((self.0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111) as u8
     }
 
     fn best_known_outcome(self) -> Outcome {
         Outcome(i16::from_zero_padded_i9(
-            (self.0 >> offsets::BEST_KNOWN_OUTCOME) & 0b1_1111_1111,
+            (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
         ))
     }
 
@@ -146,8 +146,9 @@ impl SearchNode {
         let challenger = child_outcome.invert().delay_by_one();
         if challenger > incumbent {
             Self(
-                self.0 & !(0b1_1111_1111 << offsets::BEST_KNOWN_OUTCOME)
-                    | (challenger.0.into_zero_padded_i9_unchecked() << offsets::BEST_KNOWN_OUTCOME),
+                self.0 & !(0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0)
+                    | (challenger.0.into_zero_padded_i9_unchecked()
+                        << Offset::BEST_KNOWN_OUTCOME.0),
             )
         } else {
             self
