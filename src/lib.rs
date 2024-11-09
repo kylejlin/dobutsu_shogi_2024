@@ -444,6 +444,28 @@ impl NodeBuilder {
     }
 }
 
+impl Piece {
+    #[inline(always)]
+    const fn coords_mask(self) -> u64 {
+        0b1111 << self.coords_offset().0
+    }
+
+    #[inline(always)]
+    const fn coords_offset(self) -> Offset {
+        match self {
+            Piece::LION => Offset::ACTIVE_LION_COLUMN,
+            Piece::CHICK0 => Offset::CHICK0_COLUMN,
+            Piece::CHICK1 => Offset::CHICK1_COLUMN,
+            Piece::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
+            Piece::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
+            Piece::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
+            Piece::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
+
+            _ => Offset(0),
+        }
+    }
+}
+
 macro_rules! action_handlers_for_piece {
     ($piece:ident) => {
         [
@@ -658,7 +680,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        let actor_coords = (self.0 >> action.actor_coords_offset().0) & 0b1111;
+        let actor_coords = (self.0 >> action.actor().coords_offset().0) & 0b1111;
 
         let legal_squares = action.legal_starting_squares();
 
@@ -1013,27 +1035,12 @@ impl Action {
 
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
-        0b1111 << self.actor_coords_offset().0
+        self.actor().coords_mask()
     }
 
     #[inline(always)]
     const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
-        ((self.0 as u64) & 0b1111) << self.actor_coords_offset().0
-    }
-
-    #[inline(always)]
-    const fn actor_coords_offset(self) -> Offset {
-        match self.actor() {
-            Piece::LION => Offset::ACTIVE_LION_COLUMN,
-            Piece::CHICK0 => Offset::CHICK0_COLUMN,
-            Piece::CHICK1 => Offset::CHICK1_COLUMN,
-            Piece::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
-            Piece::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
-            Piece::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
-            Piece::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
-
-            _ => Offset(0),
-        }
+        ((self.0 as u64) & 0b1111) << self.actor().coords_offset().0
     }
 
     #[inline(always)]
