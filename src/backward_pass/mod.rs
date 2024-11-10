@@ -228,6 +228,18 @@ impl NodeBuilder {
         actor: Actor,
         mut visitor: impl FnMut(SearchNode),
     ) {
+        // A nonpromoted chick can only be on the last row
+        // if it was dropped there.
+        // Had it moved there, it would have been promoted.
+        //
+        // We use `in_hand_or_last_row` because it is faster than
+        // `in_last_row`.
+        // We can only do this because we know the actor is not in hand,
+        // so the two functions are equivalent in this context.
+        if actor.is_chick() && self.actor_coords(actor).in_hand_or_last_row() {
+            return;
+        }
+
         let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
         for starting_square in starting_squares {
             self.visit_noncapturing_moving_parent_assuming_nonpromoted_actor(
@@ -358,6 +370,21 @@ impl NodeBuilder {
         // 2-6. The parents where the hen moved onto the last row.
 
         todo!()
+    }
+}
+
+impl Actor {
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0 == Actor::CHICK0.0 || self.0 == Actor::CHICK1.0
+    }
+}
+
+impl Coords {
+    #[inline(always)]
+    const fn in_hand_or_last_row(self) -> bool {
+        const ROW_MASK: u8 = 0b11 << 2;
+        self.0 & ROW_MASK == ROW_MASK
     }
 }
 
