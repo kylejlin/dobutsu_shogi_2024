@@ -110,6 +110,9 @@ struct Captive(Piece);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Nonlion(Piece);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Chick(Piece);
+
 #[derive(Clone, Copy, Debug)]
 struct Offset(u8);
 
@@ -1454,6 +1457,11 @@ impl Nonlion {
     const ELEPHANT1: Self = Self(Piece::ELEPHANT1);
     const GIRAFFE0: Self = Self(Piece::GIRAFFE0);
     const GIRAFFE1: Self = Self(Piece::GIRAFFE1);
+}
+
+impl Chick {
+    const CHICK0: Self = Self(Piece::CHICK0);
+    const CHICK1: Self = Self(Piece::CHICK1);
 }
 
 impl Coords {

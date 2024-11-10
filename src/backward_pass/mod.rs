@@ -316,16 +316,18 @@ impl NodeBuilder {
         let dest_square = self.actor_coords(actor);
         visitor(
             self.set_actor_coords_without_demoting(actor, starting_square)
-                .set_captive_coords_without_promoting(captive, dest_square)
+                .set_captive_coords_without_demoting(captive, dest_square)
                 .build(),
         );
 
-        // TODO: If the captive is a chick,
-        // then in the parent state,
-        // the captive could have been a chick
-        // but it also could have been a hen.
-
-        todo!();
+        if captive.is_chick() {
+            visitor(
+                self.set_actor_coords_without_demoting(actor, starting_square)
+                    .set_captive_coords_without_demoting(captive, dest_square)
+                    .promote(Chick(captive.0))
+                    .build(),
+            );
+        }
 
         true
     }
@@ -359,8 +361,20 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    const fn set_captive_coords_without_promoting(self, piece: Captive, coords: Coords) -> Self {
+    const fn set_captive_coords_without_demoting(self, piece: Captive, coords: Coords) -> Self {
         Self((self.0 & !piece.coords_mask()) | ((coords.0 as u64) << piece.coords_offset().0))
+    }
+
+    #[inline(always)]
+    const fn promote(self, chick: Chick) -> Self {
+        let promotion_bit_offset = match chick {
+            Chick::CHICK0 => Offset::CHICK0_PROMOTION,
+            Chick::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return self,
+        };
+
+        Self(self.0 | (1 << promotion_bit_offset.0))
     }
 
     #[inline(always)]
@@ -381,7 +395,21 @@ impl NodeBuilder {
 impl Actor {
     #[inline(always)]
     const fn is_chick(self) -> bool {
-        self.0 .0 == Actor::CHICK0.0 .0 || self.0 .0 == Actor::CHICK1.0 .0
+        self.0.is_chick()
+    }
+}
+
+impl Captive {
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0.is_chick()
+    }
+}
+
+impl Piece {
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0 & 0b110 == 0b010
     }
 }
 
