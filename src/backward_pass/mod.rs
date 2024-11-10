@@ -248,12 +248,28 @@ impl NodeBuilder {
             }
 
             visit!(Captive::LION);
-            visit!(Captive::CHICK0);
-            visit!(Captive::CHICK1);
-            visit!(Captive::ELEPHANT0);
-            visit!(Captive::ELEPHANT1);
-            visit!(Captive::GIRAFFE0);
-            visit!(Captive::GIRAFFE1);
+
+            // We must take care to avoid visiting duplicate parents.
+            // This can happen if two pieces of the same species
+            // are both in the hand.
+            // This is because capturing, say, chick0, and capturing
+            // chick1 would get counted as two separate parents,
+            // when they are actually the same parent.
+            //
+            // To avoid double counting, we skip the second piece
+            // of every species if the first piece has already been visited.
+
+            if !visit!(Captive::CHICK0) {
+                visit!(Captive::CHICK1);
+            }
+
+            if !visit!(Captive::ELEPHANT0) {
+                visit!(Captive::ELEPHANT1);
+            }
+
+            if !visit!(Captive::GIRAFFE0) {
+                visit!(Captive::GIRAFFE1);
+            }
         }
     }
 
@@ -270,6 +286,7 @@ impl NodeBuilder {
         );
     }
 
+    /// Returns whether the captive candidate is in the active player's hand.
     #[inline(always)]
     fn visit_capturing_moving_parents_assuming_nonpromoted_actor(
         self,
@@ -277,9 +294,9 @@ impl NodeBuilder {
         starting_square: Coords,
         captive_candidate: Captive,
         mut visitor: impl FnMut(SearchNode),
-    ) {
+    ) -> bool {
         if !self.is_in_active_hand(captive_candidate) {
-            return;
+            return false;
         }
 
         // TODO: If the captive is a chick,
@@ -287,7 +304,9 @@ impl NodeBuilder {
         // the captive could have been a chick
         // but it also could have been a hen.
 
-        todo!()
+        todo!();
+
+        true
     }
 
     #[inline(always)]
