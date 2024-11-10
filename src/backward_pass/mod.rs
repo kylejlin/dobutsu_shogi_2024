@@ -204,11 +204,11 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn dropping_parent_of_nonpromoted_actor(self, actor: Actor) -> Self {
-        self.set_coords_without_demoting(actor, Coords::HAND)
+        self.set_actor_coords_without_demoting(actor, Coords::HAND)
     }
 
     #[inline(always)]
-    const fn set_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
+    const fn set_actor_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
         Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
     }
 
@@ -281,7 +281,7 @@ impl NodeBuilder {
         mut visitor: impl FnMut(SearchNode),
     ) {
         visitor(
-            self.set_coords_without_demoting(actor, starting_square)
+            self.set_actor_coords_without_demoting(actor, starting_square)
                 .build(),
         );
     }
@@ -298,6 +298,15 @@ impl NodeBuilder {
         if !self.is_in_active_hand(captive_candidate) {
             return false;
         }
+
+        let captive = captive_candidate;
+
+        let dest_square = self.actor_coords(actor);
+        visitor(
+            self.set_actor_coords_without_demoting(actor, starting_square)
+                .set_captive_coords_without_promoting(captive, dest_square)
+                .build(),
+        );
 
         // TODO: If the captive is a chick,
         // then in the parent state,
