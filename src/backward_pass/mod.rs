@@ -381,7 +381,7 @@ impl NodeBuilder {
 impl Actor {
     #[inline(always)]
     const fn is_chick(self) -> bool {
-        self.0 == Actor::CHICK0.0 || self.0 == Actor::CHICK1.0
+        self.0 .0 == Actor::CHICK0.0 .0 || self.0 .0 == Actor::CHICK1.0 .0
     }
 }
 
