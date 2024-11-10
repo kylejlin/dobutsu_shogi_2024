@@ -209,7 +209,7 @@ impl NodeBuilder {
 
     #[inline(always)]
     const fn set_actor_coords_without_demoting(self, actor: Actor, coords: Coords) -> Self {
-        Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
+        Self((self.0 & !actor.coords_mask()) | ((coords.0 as u64) << actor.coords_offset().0))
     }
 
     /// Precondition: The actor is has active allegiance and is on the board.
@@ -356,6 +356,11 @@ impl NodeBuilder {
             _ => return false,
         };
         self.0 & (1 << allegiance_bit_offset.0) == 0
+    }
+
+    #[inline(always)]
+    const fn set_captive_coords_without_promoting(self, piece: Captive, coords: Coords) -> Self {
+        Self((self.0 & !piece.coords_mask()) | ((coords.0 as u64) << piece.coords_offset().0))
     }
 
     #[inline(always)]
