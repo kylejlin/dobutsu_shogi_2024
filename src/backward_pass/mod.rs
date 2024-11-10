@@ -181,7 +181,7 @@ impl NodeBuilder {
             visitor(self.dropping_parent_of_nonpromoted_actor(actor).build());
         }
 
-        self.visit_moving_parents_assuming_actor_is_active_and_on_board(actor, visitor);
+        self.visit_moving_parents(actor, visitor);
     }
 
     #[inline(always)]
@@ -212,33 +212,25 @@ impl NodeBuilder {
         Self((self.0 & !actor.coords_mask()) | (coords.0 as u64))
     }
 
+    /// Precondition: The actor is has active allegiance and is on the board.
     #[inline(always)]
-    fn visit_moving_parents_assuming_actor_is_active_and_on_board(
-        self,
-        actor: Actor,
-        visitor: impl FnMut(SearchNode),
-    ) {
+    fn visit_moving_parents(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
         if self.is_nonpromoted(actor) {
-            return self
-                .visit_moving_parents_assuming_actor_is_active_and_on_board_and_nonpromoted(
-                    actor, visitor,
-                );
+            return self.visit_moving_parents_assuming_nonpromoted_actor(actor, visitor);
         }
 
-        self.visit_moving_parents_assuming_actor_is_active_and_on_board_and_promoted(
-            actor, visitor,
-        );
+        self.visit_moving_parents_assuming_promoted_actor(actor, visitor);
     }
 
     #[inline(always)]
-    fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_nonpromoted(
+    fn visit_moving_parents_assuming_nonpromoted_actor(
         self,
         actor: Actor,
         mut visitor: impl FnMut(SearchNode),
     ) {
         let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
         for starting_square in starting_squares {
-            self.visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
+            self.visit_noncapturing_moving_parent_assuming_nonpromoted_actor(
                 actor,
                 starting_square,
                 &mut visitor,
@@ -246,7 +238,7 @@ impl NodeBuilder {
 
             macro_rules! visit {
                 ($captive_candidate:expr) => {
-                    self.visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
+                    self.visit_capturing_moving_parents_assuming_nonpromoted_actor(
                         actor,
                         starting_square,
                         $captive_candidate,
@@ -266,7 +258,7 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    fn visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
+    fn visit_noncapturing_moving_parent_assuming_nonpromoted_actor(
         self,
         actor: Actor,
         starting_square: Coords,
@@ -279,7 +271,7 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    fn visit_capturing_moving_parents_assuming_actor_is_active_and_on_board_and_non_promoted(
+    fn visit_capturing_moving_parents_assuming_nonpromoted_actor(
         self,
         actor: Actor,
         starting_square: Coords,
@@ -327,7 +319,7 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    fn visit_moving_parents_assuming_actor_is_active_and_on_board_and_promoted(
+    fn visit_moving_parents_assuming_promoted_actor(
         self,
         actor: Actor,
         visitor: impl FnMut(SearchNode),
