@@ -26,19 +26,8 @@ fn initial_search_node_with_initialized_next_action() {
 }
 
 #[test]
-fn initial_search_node_horizontally_flipped_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial()
-        .into_builder()
-        .horizontally_flip()
-        .pretty());
-}
-
-#[test]
 fn initial_search_node_partially_built_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial()
-        .into_builder()
-        .build_without_horizontal_normalization()
-        .pretty());
+    insta::assert_snapshot!(SearchNode::initial().into_builder().build().pretty());
 }
 
 #[test]
@@ -46,7 +35,7 @@ fn initial_search_node_allegiance_inverted_partially_built_is_correct() {
     insta::assert_snapshot!(SearchNode::initial()
         .into_builder()
         .invert_active_player()
-        .build_without_horizontal_normalization()
+        .build()
         .pretty());
 }
 
