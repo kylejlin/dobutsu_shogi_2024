@@ -233,12 +233,7 @@ impl NodeBuilder {
         // A nonpromoted chick can only be on the last row
         // if it was dropped there.
         // Had it moved there, it would have been promoted.
-        //
-        // We use `in_hand_or_last_row` because it is faster than
-        // `in_last_row`.
-        // We can only do this because we know the actor is not in hand,
-        // so the two functions are equivalent in this context.
-        if actor.is_chick() && self.actor_coords(actor).in_hand_or_last_row() {
+        if actor.is_chick() && self.actor_coords(actor).in_last_row() {
             return;
         }
 
@@ -403,9 +398,7 @@ impl NodeBuilder {
             &mut visitor,
         );
 
-        // We know the actor is on the board,
-        // so `in_hand_or_last_row` is (a faster) equivalent to `in_last_row`.
-        if dest.in_hand_or_last_row() {
+        if dest.in_last_row() {
             let starting_squares = Actor(actor.0).legal_starting_squares(false, dest);
             // A chick only has one legal move, so we can skip the loop.
             let starting_square = Coords((starting_squares.0 & 0b1111) as u8);
@@ -551,9 +544,9 @@ impl Piece {
 
 impl Coords {
     #[inline(always)]
-    const fn in_hand_or_last_row(self) -> bool {
-        const ROW_MASK: u8 = 0b11 << 2;
-        self.0 & ROW_MASK == ROW_MASK
+    const fn in_last_row(self) -> bool {
+        const LOOKUP_TABLE: u16 = 0b0111_0000_0000_0000;
+        (LOOKUP_TABLE >> self.0) & 1 != 0
     }
 }
 
