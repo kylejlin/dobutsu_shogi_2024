@@ -157,7 +157,6 @@ impl SearchNode {
 }
 
 impl SearchNode {
-    // TODO: Eliminate duplicate parents.
     fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
         let inverted = self.into_builder().invert_active_player();
         inverted.visit_parents_with_actor(Actor::LION, &mut visitor);
@@ -219,6 +218,9 @@ impl NodeBuilder {
             return self.visit_moving_parents_assuming_nonpromoted_actor(actor, visitor);
         }
 
+        // If the actor is promoted, it must be a chick.
+        let actor = Chick(actor.0);
+
         self.visit_moving_parents_assuming_promoted_actor(actor, visitor);
     }
 
@@ -265,7 +267,7 @@ impl NodeBuilder {
                         starting_square,
                         $captive_candidate,
                         &mut visitor,
-                    );
+                    )
                 };
             }
 
@@ -390,15 +392,139 @@ impl NodeBuilder {
     #[inline(always)]
     fn visit_moving_parents_assuming_promoted_actor(
         self,
-        actor: Actor,
-        visitor: impl FnMut(SearchNode),
+        actor: Chick,
+        mut visitor: impl FnMut(SearchNode),
     ) {
-        // TODO: Consider the case where a hen is on the last row.
-        // We need to visit up to 6 parents (instead of 1):
-        // 1. The parent where a chick moved onto the last row.
-        // 2-6. The parents where the hen moved onto the last row.
+        let dest = self.actor_coords(Actor(actor.0));
+        let starting_squares = Actor(actor.0).legal_starting_squares(true, dest);
+        self.visit_moving_parents_assuming_no_promotion(
+            Actor(actor.0),
+            starting_squares,
+            &mut visitor,
+        );
 
-        todo!()
+        // We know the actor is on the board,
+        // so `in_hand_or_last_row` is (a faster) equivalent to `in_last_row`.
+        if dest.in_hand_or_last_row() {
+            let starting_squares = Actor(actor.0).legal_starting_squares(false, dest);
+            // A chick only has one legal move, so we can skip the loop.
+            let starting_square = Coords((starting_squares.0 & 0b1111) as u8);
+
+            self.visit_moving_parents_assuming_promotion(actor, starting_square, &mut visitor);
+        }
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents_assuming_promotion(
+        self,
+        actor: Chick,
+        starting_square: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        self.visit_noncapturing_moving_parent_assuming_promotion(
+            actor,
+            starting_square,
+            &mut visitor,
+        );
+
+        macro_rules! visit {
+            ($captive_candidate:expr) => {
+                self.visit_capturing_moving_parents_assuming_promotion(
+                    actor,
+                    starting_square,
+                    $captive_candidate,
+                    &mut visitor,
+                )
+            };
+        }
+
+        visit!(Captive::LION);
+
+        // We must take care to avoid visiting duplicate parents.
+        // This can happen if two pieces of the same species
+        // are both in the hand.
+        // This is because capturing, say, chick0, and capturing
+        // chick1 would get counted as two separate parents,
+        // when they are actually the same parent.
+        //
+        // To avoid double counting, we skip the second piece
+        // of every species if the first piece has already been visited.
+
+        if !visit!(Captive::CHICK0) {
+            visit!(Captive::CHICK1);
+        }
+
+        if !visit!(Captive::ELEPHANT0) {
+            visit!(Captive::ELEPHANT1);
+        }
+
+        if !visit!(Captive::GIRAFFE0) {
+            visit!(Captive::GIRAFFE1);
+        }
+    }
+
+    #[inline(always)]
+    fn visit_noncapturing_moving_parent_assuming_promotion(
+        self,
+        actor: Chick,
+        starting_square: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        visitor(
+            self.set_actor_coords_without_demoting(Actor(actor.0), starting_square)
+                .demote(actor)
+                .build(),
+        );
+    }
+
+    #[inline(always)]
+    const fn demote(self, chick: Chick) -> Self {
+        let promotion_bit_offset = match chick {
+            Chick::CHICK0 => Offset::CHICK0_PROMOTION,
+            Chick::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return self,
+        };
+
+        Self(self.0 & !(1 << promotion_bit_offset.0))
+    }
+
+    /// Returns whether the captive candidate is in the active player's hand.
+    #[inline(always)]
+    fn visit_capturing_moving_parents_assuming_promotion(
+        self,
+        actor: Chick,
+        starting_square: Coords,
+        captive_candidate: Captive,
+        mut visitor: impl FnMut(SearchNode),
+    ) -> bool {
+        if !self.is_in_active_hand(captive_candidate) {
+            return false;
+        }
+
+        let captive = captive_candidate;
+
+        let upcast_actor = Actor(actor.0);
+
+        let dest_square = self.actor_coords(upcast_actor);
+        visitor(
+            self.set_actor_coords_without_demoting(upcast_actor, starting_square)
+                .demote(actor)
+                .set_captive_coords_without_demoting(captive, dest_square)
+                .build(),
+        );
+
+        if captive.is_chick() {
+            visitor(
+                self.set_actor_coords_without_demoting(upcast_actor, starting_square)
+                    .demote(actor)
+                    .set_captive_coords_without_demoting(captive, dest_square)
+                    .promote(Chick(captive.0))
+                    .build(),
+            );
+        }
+
+        true
     }
 }
 
