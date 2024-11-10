@@ -1141,12 +1141,72 @@ impl Action {
     /// set to use.
     #[inline(always)]
     const fn legal_starting_squares(self) -> [CoordSet; 2] {
-        let [nonpromoted, promoted] = self.actor().legal_starting_squares(self.dest_coords());
+        let nonpromoted = self
+            .actor()
+            .legal_starting_squares(false, self.dest_coords());
+        let promoted = self
+            .actor()
+            .legal_starting_squares(true, self.dest_coords());
         [nonpromoted.into_coord_set(), promoted.into_coord_set()]
     }
 }
 
 impl Actor {
+    #[inline(always)]
+    const fn legal_starting_squares(self, is_promoted: bool, dest: Coords) -> CoordVec {
+        macro_rules! lookup_table_row_for_piece {
+            ($piece:expr, $index:literal) => {
+                [
+                    $piece.compute_legal_starting_squares(Coords::R0C0)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R0C1)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R0C2)[$index],
+                    CoordVec::EMPTY,
+                    $piece.compute_legal_starting_squares(Coords::R1C0)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R1C1)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R1C2)[$index],
+                    CoordVec::EMPTY,
+                    $piece.compute_legal_starting_squares(Coords::R2C0)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R2C1)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R2C2)[$index],
+                    CoordVec::EMPTY,
+                    $piece.compute_legal_starting_squares(Coords::R3C0)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R3C1)[$index],
+                    $piece.compute_legal_starting_squares(Coords::R3C2)[$index],
+                    CoordVec::EMPTY,
+                ]
+            };
+        }
+
+        const NONPROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] = [
+            [CoordVec::EMPTY; 16],
+            lookup_table_row_for_piece!(Actor::LION, 0),
+            lookup_table_row_for_piece!(Actor::CHICK0, 0),
+            lookup_table_row_for_piece!(Actor::CHICK1, 0),
+            lookup_table_row_for_piece!(Actor::ELEPHANT0, 0),
+            lookup_table_row_for_piece!(Actor::ELEPHANT1, 0),
+            lookup_table_row_for_piece!(Actor::GIRAFFE0, 0),
+            lookup_table_row_for_piece!(Actor::GIRAFFE1, 0),
+        ];
+
+        const PROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] = [
+            [CoordVec::EMPTY; 16],
+            lookup_table_row_for_piece!(Actor::LION, 1),
+            lookup_table_row_for_piece!(Actor::CHICK0, 1),
+            lookup_table_row_for_piece!(Actor::CHICK1, 1),
+            lookup_table_row_for_piece!(Actor::ELEPHANT0, 1),
+            lookup_table_row_for_piece!(Actor::ELEPHANT1, 1),
+            lookup_table_row_for_piece!(Actor::GIRAFFE0, 1),
+            lookup_table_row_for_piece!(Actor::GIRAFFE1, 1),
+        ];
+
+        const LOOKUP_TABLE: [[[CoordVec; 16]; 8]; 2] =
+            [NONPROMOTED_LOOKUP_TABLE, PROMOTED_LOOKUP_TABLE];
+
+        LOOKUP_TABLE[is_promoted as usize][self.0 .0 as usize][dest.0 as usize]
+    }
+
+    /// This function is suboptimally slow, so we only call it at compile time.
+    ///
     /// The set of legal starting squares depends on whether the
     /// actor is promoted.
     /// We cannot determine this from the actor and the destination coordinates alone.
@@ -1157,46 +1217,6 @@ impl Actor {
     ///
     /// It is the consumer's responsibility to select the correct
     /// vector to use.
-    #[inline(always)]
-    const fn legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
-        macro_rules! lookup_table_row_for_piece {
-            ($piece:expr) => {
-                [
-                    $piece.compute_legal_starting_squares(Coords::R0C0),
-                    $piece.compute_legal_starting_squares(Coords::R0C1),
-                    $piece.compute_legal_starting_squares(Coords::R0C2),
-                    [CoordVec::EMPTY; 2],
-                    $piece.compute_legal_starting_squares(Coords::R1C0),
-                    $piece.compute_legal_starting_squares(Coords::R1C1),
-                    $piece.compute_legal_starting_squares(Coords::R1C2),
-                    [CoordVec::EMPTY; 2],
-                    $piece.compute_legal_starting_squares(Coords::R2C0),
-                    $piece.compute_legal_starting_squares(Coords::R2C1),
-                    $piece.compute_legal_starting_squares(Coords::R2C2),
-                    [CoordVec::EMPTY; 2],
-                    $piece.compute_legal_starting_squares(Coords::R3C0),
-                    $piece.compute_legal_starting_squares(Coords::R3C1),
-                    $piece.compute_legal_starting_squares(Coords::R3C2),
-                    [CoordVec::EMPTY; 2],
-                ]
-            };
-        }
-
-        const LOOKUP_TABLE: [[[CoordVec; 2]; 16]; 8] = [
-            [[CoordVec::EMPTY; 2]; 16],
-            lookup_table_row_for_piece!(Actor::LION),
-            lookup_table_row_for_piece!(Actor::CHICK0),
-            lookup_table_row_for_piece!(Actor::CHICK1),
-            lookup_table_row_for_piece!(Actor::ELEPHANT0),
-            lookup_table_row_for_piece!(Actor::ELEPHANT1),
-            lookup_table_row_for_piece!(Actor::GIRAFFE0),
-            lookup_table_row_for_piece!(Actor::GIRAFFE1),
-        ];
-
-        LOOKUP_TABLE[self.0 .0 as usize][dest.0 as usize]
-    }
-
-    /// This function is suboptimally slow, so we only call it at compile time.
     const fn compute_legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
         /// This function should only be called during compile-time.
         /// Consequently, we don't have to worry about the performance

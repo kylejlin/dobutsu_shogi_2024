@@ -236,7 +236,7 @@ impl NodeBuilder {
         actor: Actor,
         mut visitor: impl FnMut(SearchNode),
     ) {
-        let starting_squares = actor.legal_starting_squares(self.actor_coords(actor))[0];
+        let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
         for starting_square in starting_squares {
             self.visit_noncapturing_moving_parent_assuming_actor_is_active_and_on_board_and_non_promoted(
                 actor,
