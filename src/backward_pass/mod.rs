@@ -226,7 +226,7 @@ impl NodeBuilder {
     fn visit_moving_parents_assuming_nonpromoted_actor(
         self,
         actor: Actor,
-        mut visitor: impl FnMut(SearchNode),
+        visitor: impl FnMut(SearchNode),
     ) {
         // A nonpromoted chick can only be on the last row
         // if it was dropped there.
@@ -241,8 +241,18 @@ impl NodeBuilder {
         }
 
         let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
+        self.visit_moving_parents_assuming_no_promotion(actor, starting_squares, visitor);
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents_assuming_no_promotion(
+        self,
+        actor: Actor,
+        starting_squares: CoordVec,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
         for starting_square in starting_squares {
-            self.visit_noncapturing_moving_parent_assuming_nonpromoted_actor(
+            self.visit_noncapturing_moving_parent_assuming_no_promotion(
                 actor,
                 starting_square,
                 &mut visitor,
@@ -250,7 +260,7 @@ impl NodeBuilder {
 
             macro_rules! visit {
                 ($captive_candidate:expr) => {
-                    self.visit_capturing_moving_parents_assuming_nonpromoted_actor(
+                    self.visit_capturing_moving_parents_assuming_no_promotion(
                         actor,
                         starting_square,
                         $captive_candidate,
@@ -286,7 +296,7 @@ impl NodeBuilder {
     }
 
     #[inline(always)]
-    fn visit_noncapturing_moving_parent_assuming_nonpromoted_actor(
+    fn visit_noncapturing_moving_parent_assuming_no_promotion(
         self,
         actor: Actor,
         starting_square: Coords,
@@ -300,7 +310,7 @@ impl NodeBuilder {
 
     /// Returns whether the captive candidate is in the active player's hand.
     #[inline(always)]
-    fn visit_capturing_moving_parents_assuming_nonpromoted_actor(
+    fn visit_capturing_moving_parents_assuming_no_promotion(
         self,
         actor: Actor,
         starting_square: Coords,
