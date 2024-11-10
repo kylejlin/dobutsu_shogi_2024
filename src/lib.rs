@@ -363,21 +363,8 @@ impl NodeBuilder {
         SearchNode(self.0).is_terminal()
     }
 
-    const fn build(self) -> SearchNode {
-        let nonflipped = self.build_without_horizontal_normalization();
-        let flipped = self
-            .horizontally_flip()
-            .build_without_horizontal_normalization();
-
-        if flipped.0 < nonflipped.0 {
-            return flipped;
-        }
-
-        nonflipped
-    }
-
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
-    const fn build_without_horizontal_normalization(self) -> SearchNode {
+    const fn build(self) -> SearchNode {
         const CHICK0_MASK: u64 = 0b11_1111 << Offset::CHICK0.0;
         const CHICK1_MASK: u64 = 0b11_1111 << Offset::CHICK1.0;
         const ELEPHANT0_MASK: u64 = 0b1_1111 << Offset::ELEPHANT0.0;
@@ -430,52 +417,6 @@ impl NodeBuilder {
                 | elephant1
                 | giraffe0
                 | giraffe1,
-        )
-    }
-
-    const fn horizontally_flip(self) -> Self {
-        macro_rules! flip_column {
-            ($column_offset:expr) => {{
-                const COL_MASK: u64 = 0b11 << $column_offset.0;
-                let col = self.0 & COL_MASK;
-
-                // A piece is in hand if and only if the column is `0b11`.
-                if col == COL_MASK {
-                    col
-                } else {
-                    (0b10 << $column_offset.0) - col
-                }
-            }};
-        }
-
-        let chick0_col_flipped = flip_column!(Offset::CHICK0_COLUMN);
-        let chick1_col_flipped = flip_column!(Offset::CHICK1_COLUMN);
-        let elephant0_col_flipped = flip_column!(Offset::ELEPHANT0_COLUMN);
-        let elephant1_col_flipped = flip_column!(Offset::ELEPHANT1_COLUMN);
-        let giraffe0_col_flipped = flip_column!(Offset::GIRAFFE0_COLUMN);
-        let giraffe1_col_flipped = flip_column!(Offset::GIRAFFE1_COLUMN);
-        let active_lion_col_flipped = flip_column!(Offset::ACTIVE_LION_COLUMN);
-        let passive_lion_col_flipped = flip_column!(Offset::PASSIVE_LION_COLUMN);
-
-        const ALL_COLUMNS_MASK: u64 = (0b11 << Offset::CHICK0_COLUMN.0)
-            | (0b11 << Offset::CHICK1_COLUMN.0)
-            | (0b11 << Offset::ELEPHANT0_COLUMN.0)
-            | (0b11 << Offset::ELEPHANT1_COLUMN.0)
-            | (0b11 << Offset::GIRAFFE0_COLUMN.0)
-            | (0b11 << Offset::GIRAFFE1_COLUMN.0)
-            | (0b11 << Offset::ACTIVE_LION_COLUMN.0)
-            | (0b11 << Offset::PASSIVE_LION_COLUMN.0);
-
-        Self(
-            (self.0 & !ALL_COLUMNS_MASK)
-                | chick0_col_flipped
-                | chick1_col_flipped
-                | elephant0_col_flipped
-                | elephant1_col_flipped
-                | giraffe0_col_flipped
-                | giraffe1_col_flipped
-                | active_lion_col_flipped
-                | passive_lion_col_flipped,
         )
     }
 }
