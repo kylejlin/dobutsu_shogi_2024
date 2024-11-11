@@ -7,7 +7,7 @@ mod tests;
 /// with a slice of all reachable states.
 ///
 /// The slice of states will be sorted.
-pub fn solve(states: &mut [SearchNode]) {
+pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
     states.sort_unstable();
 
     init_unknown_child_count_and_best_known_outcome(states);
@@ -37,6 +37,8 @@ pub fn solve(states: &mut [SearchNode]) {
                 known_stack.push(*parent_mut);
             }
         });
+
+        on_node_processed(top);
     }
 }
 

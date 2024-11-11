@@ -1,7 +1,10 @@
 use super::*;
 
 /// Returns a sorted vector of all states reachable from the provided initial state.
-pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
+pub fn reachable_states(
+    initial_state: SearchNode,
+    mut on_node_processed: impl FnMut(SearchNode),
+) -> Vec<SearchNode> {
     let mut reachable_states = StateSet::empty();
     reachable_states.add(initial_state);
 
@@ -13,6 +16,8 @@ pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
                 stack.push(new_child);
             }
         });
+
+        on_node_processed(top);
     }
 
     reachable_states.into_sorted_vec()

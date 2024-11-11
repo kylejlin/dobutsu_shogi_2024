@@ -29,11 +29,30 @@ fn main() {
         );
         saved
     } else {
-        println!("Starting tree search. This will probably take several hours.");
-        let now = Instant::now();
-        let reachable_states = reachable_states(SearchNode::initial());
-        let elapsed = now.elapsed();
-        println!("Completed tree search. It took {:?}.", elapsed);
+        println!("Computing reachable states. This will probably take a while (around 45 minutes on my 2018 Macbook Pro).");
+        let start_time = Instant::now();
+        let mut prev_time = start_time;
+        let mut countup = 0;
+        let mut checkpoints = 0;
+        const CHECKPOINT_SIZE: u64 = 1_000_000;
+        let reachable_states = reachable_states(SearchNode::initial(), |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Reached {checkpoints} checkpoints. Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                prev_time = Instant::now();
+            }
+        });
+        println!(
+            "Computed all {} reachable states. It took {:?}.",
+            reachable_states.len(),
+            start_time.elapsed()
+        );
 
         let bytes = node_slice_to_bytes(&reachable_states);
         fs::write(&reachable_states_path, bytes).unwrap();
@@ -42,12 +61,31 @@ fn main() {
     };
 
     println!("Starting retrograde analysis. This will probably take several hours.");
-    let now = Instant::now();
     let mut reachable_states = reachable_states;
-    solve(&mut reachable_states);
+    let start_time = Instant::now();
+    let mut prev_time = start_time;
+    let mut countup = 0;
+    let mut checkpoints = 0;
+    const CHECKPOINT_SIZE: u64 = 1_000_000;
+    solve(&mut reachable_states, |_| {
+        countup += 1;
+
+        if countup >= CHECKPOINT_SIZE {
+            countup %= CHECKPOINT_SIZE;
+            checkpoints += 1;
+            println!(
+                "Backtracked {checkpoints} checkpoints. Duration: {:?}",
+                prev_time.elapsed()
+            );
+            prev_time = Instant::now();
+        }
+    });
     let solution = reachable_states;
-    let elapsed = now.elapsed();
-    println!("Completed retrograde analysis. It took {:?}.", elapsed);
+    println!(
+        "Completed retrograde analysis on {} states. It took {:?}.",
+        checkpoints * CHECKPOINT_SIZE + countup,
+        start_time.elapsed()
+    );
 
     let bytes = node_slice_to_bytes(&solution);
     fs::write(&reachable_states_path, bytes).unwrap();
