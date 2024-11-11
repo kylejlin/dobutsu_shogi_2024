@@ -40,8 +40,11 @@ pub fn solve(states: &mut [SearchNode]) {
 ///
 ///  - A negative number `-n` represents a win for the passive player
 ///    in `201 + n` plies.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Outcome(i16);
+
+#[derive(Clone, Copy, Debug)]
+struct RequireLionCapture(bool);
 
 trait FromZeroPaddedI9<T> {
     fn from_zero_padded_i9(value: T) -> Self;
@@ -176,7 +179,7 @@ impl NodeBuilder {
         }
 
         if self.is_passive_lion_in_hand() {
-            self.visit_lion_capturing_parents(actor, &mut visitor);
+            self.visit_moving_parents(actor, RequireLionCapture(true), visitor);
             return;
         }
 
@@ -185,7 +188,7 @@ impl NodeBuilder {
             visitor(self.dropping_parent_of_nonpromoted_actor(actor).build());
         }
 
-        self.visit_moving_parents(actor, visitor);
+        self.visit_moving_parents(actor, RequireLionCapture(false), visitor);
     }
 
     #[inline(always)]
@@ -198,100 +201,6 @@ impl NodeBuilder {
     const fn is_passive_lion_in_hand(self) -> bool {
         const MASK: u64 = Captive::LION.coords_mask();
         self.0 & MASK == MASK
-    }
-
-    #[inline(always)]
-    fn visit_lion_capturing_parents(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
-        if self.is_nonpromoted(actor) {
-            return self.visit_lion_capturing_parents_assuming_nonpromoted_actor(actor, visitor);
-        }
-
-        // If the actor is promoted, it must be a chick.
-        let actor = Chick(actor.0);
-
-        self.visit_lion_capturing_parents_assuming_promoted_actor(actor, visitor);
-    }
-
-    #[inline(always)]
-    fn visit_lion_capturing_parents_assuming_nonpromoted_actor(
-        self,
-        actor: Actor,
-        visitor: impl FnMut(SearchNode),
-    ) {
-        // A nonpromoted chick can only be on the last row
-        // if it was dropped there.
-        // Had it moved there, it would have been promoted.
-        if actor.is_chick() && self.actor_coords(actor).in_last_row() {
-            return;
-        }
-
-        let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
-        self.visit_lion_capturing_parents_assuming_no_promotion(actor, starting_squares, visitor);
-    }
-
-    #[inline(always)]
-    fn visit_lion_capturing_parents_assuming_no_promotion(
-        self,
-        actor: Actor,
-        starting_squares: CoordVec,
-        mut visitor: impl FnMut(SearchNode),
-    ) {
-        for starting_square in starting_squares {
-            self.visit_capturing_moving_parents_assuming_no_promotion(
-                actor,
-                starting_square,
-                Captive::LION,
-                &mut visitor,
-            );
-        }
-    }
-
-    #[inline(always)]
-    fn visit_lion_capturing_parents_assuming_promoted_actor(
-        self,
-        actor: Chick,
-        mut visitor: impl FnMut(SearchNode),
-    ) {
-        let dest = self.actor_coords(Actor(actor.0));
-        let starting_squares = Actor(actor.0).legal_starting_squares(true, dest);
-        self.visit_lion_capturing_parents_assuming_no_promotion(
-            Actor(actor.0),
-            starting_squares,
-            &mut visitor,
-        );
-
-        if dest.in_last_row() {
-            let starting_squares = Actor(actor.0).legal_starting_squares(false, dest);
-            // A chick only has one legal move, so we can skip the loop.
-            let starting_square = Coords((starting_squares.0 & 0b1111) as u8);
-
-            self.visit_lion_capturing_parents_assuming_promotion(
-                actor,
-                starting_square,
-                &mut visitor,
-            );
-        }
-    }
-
-    #[inline(always)]
-    fn visit_lion_capturing_parents_assuming_promotion(
-        self,
-        actor: Chick,
-        starting_square: Coords,
-        mut visitor: impl FnMut(SearchNode),
-    ) {
-        self.visit_noncapturing_moving_parent_assuming_promotion(
-            actor,
-            starting_square,
-            &mut visitor,
-        );
-
-        self.visit_capturing_moving_parents_assuming_promotion(
-            actor,
-            starting_square,
-            Captive::LION,
-            &mut visitor,
-        );
     }
 
     #[inline(always)]
@@ -318,21 +227,31 @@ impl NodeBuilder {
 
     /// Precondition: The actor is has active allegiance and is on the board.
     #[inline(always)]
-    fn visit_moving_parents(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
+    fn visit_moving_parents(
+        self,
+        actor: Actor,
+        require_lion_capture: RequireLionCapture,
+        visitor: impl FnMut(SearchNode),
+    ) {
         if self.is_nonpromoted(actor) {
-            return self.visit_moving_parents_assuming_nonpromoted_actor(actor, visitor);
+            return self.visit_moving_parents_assuming_nonpromoted_actor(
+                actor,
+                require_lion_capture,
+                visitor,
+            );
         }
 
         // If the actor is promoted, it must be a chick.
         let actor = Chick(actor.0);
 
-        self.visit_moving_parents_assuming_promoted_actor(actor, visitor);
+        self.visit_moving_parents_assuming_promoted_actor(actor, require_lion_capture, visitor);
     }
 
     #[inline(always)]
     fn visit_moving_parents_assuming_nonpromoted_actor(
         self,
         actor: Actor,
+        require_lion_capture: RequireLionCapture,
         visitor: impl FnMut(SearchNode),
     ) {
         // A nonpromoted chick can only be on the last row
@@ -343,23 +262,23 @@ impl NodeBuilder {
         }
 
         let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
-        self.visit_moving_parents_assuming_no_promotion(actor, starting_squares, visitor);
+        self.visit_moving_parents_assuming_no_promotion(
+            actor,
+            require_lion_capture,
+            starting_squares,
+            visitor,
+        );
     }
 
     #[inline(always)]
     fn visit_moving_parents_assuming_no_promotion(
         self,
         actor: Actor,
+        require_lion_capture: RequireLionCapture,
         starting_squares: CoordVec,
         mut visitor: impl FnMut(SearchNode),
     ) {
         for starting_square in starting_squares {
-            self.visit_noncapturing_moving_parent_assuming_no_promotion(
-                actor,
-                starting_square,
-                &mut visitor,
-            );
-
             macro_rules! visit {
                 ($captive_candidate:expr) => {
                     self.visit_capturing_moving_parents_assuming_no_promotion(
@@ -372,6 +291,10 @@ impl NodeBuilder {
             }
 
             visit!(Captive::LION);
+
+            if require_lion_capture.0 {
+                continue;
+            }
 
             // We must take care to avoid visiting duplicate parents.
             // This can happen if two pieces of the same species
@@ -394,6 +317,12 @@ impl NodeBuilder {
             if !visit!(Captive::GIRAFFE0) {
                 visit!(Captive::GIRAFFE1);
             }
+
+            self.visit_noncapturing_moving_parent_assuming_no_promotion(
+                actor,
+                starting_square,
+                &mut visitor,
+            );
         }
     }
 
@@ -493,12 +422,14 @@ impl NodeBuilder {
     fn visit_moving_parents_assuming_promoted_actor(
         self,
         actor: Chick,
+        require_lion_capture: RequireLionCapture,
         mut visitor: impl FnMut(SearchNode),
     ) {
         let dest = self.actor_coords(Actor(actor.0));
         let starting_squares = Actor(actor.0).legal_starting_squares(true, dest);
         self.visit_moving_parents_assuming_no_promotion(
             Actor(actor.0),
+            require_lion_capture,
             starting_squares,
             &mut visitor,
         );
@@ -508,7 +439,12 @@ impl NodeBuilder {
             // A chick only has one legal move, so we can skip the loop.
             let starting_square = Coords((starting_squares.0 & 0b1111) as u8);
 
-            self.visit_moving_parents_assuming_promotion(actor, starting_square, &mut visitor);
+            self.visit_moving_parents_assuming_promotion(
+                actor,
+                require_lion_capture,
+                starting_square,
+                &mut visitor,
+            );
         }
     }
 
@@ -516,15 +452,10 @@ impl NodeBuilder {
     fn visit_moving_parents_assuming_promotion(
         self,
         actor: Chick,
+        require_lion_capture: RequireLionCapture,
         starting_square: Coords,
         mut visitor: impl FnMut(SearchNode),
     ) {
-        self.visit_noncapturing_moving_parent_assuming_promotion(
-            actor,
-            starting_square,
-            &mut visitor,
-        );
-
         macro_rules! visit {
             ($captive_candidate:expr) => {
                 self.visit_capturing_moving_parents_assuming_promotion(
@@ -537,6 +468,10 @@ impl NodeBuilder {
         }
 
         visit!(Captive::LION);
+
+        if require_lion_capture.0 {
+            return;
+        }
 
         // We must take care to avoid visiting duplicate parents.
         // This can happen if two pieces of the same species
@@ -559,6 +494,12 @@ impl NodeBuilder {
         if !visit!(Captive::GIRAFFE0) {
             visit!(Captive::GIRAFFE1);
         }
+
+        self.visit_noncapturing_moving_parent_assuming_promotion(
+            actor,
+            starting_square,
+            &mut visitor,
+        );
     }
 
     #[inline(always)]
