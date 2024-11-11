@@ -7,23 +7,12 @@ pub fn reachable_states(initial_state: SearchNode) -> Vec<SearchNode> {
 
     let mut stack = vec![initial_state];
 
-    loop {
-        let top_mut = stack.last_mut().unwrap();
-        let (new_top, new_child) = top_mut.next_child();
-        *top_mut = new_top;
-
-        if new_child.is_some() {
-            let new_child = new_child.unchecked_unwrap();
+    while let Some(top) = stack.pop() {
+        top.visit_children(|new_child| {
             if !reachable_states.add(new_child).did_addend_already_exist {
                 stack.push(new_child);
             }
-        } else {
-            stack.pop();
-
-            if stack.is_empty() {
-                break;
-            }
-        }
+        });
     }
 
     reachable_states.into_sorted_vec()

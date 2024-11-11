@@ -39,12 +39,6 @@ impl IntoPretty for Board {
     }
 }
 
-impl IntoPretty for Action {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
-
 impl IntoPretty for Vec<SearchNode> {
     fn pretty(self) -> Pretty<Self> {
         Pretty(self)
@@ -75,9 +69,10 @@ impl Debug for Pretty<SearchNode> {
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let board = self.0.board().pretty();
-        let next_action =
-            Action(((self.0 .0 >> Offset::NEXT_ACTION.0) & 0b111_1111) as u8).pretty();
-        write!(f, "{board}\nnext_action: {next_action}",)
+        let unknown_child_count = (self.0 .0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111;
+        let best_known_outcome =
+            i16::from_zero_padded_i9((self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111);
+        write!(f, "{board}\nunknown_child_count: {unknown_child_count}\nbest_known_outcome: {best_known_outcome}",)
     }
 }
 
@@ -173,48 +168,11 @@ impl Board {
     }
 }
 
-impl Display for Pretty<Action> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.0 .0 == 0 {
-            return write!(f, "action_search_complete");
-        }
-
-        let actor = match self.0 .0 >> 4 {
-            0b001 => "active_lion",
-            0b010 => "chick0",
-            0b011 => "chick1",
-            0b100 => "elephant0",
-            0b101 => "elephant1",
-            0b110 => "giraffe0",
-            0b111 => "giraffe1",
-
-            _ => "bad_actor",
-        };
-        let row = (self.0 .0 >> 2) & 0b11;
-        let col = self.0 .0 & 0b11;
-        write!(f, "{actor} to r{row}c{col}")
-    }
-}
-
-impl Debug for Pretty<Action> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self, f)
-    }
-}
-
 impl SearchNode {
     pub fn children(mut self) -> Vec<SearchNode> {
         let mut out = vec![];
-        loop {
-            let (new_self, child) = self.next_child();
-            self = new_self;
-
-            if child.is_none() {
-                return out;
-            }
-
-            out.push(child.unchecked_unwrap());
-        }
+        self.visit_children(|child| out.push(child));
+        out
     }
 }
 

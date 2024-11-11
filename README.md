@@ -122,18 +122,13 @@ We solve the game in two steps:
 
 ## Search node representation (56 bits total)
 
-| state   | nextAction or unknownChildCount | bestKnownOutcome |
-| ------- | ------------------------------- | ---------------- |
-| 40 bits | 7 bits                          | 9 bits           |
+| state   | unknownChildCount | bestKnownOutcome |
+| ------- | ----------------- | ---------------- |
+| 40 bits | 7 bits            | 9 bits           |
 
 - `state`: see [State representation](#state-representation)
-- `nextAction` or `unknownChildCount`: Similar to a `union` in C, this field can _either_ represent `nextAction` or `unknownChildCount`, but not both simultaneously.
-
-  In the first step of the algorithm (i.e., finding all reachable states), the field holds the `nextAction`. For more information on the `nextAction` field, see [Action representation](#action-representation).
-
-  In the second step of the algorithm (i.e., retrograde analysis), the field holds the `unknownChildCount`.
-  This is an unsigned 7-bit integer.
-
+- `unknownChildCount`: This is an unsigned 7-bit integer that represents the number of children that have not yet reported their outcomes.
+  When this becomes zero, `bestKnownOutcome` is the true theoretical best outcome.
 - `bestKnownOutcome`: This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
 
   - `0` represents a draw.

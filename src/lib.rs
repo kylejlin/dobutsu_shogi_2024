@@ -56,21 +56,6 @@ pub struct OptionalSearchNode(
     u64,
 );
 
-/// The **least** significant 7 bits are used.
-#[derive(Clone, Copy, Debug)]
-struct Action(
-    /// This must be non-zero.
-    u8,
-);
-
-/// The **least** significant 7 bits are used.
-#[derive(Clone, Copy, Debug)]
-struct OptionalAction(
-    /// This is zero if and only if
-    /// the option is `NONE`.
-    u8,
-);
-
 /// The **least** significant 48 bits are used.
 #[derive(Clone, Copy, Debug)]
 struct Board(u64);
@@ -123,8 +108,6 @@ struct Offset(u8);
 #[derive(Clone, Copy, Debug)]
 struct Coords(u8);
 
-type ActionHandler = fn(SearchNode) -> (OptionalNodeBuilder, OptionalAction);
-
 impl Terminality {
     const fn is_terminal(self) -> bool {
         (self as i8) != (Terminality::Nonterminal as i8)
@@ -155,18 +138,6 @@ impl OptionalNodeBuilder {
     }
 }
 
-impl OptionalAction {
-    const NONE: Self = Self(0);
-
-    const fn is_none(self) -> bool {
-        self.0 == 0
-    }
-
-    const fn unchecked_unwrap(self) -> Action {
-        Action(self.0)
-    }
-}
-
 impl SearchNode {
     pub const fn initial() -> Self {
         const fn ascending(a: u64, b: u64) -> (u64, u64) {
@@ -192,8 +163,6 @@ impl SearchNode {
         let active_lion: u64 = 0b00_01;
         let passive_lion: u64 = 0b11_01;
 
-        let next_action: u64 = 0b001_0000;
-
         Self(
             (chick0 << Offset::CHICK0.0)
                 | (chick1 << Offset::CHICK1.0)
@@ -202,72 +171,16 @@ impl SearchNode {
                 | (giraffe0 << Offset::GIRAFFE0.0)
                 | (giraffe1 << Offset::GIRAFFE1.0)
                 | (active_lion << Offset::ACTIVE_LION.0)
-                | (passive_lion << Offset::PASSIVE_LION.0)
-                | (next_action << Offset::NEXT_ACTION.0),
+                | (passive_lion << Offset::PASSIVE_LION.0),
         )
     }
 
-    fn next_child(mut self) -> (Self, OptionalSearchNode) {
-        loop {
-            let raw = ((self.0 >> Offset::NEXT_ACTION.0) & 0b111_1111) as u8;
-            if raw == 0 {
-                return (self, OptionalSearchNode::NONE);
-            }
-
-            let (new_self, new_child) = self.explore(Action(raw));
-
-            if new_child.is_some() {
-                return (new_self, new_child);
-            }
-
-            self = new_self;
-        }
-    }
-
-    fn explore(self, action: Action) -> (Self, OptionalSearchNode) {
-        let (child, next_action) = self.apply_action(action);
-        let new_self = self.set_next_action(next_action);
-        (new_self, child)
-    }
-
-    fn apply_action(self, action: Action) -> (OptionalSearchNode, OptionalAction) {
-        let (child_builder, next_action) = ACTION_HANDLERS[(action.0 - 16) as usize](self);
-
-        let child = if child_builder.is_none() {
-            OptionalSearchNode::NONE
-        } else {
-            child_builder
-                .unchecked_unwrap()
-                .invert_active_player()
-                .init_next_action()
-                .build()
-                .into_optional()
-        };
-
-        (child, next_action)
-    }
-
-    const fn set_next_action(self, next_action: OptionalAction) -> Self {
-        let raw = next_action.0 as u64;
-        Self((self.0 & !(0b111_1111 << Offset::NEXT_ACTION.0)) | (raw << Offset::NEXT_ACTION.0))
-    }
-
     const fn is_terminal(self) -> bool {
-        self.terminality().is_terminal()
+        self.into_builder().is_terminal()
     }
 
     const fn terminality(self) -> Terminality {
-        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << Offset::ACTIVE_LION.0;
-        if self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK {
-            return Terminality::Loss;
-        }
-
-        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << Offset::ACTIVE_LION_ROW.0;
-        if self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK {
-            return Terminality::Win;
-        }
-
-        Terminality::Nonterminal
+        self.into_builder().terminality()
     }
 
     const fn into_builder(self) -> NodeBuilder {
@@ -342,28 +255,22 @@ impl NodeBuilder {
         r3c2 - coords
     }
 
-    /// If the this is terminal, then we set the next action to `None`.
-    /// Otherwise, we set the next action `to Action(0b001_0000)`.
-    const fn init_next_action(self) -> Self {
-        if self.is_terminal() {
-            return Self(
-                (self.0 & !(0b111_1111 << Offset::NEXT_ACTION.0))
-                    | ((OptionalAction::NONE.0 as u64) << Offset::NEXT_ACTION.0),
-            );
-        }
-
-        const DEFAULT_FIRST_ACTION: Action = Action(0b001_0000);
-        Self(
-            (self.0 & !(0b111_1111 << Offset::NEXT_ACTION.0))
-                | ((DEFAULT_FIRST_ACTION.0 as u64) << Offset::NEXT_ACTION.0),
-        )
+    const fn is_terminal(self) -> bool {
+        self.terminality().is_terminal()
     }
 
-    const fn is_terminal(self) -> bool {
-        // At this point, the node is not guaranteed to be normalized.
-        // However, this does not matter for terminality checks.
-        // Thus, we can safely cast this to a `SearchNode`.
-        SearchNode(self.0).is_terminal()
+    const fn terminality(self) -> Terminality {
+        const ACTIVE_LION_COORDS_MASK: u64 = 0b1111 << Offset::ACTIVE_LION.0;
+        if self.0 & ACTIVE_LION_COORDS_MASK == ACTIVE_LION_COORDS_MASK {
+            return Terminality::Loss;
+        }
+
+        const ACTIVE_LION_TRY_MASK: u64 = 0b11 << Offset::ACTIVE_LION_ROW.0;
+        if self.0 & ACTIVE_LION_TRY_MASK == ACTIVE_LION_TRY_MASK {
+            return Terminality::Win;
+        }
+
+        Terminality::Nonterminal
     }
 
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
@@ -552,162 +459,204 @@ impl Iterator for CoordVec {
     }
 }
 
-macro_rules! action_handlers_for_piece {
-    ($piece:ident) => {
-        [
-            action_handlers::$piece::r00_c00,
-            action_handlers::$piece::r00_c01,
-            action_handlers::$piece::r00_c10,
-            action_handlers::handle_bad_action,
-            action_handlers::$piece::r01_c00,
-            action_handlers::$piece::r01_c01,
-            action_handlers::$piece::r01_c10,
-            action_handlers::handle_bad_action,
-            action_handlers::$piece::r10_c00,
-            action_handlers::$piece::r10_c01,
-            action_handlers::$piece::r10_c10,
-            action_handlers::handle_bad_action,
-            action_handlers::$piece::r11_c00,
-            action_handlers::$piece::r11_c01,
-            action_handlers::$piece::r11_c10,
-            action_handlers::handle_bad_action,
-        ]
-    };
-}
-
-macro_rules! concat_action_handlers {
-    ($left:expr, $right:expr) => {{
-        let left = $left;
-        let right = $right;
-
-        let mut arr: [ActionHandler; $left.len() + $right.len()] =
-            [dummy_action_handler; $left.len() + $right.len()];
-
-        let left_len = left.len();
-        let mut i = 0;
-        while i < left_len {
-            arr[i] = left[i];
-            i += 1;
-        }
-
-        let right_len = right.len();
-        let mut i = 0;
-        while i < right_len {
-            arr[left.len() + i] = right[i];
-            i += 1;
-        }
-
-        arr
-    }};
-}
-
-const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-    (OptionalNodeBuilder::NONE, OptionalAction::NONE)
-}
-
-/// An action handler will return the result of applying an action
-/// to the input state, if the action is legal.
-/// If the action is illegal, then the handler will return `None`
-/// instead of the resulting timeless state.
-///
-/// Regardless of the legality of the action,
-/// the handler will return an `Option<Action>`
-/// that represents the next (possibly illegal) action to be explored.
-///
-/// The handler assumes that the input state is non-terminal.
-/// It will not check for terminality.
-const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handlers!(
-    concat_action_handlers!(
-        concat_action_handlers!(
-            concat_action_handlers!(
-                concat_action_handlers!(
-                    concat_action_handlers!(
-                        action_handlers_for_piece!(active_lion),
-                        action_handlers_for_piece!(chick0)
-                    ),
-                    action_handlers_for_piece!(chick1)
-                ),
-                action_handlers_for_piece!(elephant0)
-            ),
-            action_handlers_for_piece!(elephant1)
-        ),
-        action_handlers_for_piece!(giraffe0)
-    ),
-    action_handlers_for_piece!(giraffe1)
-);
-
-macro_rules! define_action_handler {
-    ($piece:literal, $name:ident, $dest_coords:literal) => {
-        pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-            state
-                .into_builder()
-                .handle_action(Action(($piece << 4) | $dest_coords))
-        }
-    };
-}
-
-macro_rules! define_all_action_handlers_for_piece {
-    ($name:ident, $piece:literal) => {
-        pub mod $name {
-            use super::*;
-
-            define_action_handler!($piece, r00_c00, 0b0000);
-            define_action_handler!($piece, r00_c01, 0b0001);
-            define_action_handler!($piece, r00_c10, 0b0010);
-
-            define_action_handler!($piece, r01_c00, 0b0100);
-            define_action_handler!($piece, r01_c01, 0b0101);
-            define_action_handler!($piece, r01_c10, 0b0110);
-
-            define_action_handler!($piece, r10_c00, 0b1000);
-            define_action_handler!($piece, r10_c01, 0b1001);
-            define_action_handler!($piece, r10_c10, 0b1010);
-
-            define_action_handler!($piece, r11_c00, 0b1100);
-            define_action_handler!($piece, r11_c01, 0b1101);
-            define_action_handler!($piece, r11_c10, 0b1110);
-        }
-    };
-}
-mod action_handlers {
-    use super::*;
-
-    define_all_action_handlers_for_piece!(active_lion, 0b001);
-    define_all_action_handlers_for_piece!(chick0, 0b010);
-    define_all_action_handlers_for_piece!(chick1, 0b011);
-    define_all_action_handlers_for_piece!(elephant0, 0b100);
-    define_all_action_handlers_for_piece!(elephant1, 0b101);
-    define_all_action_handlers_for_piece!(giraffe0, 0b110);
-    define_all_action_handlers_for_piece!(giraffe1, 0b111);
-
-    pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
-        panic!("Illegal action");
+impl SearchNode {
+    fn visit_children(self, visitor: impl FnMut(SearchNode)) {
+        todo!()
     }
 }
+
+trait FromZeroPaddedI9<T> {
+    fn from_zero_padded_i9(value: T) -> Self;
+}
+
+impl FromZeroPaddedI9<u64> for i16 {
+    fn from_zero_padded_i9(value: u64) -> i16 {
+        // Handle negative values
+        if (value & (1 << 8)) != 0 {
+            const C: i16 = -(1 << 8);
+            let v8 = (value & 0b1111_1111) as i16;
+            return C + v8;
+        }
+
+        value as i16
+    }
+}
+
+trait IntoZeroPaddedI9Unchecked<T> {
+    /// If `self` does not fit into a 9-bit
+    /// two's complement signed integer,
+    /// then the behavior is undefined.
+    fn into_zero_padded_i9_unchecked(self) -> T;
+}
+
+impl IntoZeroPaddedI9Unchecked<u64> for i16 {
+    fn into_zero_padded_i9_unchecked(self) -> u64 {
+        if self < 0 {
+            return ((1 << 9) + self) as u64;
+        }
+
+        self as u64
+    }
+}
+
+// TODO: Delete
+// macro_rules! action_handlers_for_piece {
+//     ($piece:ident) => {
+//         [
+//             action_handlers::$piece::r00_c00,
+//             action_handlers::$piece::r00_c01,
+//             action_handlers::$piece::r00_c10,
+//             action_handlers::handle_bad_action,
+//             action_handlers::$piece::r01_c00,
+//             action_handlers::$piece::r01_c01,
+//             action_handlers::$piece::r01_c10,
+//             action_handlers::handle_bad_action,
+//             action_handlers::$piece::r10_c00,
+//             action_handlers::$piece::r10_c01,
+//             action_handlers::$piece::r10_c10,
+//             action_handlers::handle_bad_action,
+//             action_handlers::$piece::r11_c00,
+//             action_handlers::$piece::r11_c01,
+//             action_handlers::$piece::r11_c10,
+//             action_handlers::handle_bad_action,
+//         ]
+//     };
+// }
+
+// macro_rules! concat_action_handlers {
+//     ($left:expr, $right:expr) => {{
+//         let left = $left;
+//         let right = $right;
+
+//         let mut arr: [ActionHandler; $left.len() + $right.len()] =
+//             [dummy_action_handler; $left.len() + $right.len()];
+
+//         let left_len = left.len();
+//         let mut i = 0;
+//         while i < left_len {
+//             arr[i] = left[i];
+//             i += 1;
+//         }
+
+//         let right_len = right.len();
+//         let mut i = 0;
+//         while i < right_len {
+//             arr[left.len() + i] = right[i];
+//             i += 1;
+//         }
+
+//         arr
+//     }};
+// }
+
+// const fn dummy_action_handler(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+//     (OptionalNodeBuilder::NONE, OptionalAction::NONE)
+// }
+
+// /// An action handler will return the result of applying an action
+// /// to the input state, if the action is legal.
+// /// If the action is illegal, then the handler will return `None`
+// /// instead of the resulting timeless state.
+// ///
+// /// Regardless of the legality of the action,
+// /// the handler will return an `Option<Action>`
+// /// that represents the next (possibly illegal) action to be explored.
+// ///
+// /// The handler assumes that the input state is non-terminal.
+// /// It will not check for terminality.
+// const ACTION_HANDLERS: [ActionHandler; 7 * 16] = concat_action_handlers!(
+//     concat_action_handlers!(
+//         concat_action_handlers!(
+//             concat_action_handlers!(
+//                 concat_action_handlers!(
+//                     concat_action_handlers!(
+//                         action_handlers_for_piece!(active_lion),
+//                         action_handlers_for_piece!(chick0)
+//                     ),
+//                     action_handlers_for_piece!(chick1)
+//                 ),
+//                 action_handlers_for_piece!(elephant0)
+//             ),
+//             action_handlers_for_piece!(elephant1)
+//         ),
+//         action_handlers_for_piece!(giraffe0)
+//     ),
+//     action_handlers_for_piece!(giraffe1)
+// );
+
+// macro_rules! define_action_handler {
+//     ($piece:literal, $name:ident, $dest_coords:literal) => {
+//         pub const fn $name(state: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+//             state
+//                 .into_builder()
+//                 .handle_action(Action(($piece << 4) | $dest_coords))
+//         }
+//     };
+// }
+
+// macro_rules! define_all_action_handlers_for_piece {
+//     ($name:ident, $piece:literal) => {
+//         pub mod $name {
+//             use super::*;
+
+//             define_action_handler!($piece, r00_c00, 0b0000);
+//             define_action_handler!($piece, r00_c01, 0b0001);
+//             define_action_handler!($piece, r00_c10, 0b0010);
+
+//             define_action_handler!($piece, r01_c00, 0b0100);
+//             define_action_handler!($piece, r01_c01, 0b0101);
+//             define_action_handler!($piece, r01_c10, 0b0110);
+
+//             define_action_handler!($piece, r10_c00, 0b1000);
+//             define_action_handler!($piece, r10_c01, 0b1001);
+//             define_action_handler!($piece, r10_c10, 0b1010);
+
+//             define_action_handler!($piece, r11_c00, 0b1100);
+//             define_action_handler!($piece, r11_c01, 0b1101);
+//             define_action_handler!($piece, r11_c10, 0b1110);
+//         }
+//     };
+// }
+// mod action_handlers {
+//     use super::*;
+
+//     define_all_action_handlers_for_piece!(active_lion, 0b001);
+//     define_all_action_handlers_for_piece!(chick0, 0b010);
+//     define_all_action_handlers_for_piece!(chick1, 0b011);
+//     define_all_action_handlers_for_piece!(elephant0, 0b100);
+//     define_all_action_handlers_for_piece!(elephant1, 0b101);
+//     define_all_action_handlers_for_piece!(giraffe0, 0b110);
+//     define_all_action_handlers_for_piece!(giraffe1, 0b111);
+
+//     pub fn handle_bad_action(_: SearchNode) -> (OptionalNodeBuilder, OptionalAction) {
+//         panic!("Illegal action");
+//     }
+// }
 
 impl NodeBuilder {
-    #[inline(always)]
-    const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
-        if self.is_actor_passive(action.actor()) {
-            return (OptionalNodeBuilder::NONE, action.next_species_action());
-        }
+    // TODO
+    // #[inline(always)]
+    // const fn handle_action(self, action: Action) -> (OptionalNodeBuilder, OptionalAction) {
+    //     if self.is_actor_passive(action.actor()) {
+    //         return (OptionalNodeBuilder::NONE, action.next_species_action());
+    //     }
 
-        if self.0 & action.coords_mask() == action.coords_mask() {
-            return self.handle_drop_assuming_actor_is_active_and_in_hand(action);
-        }
+    //     if self.0 & action.coords_mask() == action.coords_mask() {
+    //         return self.handle_drop_assuming_actor_is_active_and_in_hand(action);
+    //     }
 
-        if self.is_actor_out_of_range_of_dest_square(action) {
-            return (
-                OptionalNodeBuilder::NONE,
-                self.next_action_with_nonactive_dest_square_in_current_actor_range(
-                    action,
-                    self.board(),
-                ),
-            );
-        }
+    //     if self.is_actor_out_of_range_of_dest_square(action) {
+    //         return (
+    //             OptionalNodeBuilder::NONE,
+    //             self.next_action_with_nonactive_dest_square_in_current_actor_range(
+    //                 action,
+    //                 self.board(),
+    //             ),
+    //         );
+    //     }
 
-        self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action)
-    }
+    //     self.handle_move_assuming_actor_is_active_and_in_range_of_dest_square(action)
+    // }
 
     #[inline(always)]
     const fn is_actor_passive(self, actor: Actor) -> bool {
@@ -728,229 +677,231 @@ impl NodeBuilder {
         self.0 & (1 << allegiance_bit_offset.0) != 0
     }
 
-    #[inline(always)]
-    const fn handle_drop_assuming_actor_is_active_and_in_hand(
-        self,
-        action: Action,
-    ) -> (OptionalNodeBuilder, OptionalAction) {
-        let original_state = self;
-        let original_board = original_state.board();
-        let next_action = original_state.next_empty_square_action(action, original_board);
+    // TODO
+    // #[inline(always)]
+    // const fn handle_drop_assuming_actor_is_active_and_in_hand(
+    //     self,
+    //     action: Action,
+    // ) -> (OptionalNodeBuilder, OptionalAction) {
+    //     let original_state = self;
+    //     let original_board = original_state.board();
+    //     let next_action = original_state.next_empty_square_action(action, original_board);
 
-        if original_board.is_dest_square_occupied(action) {
-            return (OptionalNodeBuilder::NONE, next_action);
-        }
+    //     if original_board.is_dest_square_occupied(action) {
+    //         return (OptionalNodeBuilder::NONE, next_action);
+    //     }
 
-        let state = original_state.move_actor_to_dest_square(action);
-        (state.into_optional(), next_action)
-    }
+    //     let state = original_state.move_actor_to_dest_square(action);
+    //     (state.into_optional(), next_action)
+    // }
 
-    #[inline(always)]
-    const fn move_actor_to_dest_square(self, action: Action) -> NodeBuilder {
-        Self(
-            (self.0 & !action.coords_mask())
-                | action.dest_square_coords_shifted_by_actor_coords_offset(),
-        )
-    }
+    // #[inline(always)]
+    // const fn move_actor_to_dest_square(self, action: Action) -> NodeBuilder {
+    //     Self(
+    //         (self.0 & !action.coords_mask())
+    //             | action.dest_square_coords_shifted_by_actor_coords_offset(),
+    //     )
+    // }
 
-    #[inline(always)]
-    const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
-        macro_rules! check_square {
-            ($coords:expr) => {
-                if action.dest_coords().0 < $coords.0
-                    && board.is_square_empty_at_board_offset($coords.board_offset())
-                {
-                    return action.set_dest_square($coords).into_optional();
-                }
-            };
-        }
+    // #[inline(always)]
+    // const fn next_empty_square_action(self, action: Action, board: Board) -> OptionalAction {
+    //     macro_rules! check_square {
+    //         ($coords:expr) => {
+    //             if action.dest_coords().0 < $coords.0
+    //                 && board.is_square_empty_at_board_offset($coords.board_offset())
+    //             {
+    //                 return action.set_dest_square($coords).into_optional();
+    //             }
+    //         };
+    //     }
 
-        check_square!(Coords::R0C1);
-        check_square!(Coords::R0C2);
+    //     check_square!(Coords::R0C1);
+    //     check_square!(Coords::R0C2);
 
-        check_square!(Coords::R1C0);
-        check_square!(Coords::R1C1);
-        check_square!(Coords::R1C2);
+    //     check_square!(Coords::R1C0);
+    //     check_square!(Coords::R1C1);
+    //     check_square!(Coords::R1C2);
 
-        check_square!(Coords::R2C0);
-        check_square!(Coords::R2C1);
-        check_square!(Coords::R2C2);
+    //     check_square!(Coords::R2C0);
+    //     check_square!(Coords::R2C1);
+    //     check_square!(Coords::R2C2);
 
-        check_square!(Coords::R3C0);
-        check_square!(Coords::R3C1);
-        check_square!(Coords::R3C2);
+    //     check_square!(Coords::R3C0);
+    //     check_square!(Coords::R3C1);
+    //     check_square!(Coords::R3C2);
 
-        action.next_piece_action()
-    }
+    //     action.next_piece_action()
+    // }
 
-    #[inline(always)]
-    const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
-        let actor_coords = self.actor_coords(action.actor());
+    // #[inline(always)]
+    // const fn is_actor_out_of_range_of_dest_square(self, action: Action) -> bool {
+    //     let actor_coords = self.actor_coords(action.actor());
 
-        let legal_squares = action.legal_starting_squares();
+    //     let legal_squares = action.legal_starting_squares();
 
-        // Only pieces on the board can be in range.
-        // Therefore, if the actor is in hand, it is out of range.
-        // However, we don't have to explicitly check this case,
-        // because if the actor is in hand, then `actor_coords == 15`,
-        // and bit 15 of `legal_squares` is guaranteed to be 0.
-        legal_squares[self.is_actor_promoted(action) as usize].0 & (1 << actor_coords.0) == 0
-    }
+    //     // Only pieces on the board can be in range.
+    //     // Therefore, if the actor is in hand, it is out of range.
+    //     // However, we don't have to explicitly check this case,
+    //     // because if the actor is in hand, then `actor_coords == 15`,
+    //     // and bit 15 of `legal_squares` is guaranteed to be 0.
+    //     legal_squares[self.is_actor_promoted(action) as usize].0 & (1 << actor_coords.0) == 0
+    // }
 
     #[inline(always)]
     const fn actor_coords(self, actor: Actor) -> Coords {
         Coords(((self.0 >> actor.coords_offset().0) as u8) & 0b1111)
     }
 
-    #[inline(always)]
-    const fn is_actor_promoted(self, action: Action) -> bool {
-        let offset = match action.actor() {
-            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
-            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+    // TODO
+    // #[inline(always)]
+    // const fn is_actor_promoted(self, action: Action) -> bool {
+    //     let offset = match action.actor() {
+    //         Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+    //         Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
-            _ => return false,
-        };
-        self.0 & (1 << offset.0) != 0
-    }
+    //         _ => return false,
+    //     };
+    //     self.0 & (1 << offset.0) != 0
+    // }
 
-    #[inline(always)]
-    const fn is_actor_in_range_of_dest_square(self, action: Action) -> bool {
-        !self.is_actor_out_of_range_of_dest_square(action)
-    }
+    // #[inline(always)]
+    // const fn is_actor_in_range_of_dest_square(self, action: Action) -> bool {
+    //     !self.is_actor_out_of_range_of_dest_square(action)
+    // }
 
-    #[inline(always)]
-    const fn next_action_with_nonactive_dest_square_in_current_actor_range(
-        self,
-        action: Action,
-        board: Board,
-    ) -> OptionalAction {
-        macro_rules! check_square {
-            ($coords:expr) => {{
-                let candidate = action.set_dest_square($coords);
+    // #[inline(always)]
+    // const fn next_action_with_nonactive_dest_square_in_current_actor_range(
+    //     self,
+    //     action: Action,
+    //     board: Board,
+    // ) -> OptionalAction {
+    //     macro_rules! check_square {
+    //         ($coords:expr) => {{
+    //             let candidate = action.set_dest_square($coords);
 
-                if action.dest_coords().0 < $coords.0
-                    && board.is_dest_square_nonactive(candidate)
-                    && self.is_actor_in_range_of_dest_square(candidate)
-                {
-                    return candidate.into_optional();
-                }
-            }};
-        }
+    //             if action.dest_coords().0 < $coords.0
+    //                 && board.is_dest_square_nonactive(candidate)
+    //                 && self.is_actor_in_range_of_dest_square(candidate)
+    //             {
+    //                 return candidate.into_optional();
+    //             }
+    //         }};
+    //     }
 
-        check_square!(Coords::R0C1);
-        check_square!(Coords::R0C2);
+    //     check_square!(Coords::R0C1);
+    //     check_square!(Coords::R0C2);
 
-        check_square!(Coords::R1C0);
-        check_square!(Coords::R1C1);
-        check_square!(Coords::R1C2);
+    //     check_square!(Coords::R1C0);
+    //     check_square!(Coords::R1C1);
+    //     check_square!(Coords::R1C2);
 
-        check_square!(Coords::R2C0);
-        check_square!(Coords::R2C1);
-        check_square!(Coords::R2C2);
+    //     check_square!(Coords::R2C0);
+    //     check_square!(Coords::R2C1);
+    //     check_square!(Coords::R2C2);
 
-        check_square!(Coords::R3C0);
-        check_square!(Coords::R3C1);
-        check_square!(Coords::R3C2);
+    //     check_square!(Coords::R3C0);
+    //     check_square!(Coords::R3C1);
+    //     check_square!(Coords::R3C2);
 
-        action.next_piece_action()
-    }
+    //     action.next_piece_action()
+    // }
 
-    #[inline(always)]
-    const fn handle_move_assuming_actor_is_active_and_in_range_of_dest_square(
-        self,
-        action: Action,
-    ) -> (OptionalNodeBuilder, OptionalAction) {
-        let original_state = self;
-        let original_board = original_state.board();
-        let state = original_state.vacate_passive_dest_square(action, original_board);
+    // #[inline(always)]
+    // const fn handle_move_assuming_actor_is_active_and_in_range_of_dest_square(
+    //     self,
+    //     action: Action,
+    // ) -> (OptionalNodeBuilder, OptionalAction) {
+    //     let original_state = self;
+    //     let original_board = original_state.board();
+    //     let state = original_state.vacate_passive_dest_square(action, original_board);
 
-        // If the destination square is occupied by an active piece,
-        // then the move is illegal.
-        if state.is_none() {
-            return (
-                OptionalNodeBuilder::NONE,
-                original_state.next_action_with_nonactive_dest_square_in_current_actor_range(
-                    action,
-                    original_board,
-                ),
-            );
-        }
+    //     // If the destination square is occupied by an active piece,
+    //     // then the move is illegal.
+    //     if state.is_none() {
+    //         return (
+    //             OptionalNodeBuilder::NONE,
+    //             original_state.next_action_with_nonactive_dest_square_in_current_actor_range(
+    //                 action,
+    //                 original_board,
+    //             ),
+    //         );
+    //     }
 
-        let state = state.unchecked_unwrap();
-        let state = state.move_actor_to_dest_square(action);
-        let state = state.promote_actor_if_needed(action);
-        let next_action = original_state
-            .next_action_with_nonactive_dest_square_in_current_actor_range(action, original_board);
-        (state.into_optional(), next_action)
-    }
+    //     let state = state.unchecked_unwrap();
+    //     let state = state.move_actor_to_dest_square(action);
+    //     let state = state.promote_actor_if_needed(action);
+    //     let next_action = original_state
+    //         .next_action_with_nonactive_dest_square_in_current_actor_range(action, original_board);
+    //     (state.into_optional(), next_action)
+    // }
 
-    /// - If the destination square is empty, this returns the original state.
-    /// - If the destination square is occupied by a passive piece,
-    ///   this returns the state with the passive piece moved to the active player's hand.
-    /// - If the destination square is occupied by an active piece,
-    ///   this returns `OptionalNodeBuilder::NONE`.
-    #[inline(always)]
-    const fn vacate_passive_dest_square(self, action: Action, board: Board) -> OptionalNodeBuilder {
-        if board.is_dest_square_empty(action) {
-            return self.into_optional();
-        }
+    // /// - If the destination square is empty, this returns the original state.
+    // /// - If the destination square is occupied by a passive piece,
+    // ///   this returns the state with the passive piece moved to the active player's hand.
+    // /// - If the destination square is occupied by an active piece,
+    // ///   this returns `OptionalNodeBuilder::NONE`.
+    // #[inline(always)]
+    // const fn vacate_passive_dest_square(self, action: Action, board: Board) -> OptionalNodeBuilder {
+    //     if board.is_dest_square_empty(action) {
+    //         return self.into_optional();
+    //     }
 
-        // If the destination square is non-empty
-        // and non-passive, then it must be active.
-        // Therefore, we return `None`.
-        if board.is_dest_square_nonpassive(action) {
-            return OptionalNodeBuilder::NONE;
-        }
+    //     // If the destination square is non-empty
+    //     // and non-passive, then it must be active.
+    //     // Therefore, we return `None`.
+    //     if board.is_dest_square_nonpassive(action) {
+    //         return OptionalNodeBuilder::NONE;
+    //     }
 
-        let occupant = (board.0 >> action.dest_square_board_offset()) & 0b111;
-        let occupant_lookup_index = (occupant - 1) as usize;
+    //     let occupant = (board.0 >> action.dest_square_board_offset()) & 0b111;
+    //     let occupant_lookup_index = (occupant - 1) as usize;
 
-        let occupant_coords_offset = [
-            Offset::PASSIVE_LION_COLUMN,
-            Offset::CHICK0_COLUMN,
-            Offset::CHICK1_COLUMN,
-            Offset::ELEPHANT0_COLUMN,
-            Offset::ELEPHANT1_COLUMN,
-            Offset::GIRAFFE0_COLUMN,
-            Offset::GIRAFFE1_COLUMN,
-        ][occupant_lookup_index];
+    //     let occupant_coords_offset = [
+    //         Offset::PASSIVE_LION_COLUMN,
+    //         Offset::CHICK0_COLUMN,
+    //         Offset::CHICK1_COLUMN,
+    //         Offset::ELEPHANT0_COLUMN,
+    //         Offset::ELEPHANT1_COLUMN,
+    //         Offset::GIRAFFE0_COLUMN,
+    //         Offset::GIRAFFE1_COLUMN,
+    //     ][occupant_lookup_index];
 
-        let is_occupant_nonlion = occupant != 0b001;
-        // If the occupant is a non-lion, we need to set the allegiance bit to 0.
-        // The allegiance bit is 4 bits left of the column offset.
-        let allegiance_mask = !((is_occupant_nonlion as u64) << (occupant_coords_offset.0 + 4));
+    //     let is_occupant_nonlion = occupant != 0b001;
+    //     // If the occupant is a non-lion, we need to set the allegiance bit to 0.
+    //     // The allegiance bit is 4 bits left of the column offset.
+    //     let allegiance_mask = !((is_occupant_nonlion as u64) << (occupant_coords_offset.0 + 4));
 
-        let is_occupant_chick = occupant & !1 == 0b010;
-        // If the occupant is a chick, we need to set the promotion bit to 0.
-        // The promotion bit is 1 bit right of the column offset.
-        let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset.0 - 1));
+    //     let is_occupant_chick = occupant & !1 == 0b010;
+    //     // If the occupant is a chick, we need to set the promotion bit to 0.
+    //     // The promotion bit is 1 bit right of the column offset.
+    //     let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset.0 - 1));
 
-        Self((self.0 | (0b1111 << occupant_coords_offset.0)) & allegiance_mask & demotion_mask)
-            .into_optional()
-    }
+    //     Self((self.0 | (0b1111 << occupant_coords_offset.0)) & allegiance_mask & demotion_mask)
+    //         .into_optional()
+    // }
 
-    #[inline(always)]
-    const fn promote_actor_if_needed(self, action: Action) -> NodeBuilder {
-        if action.is_actor_chick0() {
-            let coords = self.0 & action.coords_mask();
-            let promotion_bit = (((coords != action.coords_mask())
-                & (coords >= (0b1100 << Offset::CHICK0_COLUMN.0)))
-                as u64)
-                << Offset::CHICK0_PROMOTION.0;
-            return Self(self.0 | promotion_bit);
-        }
+    // #[inline(always)]
+    // const fn promote_actor_if_needed(self, action: Action) -> NodeBuilder {
+    //     if action.is_actor_chick0() {
+    //         let coords = self.0 & action.coords_mask();
+    //         let promotion_bit = (((coords != action.coords_mask())
+    //             & (coords >= (0b1100 << Offset::CHICK0_COLUMN.0)))
+    //             as u64)
+    //             << Offset::CHICK0_PROMOTION.0;
+    //         return Self(self.0 | promotion_bit);
+    //     }
 
-        if action.is_actor_chick1() {
-            let coords = self.0 & action.coords_mask();
-            let promotion_bit = (((coords != action.coords_mask())
-                & (coords >= (0b1100 << Offset::CHICK1_COLUMN.0)))
-                as u64)
-                << Offset::CHICK1_PROMOTION.0;
-            return Self(self.0 | promotion_bit);
-        }
+    //     if action.is_actor_chick1() {
+    //         let coords = self.0 & action.coords_mask();
+    //         let promotion_bit = (((coords != action.coords_mask())
+    //             & (coords >= (0b1100 << Offset::CHICK1_COLUMN.0)))
+    //             as u64)
+    //             << Offset::CHICK1_PROMOTION.0;
+    //         return Self(self.0 | promotion_bit);
+    //     }
 
-        self
-    }
+    //     self
+    // }
 
     const fn board(self) -> Board {
         let mut board: u64 = 0;
@@ -1026,133 +977,135 @@ impl NodeBuilder {
 }
 
 impl Board {
-    #[inline(always)]
-    const fn is_dest_square_empty(self, action: Action) -> bool {
-        self.is_square_empty_at_board_offset(action.dest_square_board_offset())
-    }
+    // TODO
+    // #[inline(always)]
+    // const fn is_dest_square_empty(self, action: Action) -> bool {
+    //     self.is_square_empty_at_board_offset(action.dest_square_board_offset())
+    // }
 
-    #[inline(always)]
-    const fn is_square_empty_at_board_offset(self, board_offset: u8) -> bool {
-        self.0 & (0b111 << board_offset) == 0
-    }
+    // #[inline(always)]
+    // const fn is_square_empty_at_board_offset(self, board_offset: u8) -> bool {
+    //     self.0 & (0b111 << board_offset) == 0
+    // }
 
-    #[inline(always)]
-    const fn is_dest_square_occupied(self, action: Action) -> bool {
-        self.0 & (0b111 << action.dest_square_board_offset()) != 0
-    }
+    // #[inline(always)]
+    // const fn is_dest_square_occupied(self, action: Action) -> bool {
+    //     self.0 & (0b111 << action.dest_square_board_offset()) != 0
+    // }
 
-    #[inline(always)]
-    const fn is_dest_square_nonpassive(self, action: Action) -> bool {
-        self.0 & (0b1_000 << action.dest_square_board_offset()) == 0
-    }
+    // #[inline(always)]
+    // const fn is_dest_square_nonpassive(self, action: Action) -> bool {
+    //     self.0 & (0b1_000 << action.dest_square_board_offset()) == 0
+    // }
 
-    #[inline(always)]
-    const fn is_dest_square_nonactive(self, action: Action) -> bool {
-        let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
-        self.is_dest_square_empty(action) | is_passive
-    }
+    // #[inline(always)]
+    // const fn is_dest_square_nonactive(self, action: Action) -> bool {
+    //     let is_passive = self.0 & (0b1_000 << action.dest_square_board_offset()) != 0;
+    //     self.is_dest_square_empty(action) | is_passive
+    // }
 }
 
-impl Action {
-    #[inline(always)]
-    const fn actor(self) -> Actor {
-        Actor(Piece(self.0 >> 4))
-    }
+// TODO
+// impl Action {
+//     #[inline(always)]
+//     const fn actor(self) -> Actor {
+//         Actor(Piece(self.0 >> 4))
+//     }
 
-    #[inline(always)]
-    const fn next_species_action(self) -> OptionalAction {
-        OptionalAction(match self.actor() {
-            Actor::LION => 0b010_0000,
+//     #[inline(always)]
+//     const fn next_species_action(self) -> OptionalAction {
+//         OptionalAction(match self.actor() {
+//             Actor::LION => 0b010_0000,
 
-            Actor::CHICK0 => 0b100_0000,
-            Actor::CHICK1 => 0b100_0000,
+//             Actor::CHICK0 => 0b100_0000,
+//             Actor::CHICK1 => 0b100_0000,
 
-            Actor::ELEPHANT0 => 0b110_0000,
-            Actor::ELEPHANT1 => 0b110_0000,
+//             Actor::ELEPHANT0 => 0b110_0000,
+//             Actor::ELEPHANT1 => 0b110_0000,
 
-            Actor::GIRAFFE0 => 0,
-            Actor::GIRAFFE1 => 0,
+//             Actor::GIRAFFE0 => 0,
+//             Actor::GIRAFFE1 => 0,
 
-            _ => 0,
-        })
-    }
+//             _ => 0,
+//         })
+//     }
 
-    #[inline(always)]
-    const fn next_piece_action(self) -> OptionalAction {
-        OptionalAction(match self.actor() {
-            Actor::LION => 0b010_0000,
-            Actor::CHICK0 => 0b011_0000,
-            Actor::CHICK1 => 0b100_0000,
-            Actor::ELEPHANT0 => 0b101_0000,
-            Actor::ELEPHANT1 => 0b110_0000,
-            Actor::GIRAFFE0 => 0b111_0000,
-            Actor::GIRAFFE1 => 0,
+//     #[inline(always)]
+//     const fn next_piece_action(self) -> OptionalAction {
+//         OptionalAction(match self.actor() {
+//             Actor::LION => 0b010_0000,
+//             Actor::CHICK0 => 0b011_0000,
+//             Actor::CHICK1 => 0b100_0000,
+//             Actor::ELEPHANT0 => 0b101_0000,
+//             Actor::ELEPHANT1 => 0b110_0000,
+//             Actor::GIRAFFE0 => 0b111_0000,
+//             Actor::GIRAFFE1 => 0,
 
-            _ => 0,
-        })
-    }
+//             _ => 0,
+//         })
+//     }
 
-    #[inline(always)]
-    const fn coords_mask(self) -> u64 {
-        self.actor().coords_mask()
-    }
+//     #[inline(always)]
+//     const fn coords_mask(self) -> u64 {
+//         self.actor().coords_mask()
+//     }
 
-    #[inline(always)]
-    const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
-        (self.dest_coords().0 as u64) << self.actor().coords_offset().0
-    }
+//     #[inline(always)]
+//     const fn dest_square_coords_shifted_by_actor_coords_offset(self) -> u64 {
+//         (self.dest_coords().0 as u64) << self.actor().coords_offset().0
+//     }
 
-    #[inline(always)]
-    const fn dest_square_board_offset(self) -> u8 {
-        self.dest_coords().board_offset()
-    }
+//     #[inline(always)]
+//     const fn dest_square_board_offset(self) -> u8 {
+//         self.dest_coords().board_offset()
+//     }
 
-    #[inline(always)]
-    const fn dest_coords(self) -> Coords {
-        Coords((self.0 & 0b1111) as u8)
-    }
+//     #[inline(always)]
+//     const fn dest_coords(self) -> Coords {
+//         Coords((self.0 & 0b1111) as u8)
+//     }
 
-    #[inline(always)]
-    const fn is_actor_chick0(self) -> bool {
-        self.actor().0 .0 == Actor::CHICK0.0 .0
-    }
+//     #[inline(always)]
+//     const fn is_actor_chick0(self) -> bool {
+//         self.actor().0 .0 == Actor::CHICK0.0 .0
+//     }
 
-    #[inline(always)]
-    const fn is_actor_chick1(self) -> bool {
-        self.actor().0 .0 == Actor::CHICK1.0 .0
-    }
+//     #[inline(always)]
+//     const fn is_actor_chick1(self) -> bool {
+//         self.actor().0 .0 == Actor::CHICK1.0 .0
+//     }
 
-    #[inline(always)]
-    const fn set_dest_square(self, coords: Coords) -> Action {
-        Self((self.0 & !0b1111) | coords.0)
-    }
+//     #[inline(always)]
+//     const fn set_dest_square(self, coords: Coords) -> Action {
+//         Self((self.0 & !0b1111) | coords.0)
+//     }
 
-    #[inline(always)]
-    const fn into_optional(self) -> OptionalAction {
-        OptionalAction(self.0)
-    }
+//     #[inline(always)]
+//     const fn into_optional(self) -> OptionalAction {
+//         OptionalAction(self.0)
+//     }
 
-    /// The set of legal starting squares depends on whether the
-    /// actor is promoted.
-    /// We cannot determine this from the action alone.
-    ///
-    /// So, we return an array of two sets.
-    /// The first set is for the non-promoted actor,
-    /// and the second set is for the promoted actor.
-    ///
-    /// It is the consumer's responsibility to select the correct
-    /// set to use.
-    #[inline(always)]
-    const fn legal_starting_squares(self) -> [CoordSet; 2] {
-        let nonpromoted = self
-            .actor()
-            .legal_starting_squares(false, self.dest_coords());
-        let promoted = self
-            .actor()
-            .legal_starting_squares(true, self.dest_coords());
-        [nonpromoted.into_coord_set(), promoted.into_coord_set()]
-    }
-}
+//     /// The set of legal starting squares depends on whether the
+//     /// actor is promoted.
+//     /// We cannot determine this from the action alone.
+//     ///
+//     /// So, we return an array of two sets.
+//     /// The first set is for the non-promoted actor,
+//     /// and the second set is for the promoted actor.
+//     ///
+//     /// It is the consumer's responsibility to select the correct
+//     /// set to use.
+//     #[inline(always)]
+//     const fn legal_starting_squares(self) -> [CoordSet; 2] {
+//         let nonpromoted = self
+//             .actor()
+//             .legal_starting_squares(false, self.dest_coords());
+//         let promoted = self
+//             .actor()
+//             .legal_starting_squares(true, self.dest_coords());
+//         [nonpromoted.into_coord_set(), promoted.into_coord_set()]
+//     }
+// }
 
 impl Actor {
     #[inline(always)]
@@ -1160,21 +1113,21 @@ impl Actor {
         macro_rules! lookup_table_row_for_piece {
             ($piece:expr, $index:literal) => {
                 [
-                    $piece.compute_legal_starting_squares(Coords::R0C0)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R0C1)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R0C2)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R0C0)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R0C1)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R0C2)[$index],
                     CoordVec::EMPTY,
-                    $piece.compute_legal_starting_squares(Coords::R1C0)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R1C1)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R1C2)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R1C0)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R1C1)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R1C2)[$index],
                     CoordVec::EMPTY,
-                    $piece.compute_legal_starting_squares(Coords::R2C0)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R2C1)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R2C2)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R2C0)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R2C1)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R2C2)[$index],
                     CoordVec::EMPTY,
-                    $piece.compute_legal_starting_squares(Coords::R3C0)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R3C1)[$index],
-                    $piece.compute_legal_starting_squares(Coords::R3C2)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R3C0)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R3C1)[$index],
+                    $piece.slowly_compute_legal_starting_squares(Coords::R3C2)[$index],
                     CoordVec::EMPTY,
                 ]
             };
@@ -1220,7 +1173,7 @@ impl Actor {
     ///
     /// It is the consumer's responsibility to select the correct
     /// vector to use.
-    const fn compute_legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
+    const fn slowly_compute_legal_starting_squares(self, dest: Coords) -> [CoordVec; 2] {
         /// This function should only be called during compile-time.
         /// Consequently, we don't have to worry about the performance
         /// inside of it.
@@ -1376,9 +1329,8 @@ impl Actor {
 
 impl Offset {
     const BEST_KNOWN_OUTCOME: Self = Self(0);
-    const NEXT_ACTION: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
-    const UNKNOWN_CHILD_COUNT: Self = Self::NEXT_ACTION;
-    const PASSIVE_LION: Self = Self(Self::NEXT_ACTION.0 + 7);
+    const UNKNOWN_CHILD_COUNT: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
+    const PASSIVE_LION: Self = Self(Self::UNKNOWN_CHILD_COUNT.0 + 7);
     const ACTIVE_LION: Self = Self(Self::PASSIVE_LION.0 + 4);
     const GIRAFFE1: Self = Self(Self::ACTIVE_LION.0 + 4);
     const GIRAFFE0: Self = Self(Self::GIRAFFE1.0 + 5);

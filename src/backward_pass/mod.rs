@@ -46,40 +46,6 @@ struct Outcome(i16);
 #[derive(Clone, Copy, Debug)]
 struct RequireLionCapture(bool);
 
-trait FromZeroPaddedI9<T> {
-    fn from_zero_padded_i9(value: T) -> Self;
-}
-
-impl FromZeroPaddedI9<u64> for i16 {
-    fn from_zero_padded_i9(value: u64) -> i16 {
-        // Handle negative values
-        if (value & (1 << 8)) != 0 {
-            const C: i16 = -(1 << 8);
-            let v8 = (value & 0b1111_1111) as i16;
-            return C + v8;
-        }
-
-        value as i16
-    }
-}
-
-trait IntoZeroPaddedI9Unchecked<T> {
-    /// If `self` does not fit into a 9-bit
-    /// two's complement signed integer,
-    /// then the behavior is undefined.
-    fn into_zero_padded_i9_unchecked(self) -> T;
-}
-
-impl IntoZeroPaddedI9Unchecked<u64> for i16 {
-    fn into_zero_padded_i9_unchecked(self) -> u64 {
-        if self < 0 {
-            return ((1 << 9) + self) as u64;
-        }
-
-        self as u64
-    }
-}
-
 fn init_unknown_child_count_and_best_known_outcome(states: &mut [SearchNode]) {
     const DELETION_MASK: u64 = !((0b111_1111 << Offset::UNKNOWN_CHILD_COUNT.0)
         | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
@@ -117,21 +83,9 @@ fn add_terminal_nodes(states: &[SearchNode], stack: &mut Vec<SearchNode>) {
 
 impl SearchNode {
     fn total_child_count(self) -> u8 {
-        let mut current_action = Action(0b001_0000);
         let mut count = 0;
-
-        loop {
-            let (child, next_action) = self.apply_action(current_action);
-            if child.is_some() {
-                count += 1;
-            }
-
-            if next_action.is_none() {
-                return count;
-            }
-
-            current_action = next_action.unchecked_unwrap();
-        }
+        self.visit_children(|_| count += 1);
+        count
     }
 
     fn unknown_child_count(self) -> u8 {

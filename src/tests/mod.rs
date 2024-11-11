@@ -18,14 +18,6 @@ fn initial_search_node_allegiance_inversion_is_correct() {
 }
 
 #[test]
-fn initial_search_node_with_initialized_next_action() {
-    insta::assert_snapshot!(SearchNode::initial()
-        .into_builder()
-        .init_next_action()
-        .pretty());
-}
-
-#[test]
 fn initial_search_node_partially_built_is_correct() {
     insta::assert_snapshot!(SearchNode::initial().into_builder().build().pretty());
 }
