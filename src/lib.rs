@@ -1409,27 +1409,11 @@ mod piece_movement_directions {
             is_promoted: bool,
             dest: Coords,
         ) -> CoordVec {
-            const NONPROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] = [
-                [CoordVec::EMPTY; 16],
-                Actor::LION.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::CHICK0.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::CHICK1.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::ELEPHANT0.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::ELEPHANT1.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::GIRAFFE0.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-                Actor::GIRAFFE1.slowly_compute_lookup_table_row_for_nonpromoted_piece(),
-            ];
+            const NONPROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] =
+                Actor::slowly_compute_lookup_table(false);
 
-            const PROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] = [
-                [CoordVec::EMPTY; 16],
-                Actor::LION.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::CHICK0.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::CHICK1.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::ELEPHANT0.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::ELEPHANT1.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::GIRAFFE0.slowly_compute_lookup_table_row_for_promoted_piece(),
-                Actor::GIRAFFE1.slowly_compute_lookup_table_row_for_promoted_piece(),
-            ];
+            const PROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] =
+                Actor::slowly_compute_lookup_table(true);
 
             const LOOKUP_TABLE: [[[CoordVec; 16]; 8]; 2] =
                 [NONPROMOTED_LOOKUP_TABLE, PROMOTED_LOOKUP_TABLE];
@@ -1438,41 +1422,63 @@ mod piece_movement_directions {
         }
 
         #[inline(always)]
-        const fn slowly_compute_lookup_table_row_for_nonpromoted_piece(self) -> [CoordVec; 16] {
-            const fn f(piece: Actor, coords: Coords) -> CoordVec {
-                piece.slowly_compute_legal_starting_squares_for_nonpromoted_piece(coords)
+        const fn slowly_compute_lookup_table(is_promoted: bool) -> [[CoordVec; 16]; 8] {
+            [
+                [CoordVec::EMPTY; 16],
+                Actor::LION.slowly_compute_lookup_table_row(is_promoted),
+                Actor::CHICK0.slowly_compute_lookup_table_row(is_promoted),
+                Actor::CHICK1.slowly_compute_lookup_table_row(is_promoted),
+                Actor::ELEPHANT0.slowly_compute_lookup_table_row(is_promoted),
+                Actor::ELEPHANT1.slowly_compute_lookup_table_row(is_promoted),
+                Actor::GIRAFFE0.slowly_compute_lookup_table_row(is_promoted),
+                Actor::GIRAFFE1.slowly_compute_lookup_table_row(is_promoted),
+            ]
+        }
+
+        #[inline(always)]
+        const fn slowly_compute_lookup_table_row(self, is_promoted: bool) -> [CoordVec; 16] {
+            macro_rules! check_square {
+                ($coords:expr) => {
+                    self.slowly_compute_legal_starting_squares(is_promoted, $coords)
+                };
             }
 
             [
-                f(self, Coords::R0C0),
-                f(self, Coords::R0C1),
-                f(self, Coords::R0C2),
+                check_square!(Coords::R0C0),
+                check_square!(Coords::R0C1),
+                check_square!(Coords::R0C2),
                 CoordVec::EMPTY,
-                f(self, Coords::R1C0),
-                f(self, Coords::R1C1),
-                f(self, Coords::R1C2),
+                check_square!(Coords::R1C0),
+                check_square!(Coords::R1C1),
+                check_square!(Coords::R1C2),
                 CoordVec::EMPTY,
-                f(self, Coords::R2C0),
-                f(self, Coords::R2C1),
-                f(self, Coords::R2C2),
+                check_square!(Coords::R2C0),
+                check_square!(Coords::R2C1),
+                check_square!(Coords::R2C2),
                 CoordVec::EMPTY,
-                f(self, Coords::R3C0),
-                f(self, Coords::R3C1),
-                f(self, Coords::R3C2),
+                check_square!(Coords::R3C0),
+                check_square!(Coords::R3C1),
+                check_square!(Coords::R3C2),
                 CoordVec::EMPTY,
             ]
         }
 
-        /// This function is suboptimally slow, so we only call it at compile time.
-        const fn slowly_compute_legal_starting_squares_for_nonpromoted_piece(
+        const fn slowly_compute_legal_starting_squares(
             self,
+            is_promoted: bool,
             dest: Coords,
         ) -> CoordVec {
             let mut out = CoordVec::EMPTY;
 
+            let dirset = if is_promoted {
+                self.promoted_dirset()
+            } else {
+                self.nonpromoted_dirset()
+            };
+
             macro_rules! check_start_square {
                 ($start_square:expr) => {
-                    if self.nonpromoted_dirset().connects($start_square, dest) {
+                    if dirset.connects($start_square, dest) {
                         out = out.push($start_square);
                     }
                 };
@@ -1510,66 +1516,6 @@ mod piece_movement_directions {
 
                 _ => EMPTY,
             }
-        }
-
-        #[inline(always)]
-        const fn slowly_compute_lookup_table_row_for_promoted_piece(self) -> [CoordVec; 16] {
-            const fn f(piece: Actor, coords: Coords) -> CoordVec {
-                piece.slowly_compute_legal_starting_squares_for_promoted_piece(coords)
-            }
-
-            [
-                f(self, Coords::R0C0),
-                f(self, Coords::R0C1),
-                f(self, Coords::R0C2),
-                CoordVec::EMPTY,
-                f(self, Coords::R1C0),
-                f(self, Coords::R1C1),
-                f(self, Coords::R1C2),
-                CoordVec::EMPTY,
-                f(self, Coords::R2C0),
-                f(self, Coords::R2C1),
-                f(self, Coords::R2C2),
-                CoordVec::EMPTY,
-                f(self, Coords::R3C0),
-                f(self, Coords::R3C1),
-                f(self, Coords::R3C2),
-                CoordVec::EMPTY,
-            ]
-        }
-
-        /// This function is suboptimally slow, so we only call it at compile time.
-        const fn slowly_compute_legal_starting_squares_for_promoted_piece(
-            self,
-            dest: Coords,
-        ) -> CoordVec {
-            let mut out = CoordVec::EMPTY;
-
-            macro_rules! check_start_square {
-                ($start_square:expr) => {
-                    if self.promoted_dirset().connects($start_square, dest) {
-                        out = out.push($start_square);
-                    }
-                };
-            }
-
-            check_start_square!(Coords::R0C0);
-            check_start_square!(Coords::R0C1);
-            check_start_square!(Coords::R0C2);
-
-            check_start_square!(Coords::R1C0);
-            check_start_square!(Coords::R1C1);
-            check_start_square!(Coords::R1C2);
-
-            check_start_square!(Coords::R2C0);
-            check_start_square!(Coords::R2C1);
-            check_start_square!(Coords::R2C2);
-
-            check_start_square!(Coords::R3C0);
-            check_start_square!(Coords::R3C1);
-            check_start_square!(Coords::R3C2);
-
-            out
         }
 
         #[inline(always)]
