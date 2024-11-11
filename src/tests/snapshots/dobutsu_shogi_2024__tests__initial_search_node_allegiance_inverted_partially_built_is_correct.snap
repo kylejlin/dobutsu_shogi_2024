@@ -1,6 +1,6 @@
 ---
 source: src/tests/mod.rs
-expression: "SearchNode::initial().into_builder().invert_active_player().build_without_horizontal_normalization().pretty()"
+expression: "SearchNode::initial().into_builder().invert_active_player().build().pretty()"
 ---
 |---|                |---|
 |GLE|                |GLE|
@@ -8,4 +8,5 @@ expression: "SearchNode::initial().into_builder().invert_active_player().build_w
 |*c*|                |*c*|
 |elg|                |elg|
 |---|                |---|
-next_action: active_lion to r0c0
+unknown_child_count: 0
+best_known_outcome: 0
