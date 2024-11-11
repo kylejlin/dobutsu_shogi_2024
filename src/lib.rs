@@ -74,15 +74,6 @@ struct Board(u64);
 #[derive(Clone, Copy, Debug)]
 struct CoordVec(u64);
 
-/// This is a bitset of up to 12 board coordinates.
-///
-/// The advantage of `CoordSet` over `CoordVec` is that
-/// inclusion lookups are O(1).
-///
-/// The disadvantage is that iteration is slow.
-#[derive(Clone, Copy, Debug)]
-struct CoordSet(u16);
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Piece(u8);
 
@@ -111,18 +102,6 @@ struct Coords(u8);
 impl Terminality {
     const fn is_terminal(self) -> bool {
         (self as i8) != (Terminality::Nonterminal as i8)
-    }
-}
-
-impl OptionalSearchNode {
-    const NONE: Self = Self(0);
-
-    const fn is_some(self) -> bool {
-        self.0 != 0
-    }
-
-    const fn unchecked_unwrap(self) -> SearchNode {
-        SearchNode(self.0)
     }
 }
 
@@ -185,10 +164,6 @@ impl SearchNode {
 
     const fn into_builder(self) -> NodeBuilder {
         NodeBuilder(self.0)
-    }
-
-    const fn into_optional(self) -> OptionalSearchNode {
-        OptionalSearchNode(self.0)
     }
 }
 
@@ -427,26 +402,6 @@ impl CoordVec {
         }
 
         self
-    }
-
-    #[inline(always)]
-    const fn into_coord_set(self) -> CoordSet {
-        let mut out = CoordSet(0);
-
-        let mut i = 0;
-        while i < Self::MAX_ELEMENTS {
-            let coords = (self.0 >> (i * 4)) & 0b1111;
-
-            if coords == Self::TERMINATOR.0 as u64 {
-                break;
-            }
-
-            out.0 |= 1 << coords;
-
-            i += 1;
-        }
-
-        return out;
     }
 }
 
