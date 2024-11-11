@@ -175,6 +175,11 @@ impl NodeBuilder {
             return;
         }
 
+        if self.is_passive_lion_in_hand() {
+            self.visit_lion_capturing_parents(actor, &mut visitor);
+            return;
+        }
+
         // You cannot drop a hen or a lion.
         if self.is_nonpromoted(actor) && actor.0 != Actor::LION.0 {
             visitor(self.dropping_parent_of_nonpromoted_actor(actor).build());
@@ -187,6 +192,106 @@ impl NodeBuilder {
     const fn is_actor_in_hand(self, actor: Actor) -> bool {
         let mask = actor.coords_mask();
         self.0 & mask == mask
+    }
+
+    #[inline(always)]
+    const fn is_passive_lion_in_hand(self) -> bool {
+        const MASK: u64 = Captive::LION.coords_mask();
+        self.0 & MASK == MASK
+    }
+
+    #[inline(always)]
+    fn visit_lion_capturing_parents(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
+        if self.is_nonpromoted(actor) {
+            return self.visit_lion_capturing_parents_assuming_nonpromoted_actor(actor, visitor);
+        }
+
+        // If the actor is promoted, it must be a chick.
+        let actor = Chick(actor.0);
+
+        self.visit_lion_capturing_parents_assuming_promoted_actor(actor, visitor);
+    }
+
+    #[inline(always)]
+    fn visit_lion_capturing_parents_assuming_nonpromoted_actor(
+        self,
+        actor: Actor,
+        visitor: impl FnMut(SearchNode),
+    ) {
+        // A nonpromoted chick can only be on the last row
+        // if it was dropped there.
+        // Had it moved there, it would have been promoted.
+        if actor.is_chick() && self.actor_coords(actor).in_last_row() {
+            return;
+        }
+
+        let starting_squares = actor.legal_starting_squares(false, self.actor_coords(actor));
+        self.visit_lion_capturing_parents_assuming_no_promotion(actor, starting_squares, visitor);
+    }
+
+    #[inline(always)]
+    fn visit_lion_capturing_parents_assuming_no_promotion(
+        self,
+        actor: Actor,
+        starting_squares: CoordVec,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        for starting_square in starting_squares {
+            self.visit_capturing_moving_parents_assuming_no_promotion(
+                actor,
+                starting_square,
+                Captive::LION,
+                &mut visitor,
+            );
+        }
+    }
+
+    #[inline(always)]
+    fn visit_lion_capturing_parents_assuming_promoted_actor(
+        self,
+        actor: Chick,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let dest = self.actor_coords(Actor(actor.0));
+        let starting_squares = Actor(actor.0).legal_starting_squares(true, dest);
+        self.visit_lion_capturing_parents_assuming_no_promotion(
+            Actor(actor.0),
+            starting_squares,
+            &mut visitor,
+        );
+
+        if dest.in_last_row() {
+            let starting_squares = Actor(actor.0).legal_starting_squares(false, dest);
+            // A chick only has one legal move, so we can skip the loop.
+            let starting_square = Coords((starting_squares.0 & 0b1111) as u8);
+
+            self.visit_lion_capturing_parents_assuming_promotion(
+                actor,
+                starting_square,
+                &mut visitor,
+            );
+        }
+    }
+
+    #[inline(always)]
+    fn visit_lion_capturing_parents_assuming_promotion(
+        self,
+        actor: Chick,
+        starting_square: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        self.visit_noncapturing_moving_parent_assuming_promotion(
+            actor,
+            starting_square,
+            &mut visitor,
+        );
+
+        self.visit_capturing_moving_parents_assuming_promotion(
+            actor,
+            starting_square,
+            Captive::LION,
+            &mut visitor,
+        );
     }
 
     #[inline(always)]
