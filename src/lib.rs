@@ -105,7 +105,7 @@ struct Offset(u8);
 /// which represents the location of the hand.
 /// Thus, it is important not to assume that the coordinates
 /// are on the board.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Coords(u8);
 
 impl Terminality {
@@ -396,6 +396,12 @@ impl Coords {
     const fn board_offset(self: Coords) -> u8 {
         self.0 * 4
     }
+
+    #[inline(always)]
+    const fn in_last_row(self) -> bool {
+        const LOOKUP_TABLE: u16 = 0b0111_0000_0000_0000;
+        (LOOKUP_TABLE >> self.0) & 1 != 0
+    }
 }
 
 impl CoordVec {
@@ -461,7 +467,219 @@ impl Iterator for CoordVec {
 
 impl SearchNode {
     fn visit_children(self, visitor: impl FnMut(SearchNode)) {
-        todo!()
+        ChildCalculator::new(self).visit_children(visitor);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ChildCalculator {
+    node: SearchNode,
+    board: Board,
+    empty_squares: CoordVec,
+}
+
+impl ChildCalculator {
+    const fn new(node: SearchNode) -> Self {
+        let board = node.into_builder().board();
+        let empty_squares = board.empty_squares();
+        Self {
+            node,
+            board,
+            empty_squares,
+        }
+    }
+
+    #[inline(always)]
+    fn visit_children(self, mut visitor: impl FnMut(SearchNode)) {
+        if self.node.is_terminal() {
+            return;
+        }
+
+        self.visit_children_with_actor(Actor::LION, &mut visitor);
+        self.visit_children_with_actor(Actor::CHICK0, &mut visitor);
+        self.visit_children_with_actor(Actor::CHICK1, &mut visitor);
+        self.visit_children_with_actor(Actor::ELEPHANT0, &mut visitor);
+        self.visit_children_with_actor(Actor::ELEPHANT1, &mut visitor);
+        self.visit_children_with_actor(Actor::GIRAFFE0, &mut visitor);
+        self.visit_children_with_actor(Actor::GIRAFFE1, &mut visitor);
+    }
+
+    #[inline(always)]
+    fn visit_children_with_actor(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
+        let node = self.node.into_builder();
+
+        if actor.is_passive(node) {
+            return;
+        }
+
+        let start = actor.coords(node);
+
+        if start == Coords::HAND {
+            self.visit_dropping_children(actor, visitor);
+        } else {
+            self.visit_moving_children(actor, start, visitor);
+        }
+    }
+
+    #[inline(always)]
+    fn visit_dropping_children(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+        let node = self.node.into_builder();
+        for dest in self.empty_squares {
+            let node = actor.set_coords(node, dest);
+            visitor(node.build());
+        }
+    }
+
+    #[inline(always)]
+    fn visit_moving_children(
+        self,
+        actor: Actor,
+        start: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let node = self.node.into_builder();
+        let is_promoted = actor.is_promoted(node);
+        let dest_candidates = actor.legal_dest_squares(is_promoted, start);
+
+        for dest in dest_candidates {
+            let optional_node = node.vacate_passive(dest, self.board);
+            if optional_node.is_none() {
+                continue;
+            }
+            let node = optional_node.unchecked_unwrap();
+            let node = actor.set_coords_and_promote_if_in_last_row(node, dest);
+            visitor(node.build());
+        }
+    }
+}
+
+impl NodeBuilder {
+    /// - If the destination square is empty, this returns the original state.
+    /// - If the destination square is occupied by a passive piece,
+    ///   this returns the state with the passive piece moved to the active player's hand.
+    /// - If the destination square is occupied by an active piece,
+    ///   this returns `OptionalNodeBuilder::NONE`.
+    #[inline(always)]
+    const fn vacate_passive(self, dest: Coords, board: Board) -> OptionalNodeBuilder {
+        let board_offset = dest.board_offset();
+
+        let dest_square = (board.0 >> board_offset) & 0b1111;
+        if dest_square == 0 {
+            return self.into_optional();
+        }
+
+        // We cannot vacate an active piece.
+        if dest_square & 0b1000 == 0 {
+            return OptionalNodeBuilder::NONE;
+        }
+
+        let occupant = dest_square & 0b111;
+
+        let occupant_coords_offset = [
+            Offset::PASSIVE_LION_COLUMN,
+            Offset::CHICK0_COLUMN,
+            Offset::CHICK1_COLUMN,
+            Offset::ELEPHANT0_COLUMN,
+            Offset::ELEPHANT1_COLUMN,
+            Offset::GIRAFFE0_COLUMN,
+            Offset::GIRAFFE1_COLUMN,
+        ][(occupant - 1) as usize];
+
+        let is_occupant_nonlion = occupant != 0b001;
+        // If the occupant is a non-lion, we need to set the allegiance bit to 0.
+        // The allegiance bit is 4 bits left of the column offset.
+        let allegiance_mask = !((is_occupant_nonlion as u64) << (occupant_coords_offset.0 + 4));
+
+        let is_occupant_chick = occupant & !1 == 0b010;
+        // If the occupant is a chick, we need to set the promotion bit to 0.
+        // The promotion bit is 1 bit right of the column offset.
+        let demotion_mask = !((is_occupant_chick as u64) << (occupant_coords_offset.0 - 1));
+
+        Self((self.0 | (0b1111 << occupant_coords_offset.0)) & allegiance_mask & demotion_mask)
+            .into_optional()
+    }
+}
+
+impl Actor {
+    #[inline(always)]
+    const fn is_passive(self, node: NodeBuilder) -> bool {
+        let allegiance_bit_offset = match self {
+            // The active lion is never passive.
+            Actor::LION => return false,
+
+            Actor::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Actor::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Actor::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Actor::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Actor::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Actor::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return false,
+        };
+
+        (node.0 & (1 << allegiance_bit_offset.0)) != 0
+    }
+
+    #[inline(always)]
+    const fn coords(self, node: NodeBuilder) -> Coords {
+        Coords(((node.0 >> self.coords_offset().0) & 0b1111) as u8)
+    }
+
+    #[inline(always)]
+    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+        let coords_offset = self.coords_offset().0;
+        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+    }
+
+    #[inline(always)]
+    const fn set_coords_and_promote_if_in_last_row(
+        self,
+        node: NodeBuilder,
+        coords: Coords,
+    ) -> NodeBuilder {
+        let node = self.set_coords(node, coords);
+
+        if self.is_chick() && coords.in_last_row() {
+            return Chick(self.0).promote(node);
+        }
+
+        node
+    }
+
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0.is_chick()
+    }
+
+    #[inline(always)]
+    const fn is_promoted(self, node: NodeBuilder) -> bool {
+        let promotion_status_bit = match self {
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return false,
+        };
+        node.0 & (1 << promotion_status_bit.0) != 0
+    }
+}
+
+impl Piece {
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0 & !1 == 0b010
+    }
+}
+
+impl Chick {
+    #[inline(always)]
+    const fn promote(self, node: NodeBuilder) -> NodeBuilder {
+        let promotion_status_bit = match self {
+            Chick::CHICK0 => Offset::CHICK0_PROMOTION,
+            Chick::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return node,
+        };
+        NodeBuilder(node.0 | (1 << promotion_status_bit.0))
     }
 }
 
@@ -977,6 +1195,42 @@ impl NodeBuilder {
 }
 
 impl Board {
+    #[inline(always)]
+    const fn empty_squares(self) -> CoordVec {
+        let mut buffer = 0;
+        let mut buffer_offset = 0;
+
+        macro_rules! check_square {
+            ($coords:expr) => {{
+                const MASK: u64 = 0b1111 << $coords.board_offset();
+                if self.0 & MASK == 0 {
+                    buffer |= ($coords.0 as u64) << buffer_offset;
+                    buffer_offset += 4;
+                }
+            }};
+        }
+
+        check_square!(Coords::R0C0);
+        check_square!(Coords::R0C1);
+        check_square!(Coords::R0C2);
+
+        check_square!(Coords::R1C0);
+        check_square!(Coords::R1C1);
+        check_square!(Coords::R1C2);
+
+        check_square!(Coords::R2C0);
+        check_square!(Coords::R2C1);
+        check_square!(Coords::R2C2);
+
+        check_square!(Coords::R3C0);
+        check_square!(Coords::R3C1);
+        check_square!(Coords::R3C2);
+
+        buffer |= 0b1111 << buffer_offset;
+
+        CoordVec(buffer)
+    }
+
     // TODO
     // #[inline(always)]
     // const fn is_dest_square_empty(self, action: Action) -> bool {
@@ -1108,6 +1362,11 @@ impl Board {
 // }
 
 impl Actor {
+    #[inline(always)]
+    const fn legal_dest_squares(self, is_promoted: bool, dest: Coords) -> CoordVec {
+        todo!()
+    }
+
     #[inline(always)]
     const fn legal_starting_squares(self, is_promoted: bool, dest: Coords) -> CoordVec {
         macro_rules! lookup_table_row_for_piece {

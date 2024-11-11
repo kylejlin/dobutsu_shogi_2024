@@ -521,32 +521,10 @@ impl NodeBuilder {
     }
 }
 
-impl Actor {
-    #[inline(always)]
-    const fn is_chick(self) -> bool {
-        self.0.is_chick()
-    }
-}
-
 impl Captive {
     #[inline(always)]
     const fn is_chick(self) -> bool {
         self.0.is_chick()
-    }
-}
-
-impl Piece {
-    #[inline(always)]
-    const fn is_chick(self) -> bool {
-        self.0 & 0b110 == 0b010
-    }
-}
-
-impl Coords {
-    #[inline(always)]
-    const fn in_last_row(self) -> bool {
-        const LOOKUP_TABLE: u16 = 0b0111_0000_0000_0000;
-        (LOOKUP_TABLE >> self.0) & 1 != 0
     }
 }
 
