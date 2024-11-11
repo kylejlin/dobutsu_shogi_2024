@@ -19,7 +19,12 @@ pub fn solve(states: &mut [SearchNode]) {
         let outcome = top.best_known_outcome();
 
         top.visit_parents(|parent| {
-            let Ok(parent_index) = states.binary_search(&parent) else {
+            const STATE_MASK: u64 = 0xFF_FFFF_FFFF << Offset::PASSIVE_LION.0;
+            let parent_state = parent.0 & STATE_MASK;
+            let Ok(parent_index) = states.binary_search_by(|other| {
+                let other_state = other.0 & STATE_MASK;
+                other_state.cmp(&parent_state)
+            }) else {
                 // It's possible that a theoretical parent is actually unreachable.
                 return;
             };
