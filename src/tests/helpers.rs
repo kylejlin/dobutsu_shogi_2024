@@ -169,16 +169,10 @@ impl Board {
 }
 
 impl SearchNode {
-    pub fn children(mut self) -> Vec<SearchNode> {
+    pub fn children(self) -> Vec<SearchNode> {
         let mut out = vec![];
         self.visit_children(|child| out.push(child));
         out
-    }
-}
-
-impl OptionalSearchNode {
-    const fn is_none(self) -> bool {
-        self.0 == Self::NONE.0
     }
 }
 
