@@ -9,7 +9,8 @@ parent:
 |*c*|                |lc*|
 |elg|                |e*g|
 |---|                |---|
-next_action: active_lion to r0c0
+unknown_child_count: 0
+best_known_outcome: 0
 
 children:
 SearchNodeSet(len = 4) [
@@ -20,7 +21,8 @@ SearchNodeSet(len = 4) [
     |lc*|                |lc*|
     |e*g|                |e*g|
     |---|                |---|
-    next_action: active_lion to r0c0
+    unknown_child_count: 0
+    best_known_outcome: 0
     ==========================
     1:
     |---|                |---|
@@ -29,7 +31,8 @@ SearchNodeSet(len = 4) [
     |lc*|                |*cl|
     |e*g|                |e*g|
     |---|                |---|
-    next_action: active_lion to r0c0
+    unknown_child_count: 0
+    best_known_outcome: 0
     ==========================
     2:
     |---|                |---|
@@ -38,7 +41,8 @@ SearchNodeSet(len = 4) [
     |lC*|                |***|
     |e*g|                |elg|
     |---|                |---|
-    next_action: active_lion to r0c0
+    unknown_child_count: 0
+    best_known_outcome: 0
     ==========================
     3:
     |---|                |---|
@@ -47,6 +51,7 @@ SearchNodeSet(len = 4) [
     |lc*|                |*cg|
     |e*g|                |el*|
     |---|                |---|
-    next_action: active_lion to r0c0
+    unknown_child_count: 0
+    best_known_outcome: 0
     ==========================
 ]

@@ -481,7 +481,7 @@ impl ChildCalculator {
         let node = self.node.into_builder();
         for dest in self.empty_squares {
             let node = actor.set_coords(node, dest);
-            visitor(node.build());
+            visitor(node.invert_active_player().build());
         }
     }
 
@@ -503,7 +503,7 @@ impl ChildCalculator {
             }
             let node = optional_node.unchecked_unwrap();
             let node = actor.set_coords_and_promote_if_in_last_row(node, dest);
-            visitor(node.build());
+            visitor(node.invert_active_player().build());
         }
     }
 }
