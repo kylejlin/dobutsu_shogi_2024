@@ -32,7 +32,7 @@ pub fn solve(states: &mut [SearchNode]) {
             let parent_mut = &mut states[parent_index];
             *parent_mut = parent_mut
                 .record_child_outcome(outcome)
-                .decrement_child_count();
+                .decrement_unknown_child_count();
             if parent_mut.unknown_child_count() == 0 {
                 known_stack.push(*parent_mut);
             }
@@ -121,7 +121,7 @@ impl SearchNode {
     }
 
     #[must_use]
-    fn decrement_child_count(self) -> Self {
+    fn decrement_unknown_child_count(self) -> Self {
         Self(self.0 - (1 << Offset::UNKNOWN_CHILD_COUNT.0))
     }
 }
