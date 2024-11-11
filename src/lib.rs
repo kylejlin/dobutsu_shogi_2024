@@ -1319,12 +1319,31 @@ impl Board {
 mod piece_movement_directions {
     use super::*;
 
+    #[derive(Copy, Clone, Debug)]
+    struct IsPromoted(bool);
+
+    /// In accordance with DRY,
+    /// instead of implementing separate functions for
+    /// finding the legal starting squares and the legal destination squares,
+    /// we write a generic function that can do both.
+    /// This generic function takes a parameter `unknown: Unknown` that specifies
+    /// whether the function should return the legal starting squares or the legal destination squares.
+    ///
+    /// We derive the name "unknown" from known and unknown variables in elementary algebra
+    /// (e.g., in the problem "Solve for `x` in `x + 3 = 5 + k` where `k = 5`", `x` is an unknown variable,
+    /// and `k` is a known variable).
+    #[derive(Copy, Clone, Debug)]
+    enum Unknown {
+        Start,
+        Dest,
+    }
+
     /// This function should only be called during compile-time.
     /// Consequently, we don't have to worry about the performance
     /// inside of it.
     /// Thus, we can use a simple struct with 8 boolean fields
     /// instead of a more efficient `u8` bitset.
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug)]
     struct DirectionSet {
         n: bool,
         ne: bool,
@@ -1399,8 +1418,11 @@ mod piece_movement_directions {
 
     impl Actor {
         #[inline(always)]
-        pub(crate) const fn legal_dest_squares(self, is_promoted: bool, dest: Coords) -> CoordVec {
-            todo!()
+        pub(crate) const fn legal_dest_squares(self, is_promoted: bool, start: Coords) -> CoordVec {
+            const LOOKUP_TABLE: [[[CoordVec; 16]; 8]; 2] =
+                Actor::slowly_compute_combined_lookup_table(Unknown::Dest);
+
+            LOOKUP_TABLE[is_promoted as usize][self.0 .0 as usize][start.0 as usize]
         }
 
         #[inline(always)]
@@ -1409,37 +1431,48 @@ mod piece_movement_directions {
             is_promoted: bool,
             dest: Coords,
         ) -> CoordVec {
-            const NONPROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] =
-                Actor::slowly_compute_lookup_table(false);
-
-            const PROMOTED_LOOKUP_TABLE: [[CoordVec; 16]; 8] =
-                Actor::slowly_compute_lookup_table(true);
-
             const LOOKUP_TABLE: [[[CoordVec; 16]; 8]; 2] =
-                [NONPROMOTED_LOOKUP_TABLE, PROMOTED_LOOKUP_TABLE];
+                Actor::slowly_compute_combined_lookup_table(Unknown::Start);
 
             LOOKUP_TABLE[is_promoted as usize][self.0 .0 as usize][dest.0 as usize]
         }
 
         #[inline(always)]
-        const fn slowly_compute_lookup_table(is_promoted: bool) -> [[CoordVec; 16]; 8] {
+        const fn slowly_compute_combined_lookup_table(
+            unknown: Unknown,
+        ) -> [[[CoordVec; 16]; 8]; 2] {
             [
-                [CoordVec::EMPTY; 16],
-                Actor::LION.slowly_compute_lookup_table_row(is_promoted),
-                Actor::CHICK0.slowly_compute_lookup_table_row(is_promoted),
-                Actor::CHICK1.slowly_compute_lookup_table_row(is_promoted),
-                Actor::ELEPHANT0.slowly_compute_lookup_table_row(is_promoted),
-                Actor::ELEPHANT1.slowly_compute_lookup_table_row(is_promoted),
-                Actor::GIRAFFE0.slowly_compute_lookup_table_row(is_promoted),
-                Actor::GIRAFFE1.slowly_compute_lookup_table_row(is_promoted),
+                Actor::slowly_compute_lookup_table(IsPromoted(false), unknown),
+                Actor::slowly_compute_lookup_table(IsPromoted(true), unknown),
             ]
         }
 
         #[inline(always)]
-        const fn slowly_compute_lookup_table_row(self, is_promoted: bool) -> [CoordVec; 16] {
+        const fn slowly_compute_lookup_table(
+            is_promoted: IsPromoted,
+            unknown: Unknown,
+        ) -> [[CoordVec; 16]; 8] {
+            [
+                [CoordVec::EMPTY; 16],
+                Actor::LION.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::CHICK0.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::CHICK1.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::ELEPHANT0.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::ELEPHANT1.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::GIRAFFE0.slowly_compute_lookup_table_row(is_promoted, unknown),
+                Actor::GIRAFFE1.slowly_compute_lookup_table_row(is_promoted, unknown),
+            ]
+        }
+
+        #[inline(always)]
+        const fn slowly_compute_lookup_table_row(
+            self,
+            is_promoted: IsPromoted,
+            unknown: Unknown,
+        ) -> [CoordVec; 16] {
             macro_rules! check_square {
                 ($coords:expr) => {
-                    self.slowly_compute_legal_starting_squares(is_promoted, $coords)
+                    self.slowly_compute_legal_squares(is_promoted, unknown, $coords)
                 };
             }
 
@@ -1463,42 +1496,52 @@ mod piece_movement_directions {
             ]
         }
 
-        const fn slowly_compute_legal_starting_squares(
+        const fn slowly_compute_legal_squares(
             self,
-            is_promoted: bool,
-            dest: Coords,
+            is_promoted: IsPromoted,
+            unknown: Unknown,
+            known: Coords,
         ) -> CoordVec {
             let mut out = CoordVec::EMPTY;
 
-            let dirset = if is_promoted {
+            let dirset = if is_promoted.0 {
                 self.promoted_dirset()
             } else {
                 self.nonpromoted_dirset()
             };
 
-            macro_rules! check_start_square {
-                ($start_square:expr) => {
-                    if dirset.connects($start_square, dest) {
-                        out = out.push($start_square);
+            macro_rules! check_candidate {
+                ($candidate:expr) => {
+                    match unknown {
+                        Unknown::Start => {
+                            if dirset.connects($candidate, known) {
+                                out = out.push($candidate);
+                            }
+                        }
+                        Unknown::Dest => {
+                            if dirset.connects(known, $candidate) {
+                                out = out.push($candidate);
+                            }
+                        }
                     }
                 };
             }
 
-            check_start_square!(Coords::R0C0);
-            check_start_square!(Coords::R0C1);
-            check_start_square!(Coords::R0C2);
+            check_candidate!(Coords::R0C0);
+            check_candidate!(Coords::R0C1);
+            check_candidate!(Coords::R0C2);
 
-            check_start_square!(Coords::R1C0);
-            check_start_square!(Coords::R1C1);
-            check_start_square!(Coords::R1C2);
+            check_candidate!(Coords::R1C0);
+            check_candidate!(Coords::R1C1);
+            check_candidate!(Coords::R1C2);
 
-            check_start_square!(Coords::R2C0);
-            check_start_square!(Coords::R2C1);
-            check_start_square!(Coords::R2C2);
+            check_candidate!(Coords::R2C0);
+            check_candidate!(Coords::R2C1);
+            check_candidate!(Coords::R2C2);
 
-            check_start_square!(Coords::R3C0);
-            check_start_square!(Coords::R3C1);
-            check_start_square!(Coords::R3C2);
+            check_candidate!(Coords::R3C0);
+            check_candidate!(Coords::R3C1);
+            check_candidate!(Coords::R3C2);
 
             out
         }
