@@ -27,19 +27,19 @@ fn main() {
         .join("solution.dat");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
-    let mut history = vec![SearchNode::initial()];
+    let mut history = vec![correct_outcome(SearchNode::initial(), &solution)];
     let mut input_buffer = String::with_capacity(256);
 
     loop {
         let top = *history.last().unwrap();
         println!("----------------------------------------------------------------");
-        println!("Current state: {}", top.pretty());
-        println!("Children: {}", top.children().pretty());
+        println!("Current state:\n{}", top.pretty());
         match best_child_index(top, &solution) {
             Some(i) => println!("Best child index: {i}.",),
             None => println!("Best child index: None (node is terminal)."),
         }
-        print!("Enter a command: ");
+        println!("Children: {}", top.children().pretty());
+        println!("Enter a command: ");
         input_buffer.clear();
         std::io::stdin().read_line(&mut input_buffer).unwrap();
 
@@ -69,7 +69,7 @@ fn main() {
                 if index >= children.len() {
                     println!("Invalid child index.");
                 } else {
-                    history.push(children[index]);
+                    history.push(correct_outcome(children[index], &solution));
                 }
             }
         }
@@ -201,6 +201,14 @@ impl Command {
     }
 }
 
+fn correct_outcome(target: SearchNode, solution: &[SearchNode]) -> SearchNode {
+    let target_state = target.state();
+    let index = solution
+        .binary_search_by(|other| other.state().cmp(&target_state))
+        .expect("Could not find node in solution.");
+    solution[index]
+}
+
 fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize> {
     let children = parent.children();
     if children.is_empty() {
@@ -224,10 +232,5 @@ fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize
 }
 
 fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Outcome {
-    let target_state = target.state();
-    let index = solution
-        .binary_search_by(|other| other.state().cmp(&target_state))
-        .expect("Could not find node in solution.");
-    let node = solution[index];
-    node.best_known_outcome()
+    correct_outcome(target, solution).best_known_outcome()
 }
