@@ -10,7 +10,7 @@ mod tests;
 pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
     states.sort_unstable();
 
-    init_unknown_child_count_and_best_known_outcome(states);
+    init_required_child_report_count_and_best_known_outcome(states);
 
     let mut known_stack = vec![];
     add_terminal_nodes(states, &mut known_stack);
@@ -31,8 +31,8 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
             let parent_mut = &mut states[parent_index];
             *parent_mut = parent_mut
                 .record_child_outcome(outcome)
-                .decrement_unknown_child_count();
-            if parent_mut.unknown_child_count() == 0 {
+                .decrement_required_child_report_count();
+            if parent_mut.required_child_report_count() == 0 {
                 known_stack.push(*parent_mut);
             }
         });
@@ -44,27 +44,27 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
 #[derive(Clone, Copy, Debug)]
 struct RequireLionCapture(bool);
 
-fn init_unknown_child_count_and_best_known_outcome(states: &mut [SearchNode]) {
-    const DELETION_MASK: u64 = !((0b111_1111 << Offset::UNKNOWN_CHILD_COUNT.0)
+fn init_required_child_report_count_and_best_known_outcome(states: &mut [SearchNode]) {
+    const DELETION_MASK: u64 = !((0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
         | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
 
     for state in states {
         match state.terminality() {
             Terminality::Nonterminal => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | ((state.total_child_count() as u64) << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | ((state.total_child_count() as u64) << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Win => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | (0 << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (POSITIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Loss => {
                 state.0 = (state.0 & DELETION_MASK)
-                    | (0 << Offset::UNKNOWN_CHILD_COUNT.0)
+                    | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
         }
@@ -102,8 +102,8 @@ impl SearchNode {
     }
 
     #[must_use]
-    fn decrement_unknown_child_count(self) -> Self {
-        Self(self.0 - (1 << Offset::UNKNOWN_CHILD_COUNT.0))
+    fn decrement_required_child_report_count(self) -> Self {
+        Self(self.0 - (1 << Offset::REQUIRED_CHILD_REPORT_COUNT.0))
     }
 }
 

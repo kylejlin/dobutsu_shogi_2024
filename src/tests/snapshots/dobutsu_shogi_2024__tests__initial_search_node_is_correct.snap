@@ -8,5 +8,5 @@ expression: "SearchNode::initial().pretty()"
 |*c*|                |*c*|
 |elg|                |elg|
 |---|                |---|
-unknown_child_count: 0
+required_child_report_count: 0
 best_known_outcome: 0

@@ -69,10 +69,11 @@ impl Debug for Pretty<SearchNode> {
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let board = self.0.board().pretty();
-        let unknown_child_count = (self.0 .0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111;
+        let required_child_report_count =
+            (self.0 .0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111;
         let best_known_outcome =
             i16::from_zero_padded_i9((self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111);
-        write!(f, "{board}\nunknown_child_count: {unknown_child_count}\nbest_known_outcome: {best_known_outcome}",)
+        write!(f, "{board}\nrequired_child_report_count: {required_child_report_count}\nbest_known_outcome: {best_known_outcome}",)
     }
 }
 

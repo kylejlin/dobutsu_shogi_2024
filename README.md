@@ -122,13 +122,28 @@ We solve the game in two steps:
 
 ## Search node representation (56 bits total)
 
-| state   | unknownChildCount | bestKnownOutcome |
-| ------- | ----------------- | ---------------- |
-| 40 bits | 7 bits            | 9 bits           |
+| state   | requiredChildReportCount | bestKnownOutcome |
+| ------- | ------------------------ | ---------------- |
+| 40 bits | 7 bits                   | 9 bits           |
 
 - `state`: see [State representation](#state-representation)
-- `unknownChildCount`: This is an unsigned 7-bit integer that represents the number of children that have not yet reported their outcomes.
+- `requiredChildReportCount`: This is an unsigned 7-bit integer that represents the number of children that need to report their outcomes before this node's outcome can be calculated.
+
   When this becomes zero, `bestKnownOutcome` is the true theoretical best outcome.
+
+  Note that this value does not necessarily decrement one-by-one--if a child has reported a loss,
+  we immediately record the parent as a win and set `requiredChildReportCount` to zero.
+  There is no need to wait for the other children to report their outcomes
+  because there can be no better outcome than a win in the least number of plies.
+  Assuming that we use a queue instead of a stack to explore nodes
+  and that we enqueue all the terminal nodes first,
+  the first-in-first-out nature guarantees that by the time we dequeue a node
+  with an outcome in `n` plies, all the nodes with outcomes in `m` plies where `m < n`
+  have already been dequeued.
+  Thus, if we dequeue such a node, and the node is a loss in `n` plies,
+  we can safely record all non-finalized parents (i.e., every parent with a non-zero `requiredChildReportCount`) as a win in `n + 1` plies,
+  since there cannot be a faster win for that parent.
+
 - `bestKnownOutcome`: This is a two's complement 9-bit signed integer that represents the best known outcome of the state.
 
   - `0` represents a draw.

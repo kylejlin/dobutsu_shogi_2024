@@ -190,8 +190,8 @@ impl SearchNode {
         self.0 & STATE_MASK
     }
 
-    pub const fn unknown_child_count(self) -> u8 {
-        ((self.0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111) as u8
+    pub const fn required_child_report_count(self) -> u8 {
+        ((self.0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111) as u8
     }
 
     pub fn best_known_outcome(self) -> Outcome {
@@ -1609,8 +1609,8 @@ mod piece_movement_directions {
 
 impl Offset {
     const BEST_KNOWN_OUTCOME: Self = Self(0);
-    const UNKNOWN_CHILD_COUNT: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
-    const PASSIVE_LION: Self = Self(Self::UNKNOWN_CHILD_COUNT.0 + 7);
+    const REQUIRED_CHILD_REPORT_COUNT: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
+    const PASSIVE_LION: Self = Self(Self::REQUIRED_CHILD_REPORT_COUNT.0 + 7);
     const ACTIVE_LION: Self = Self(Self::PASSIVE_LION.0 + 4);
     const GIRAFFE1: Self = Self(Self::ACTIVE_LION.0 + 4);
     const GIRAFFE0: Self = Self(Self::GIRAFFE1.0 + 5);
