@@ -114,7 +114,7 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
         );
 
         let bytes = node_slice_to_bytes(&solution);
-        fs::write(&reachable_states_path, bytes).unwrap();
+        fs::write(&solution_path, bytes).unwrap();
         println!("Wrote solution to {:?}.", solution_path);
         solution
     }
