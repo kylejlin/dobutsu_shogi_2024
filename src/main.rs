@@ -18,7 +18,55 @@ fn main() {
         .unwrap()
         .join("solution.dat");
 
-    let reachable_states = if reachable_states_path.exists() {
+    let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
+}
+
+fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) -> Vec<SearchNode> {
+    if solution_path.exists() {
+        println!("Loading solution from {:?}.", solution_path);
+        let bytes = fs::read(&solution_path).unwrap();
+        let saved = bytes_to_node_vec(&bytes);
+        println!("Loaded solution from {:?}.", solution_path);
+        saved
+    } else {
+        let reachable_states = load_or_compute_reachable_states(&reachable_states_path);
+
+        println!("Starting retrograde analysis. This will probably take several hours.");
+        let mut reachable_states = reachable_states;
+        let start_time = Instant::now();
+        let mut prev_time = start_time;
+        let mut countup = 0;
+        let mut checkpoints = 0;
+        const CHECKPOINT_SIZE: u64 = 1_000_000;
+        solve(&mut reachable_states, |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Backtracked {checkpoints} checkpoints. Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                prev_time = Instant::now();
+            }
+        });
+        let solution = reachable_states;
+        println!(
+            "Completed retrograde analysis on {} states. It took {:?}.",
+            checkpoints * CHECKPOINT_SIZE + countup,
+            start_time.elapsed()
+        );
+
+        let bytes = node_slice_to_bytes(&solution);
+        fs::write(&reachable_states_path, bytes).unwrap();
+        println!("Wrote solution to {:?}.", solution_path);
+        solution
+    }
+}
+
+fn load_or_compute_reachable_states(reachable_states_path: &Path) -> Vec<SearchNode> {
+    if reachable_states_path.exists() {
         println!("Loading reachable states from {:?}.", reachable_states_path);
         let bytes = fs::read(&reachable_states_path).unwrap();
         let saved = bytes_to_node_vec(&bytes);
@@ -58,38 +106,7 @@ fn main() {
         fs::write(&reachable_states_path, bytes).unwrap();
         println!("Wrote solution to {:?}.", reachable_states_path);
         reachable_states
-    };
-
-    println!("Starting retrograde analysis. This will probably take several hours.");
-    let mut reachable_states = reachable_states;
-    let start_time = Instant::now();
-    let mut prev_time = start_time;
-    let mut countup = 0;
-    let mut checkpoints = 0;
-    const CHECKPOINT_SIZE: u64 = 1_000_000;
-    solve(&mut reachable_states, |_| {
-        countup += 1;
-
-        if countup >= CHECKPOINT_SIZE {
-            countup %= CHECKPOINT_SIZE;
-            checkpoints += 1;
-            println!(
-                "Backtracked {checkpoints} checkpoints. Duration: {:?}",
-                prev_time.elapsed()
-            );
-            prev_time = Instant::now();
-        }
-    });
-    let solution = reachable_states;
-    println!(
-        "Completed retrograde analysis on {} states. It took {:?}.",
-        checkpoints * CHECKPOINT_SIZE + countup,
-        start_time.elapsed()
-    );
-
-    let bytes = node_slice_to_bytes(&solution);
-    fs::write(&reachable_states_path, bytes).unwrap();
-    println!("Wrote solution to {:?}.", solution_path);
+    }
 }
 
 fn node_slice_to_bytes(reachable_states: &[SearchNode]) -> Vec<u8> {
