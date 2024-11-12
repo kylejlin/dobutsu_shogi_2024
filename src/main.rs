@@ -3,6 +3,14 @@ use std::path::Path;
 use std::time::Instant;
 
 use dobutsu_shogi_2024::*;
+use pretty::IntoPretty;
+
+#[derive(Clone, Copy, Debug)]
+enum Command {
+    Help,
+    Parent,
+    Child(usize),
+}
 
 fn main() {
     let reachable_states_path = Path::new(file!())
@@ -19,6 +27,53 @@ fn main() {
         .join("solution.dat");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
+    let mut history = vec![SearchNode::initial()];
+    let mut input_buffer = String::with_capacity(256);
+
+    loop {
+        let top = *history.last().unwrap();
+        println!("----------------------------------------------------------------");
+        println!("Current state: {}", top.pretty());
+        println!("Children: {}", top.children().pretty());
+        match best_child_index(top, &solution) {
+            Some(i) => println!("Best child index: {i}.",),
+            None => println!("Best child index: None (node is terminal)."),
+        }
+        print!("Enter a command: ");
+        input_buffer.clear();
+        std::io::stdin().read_line(&mut input_buffer).unwrap();
+
+        let Ok(command) = Command::parse(&input_buffer) else {
+            println!("Invalid command. Type \"help\" for a list of commands.");
+            continue;
+        };
+
+        match command {
+            Command::Help => {
+                println!("Commands:");
+                println!("    help: Print this help message.");
+                println!("    parent: Go to the parent state.");
+                println!("    child <index>: Go to the child at the given index.");
+            }
+
+            Command::Parent => {
+                if history.len() == 1 {
+                    println!("Already at the initial state.");
+                } else {
+                    history.pop();
+                }
+            }
+
+            Command::Child(index) => {
+                let children = history.last().unwrap().children();
+                if index >= children.len() {
+                    println!("Invalid child index.");
+                } else {
+                    history.push(children[index]);
+                }
+            }
+        }
+    }
 }
 
 fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) -> Vec<SearchNode> {
@@ -125,4 +180,54 @@ fn bytes_to_node_vec(bytes: &[u8]) -> Vec<SearchNode> {
         reachable_states.push(SearchNode(u64::from_le_bytes(bytes)));
     }
     reachable_states
+}
+
+impl Command {
+    fn parse(input: &str) -> Result<Self, ()> {
+        let input = input.trim();
+        match input {
+            "help" => Ok(Self::Help),
+            "parent" => Ok(Self::Parent),
+            _ => {
+                if input.starts_with("child ") {
+                    let child_index: usize =
+                        input["child ".len()..].parse().map_err(std::mem::drop)?;
+                    Ok(Self::Child(child_index))
+                } else {
+                    Err(())
+                }
+            }
+        }
+    }
+}
+
+fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize> {
+    let children = parent.children();
+    if children.is_empty() {
+        return None;
+    }
+
+    let mut best_index = 0;
+    let mut best_outcome = get_node_outcome(children[0], solution);
+
+    for (i, child) in children.iter().enumerate().skip(1) {
+        let outcome = get_node_outcome(*child, solution);
+        // We invert perspectives, since child nodes represent the opponent's turn.
+        // Therefore, lower scores are better.
+        if outcome < best_outcome {
+            best_index = i;
+            best_outcome = outcome;
+        }
+    }
+
+    Some(best_index)
+}
+
+fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Outcome {
+    let target_state = target.state();
+    let index = solution
+        .binary_search_by(|other| other.state().cmp(&target_state))
+        .expect("Could not find node in solution.");
+    let node = solution[index];
+    node.best_known_outcome()
 }

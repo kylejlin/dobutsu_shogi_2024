@@ -19,10 +19,9 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
         let outcome = top.best_known_outcome();
 
         top.visit_parents(|parent| {
-            const STATE_MASK: u64 = 0xFF_FFFF_FFFF << Offset::PASSIVE_LION.0;
-            let parent_state = parent.0 & STATE_MASK;
+            let parent_state = parent.state();
             let Ok(parent_index) = states.binary_search_by(|other| {
-                let other_state = other.0 & STATE_MASK;
+                let other_state = other.state();
                 other_state.cmp(&parent_state)
             }) else {
                 // It's possible that a theoretical parent is actually unreachable.
@@ -41,16 +40,6 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
         on_node_processed(top);
     }
 }
-
-///  - `0` represents a draw.
-///
-///  - A positive number `n` represents a win for the active player
-///    in `201 - n` plies.
-///
-///  - A negative number `-n` represents a win for the passive player
-///    in `201 + n` plies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct Outcome(i16);
 
 #[derive(Clone, Copy, Debug)]
 struct RequireLionCapture(bool);
@@ -95,16 +84,6 @@ impl SearchNode {
         let mut count = 0;
         self.visit_children(|_| count += 1);
         count
-    }
-
-    fn unknown_child_count(self) -> u8 {
-        ((self.0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111) as u8
-    }
-
-    fn best_known_outcome(self) -> Outcome {
-        Outcome(i16::from_zero_padded_i9(
-            (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-        ))
     }
 
     #[must_use]

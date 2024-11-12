@@ -7,6 +7,7 @@ mod tests;
 
 pub mod backward_pass;
 pub mod forward_pass;
+pub mod pretty;
 
 pub use backward_pass::solve;
 pub use forward_pass::reachable_states;
@@ -24,6 +25,16 @@ enum Terminality {
     Nonterminal = 0,
     Win = 1,
 }
+
+///  - `0` represents a draw.
+///
+///  - A positive number `n` represents a win for the active player
+///    in `201 - n` plies.
+///
+///  - A negative number `-n` represents a win for the passive player
+///    in `201 + n` plies.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Outcome(pub i16);
 
 /// The **least** significant 4 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -164,6 +175,29 @@ impl SearchNode {
 
     const fn into_builder(self) -> NodeBuilder {
         NodeBuilder(self.0)
+    }
+
+    pub fn children(self) -> Vec<SearchNode> {
+        let mut out = vec![];
+        self.visit_children(|child| out.push(child));
+        out
+    }
+
+    /// This returns the state of the node,
+    /// it its original (i.e., nonshifted) position.
+    pub const fn state(self) -> u64 {
+        const STATE_MASK: u64 = 0xFF_FFFF_FFFF << Offset::PASSIVE_LION.0;
+        self.0 & STATE_MASK
+    }
+
+    pub const fn unknown_child_count(self) -> u8 {
+        ((self.0 >> Offset::UNKNOWN_CHILD_COUNT.0) & 0b111_1111) as u8
+    }
+
+    pub fn best_known_outcome(self) -> Outcome {
+        Outcome(i16::from_zero_padded_i9(
+            (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
+        ))
     }
 }
 
