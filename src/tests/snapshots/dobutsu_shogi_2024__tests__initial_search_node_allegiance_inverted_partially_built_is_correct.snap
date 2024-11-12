@@ -2,6 +2,10 @@
 source: src/tests/mod.rs
 expression: "SearchNode::initial().into_builder().invert_active_player().build().pretty()"
 ---
+|===|                |===|
+|...|                |...|
+|...|                |...|
+|===|                |===|
 |---|                |---|
 |GLE|                |GLE|
 |*C*|                |*C*|

@@ -386,6 +386,11 @@ impl Captive {
 
 impl Nonlion {
     #[inline(always)]
+    const fn coords_mask(self) -> u64 {
+        0b1111 << self.coords_offset().0
+    }
+
+    #[inline(always)]
     const fn coords_offset(self) -> Offset {
         match self {
             Nonlion::CHICK0 => Offset::CHICK0_COLUMN,
@@ -397,6 +402,21 @@ impl Nonlion {
 
             _ => Offset(0),
         }
+    }
+
+    #[inline(always)]
+    const fn allegiance_mask(self) -> u64 {
+        let allegiance_bit_offset = match self {
+            Nonlion::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Nonlion::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Nonlion::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Nonlion::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Nonlion::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Nonlion::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return 0,
+        };
+        1 << allegiance_bit_offset.0
     }
 }
 

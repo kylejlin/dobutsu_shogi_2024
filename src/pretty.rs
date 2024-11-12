@@ -11,45 +11,38 @@ struct Indented<'a> {
     space_count: usize,
 }
 
+#[derive(Clone, Copy)]
+struct Hands {
+    active: Hand,
+    passive: Hand,
+}
+
+#[derive(Clone, Copy)]
+struct Hand {
+    lion: u8,
+    chick: u8,
+    elephant: u8,
+    giraffe: u8,
+}
+
 const GAP: &str = "                ";
 
 pub trait IntoPretty: Sized {
-    fn pretty(self) -> Pretty<Self>;
+    fn pretty(self) -> Pretty<Self> {
+        Pretty(self)
+    }
 }
 
 trait Indent {
     fn indented(&self, spaces: usize) -> Indented<'_>;
 }
 
-impl IntoPretty for SearchNode {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
-
-impl IntoPretty for NodeBuilder {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
-
-impl IntoPretty for Board {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
-
-impl IntoPretty for Outcome {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
-
-impl IntoPretty for Vec<SearchNode> {
-    fn pretty(self) -> Pretty<Self> {
-        Pretty(self)
-    }
-}
+impl IntoPretty for SearchNode {}
+impl IntoPretty for NodeBuilder {}
+impl IntoPretty for Hands {}
+impl IntoPretty for Board {}
+impl IntoPretty for Outcome {}
+impl IntoPretty for Vec<SearchNode> {}
 
 impl Indent for str {
     fn indented(&self, spaces: usize) -> Indented<'_> {
@@ -74,6 +67,7 @@ impl Debug for Pretty<SearchNode> {
 
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let hands = self.0.hands().pretty();
         let board = self.0.board().pretty();
         let required_child_report_count =
             (self.0 .0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111;
@@ -81,13 +75,64 @@ impl Display for Pretty<NodeBuilder> {
             (self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
         ))
         .pretty();
-        write!(f, "{board}\nrequired_child_report_count: {required_child_report_count}\nbest_known_outcome: {best_known_outcome}",)
+        write!(f, "{hands}\n{board}\nrequired_child_report_count: {required_child_report_count}\nbest_known_outcome: {best_known_outcome}",)
     }
 }
 
 impl Debug for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
+    }
+}
+
+impl NodeBuilder {
+    fn hands(self) -> Hands {
+        let mut active = Hand::empty();
+        let mut passive = Hand::empty();
+
+        macro_rules! check_nonlion {
+            ($name:ident, $piece:expr) => {
+                if self.0 & $piece.coords_mask() == $piece.coords_mask() {
+                    if self.0 & $piece.allegiance_mask() == 0 {
+                        active.$name += 1;
+                    } else {
+                        passive.$name += 1;
+                    }
+                }
+            };
+        }
+
+        check_nonlion!(chick, Nonlion::CHICK0);
+        check_nonlion!(chick, Nonlion::CHICK1);
+        check_nonlion!(elephant, Nonlion::ELEPHANT0);
+        check_nonlion!(elephant, Nonlion::ELEPHANT1);
+        check_nonlion!(giraffe, Nonlion::GIRAFFE0);
+        check_nonlion!(giraffe, Nonlion::GIRAFFE1);
+
+        if self.0 & Actor::LION.coords_mask() == Actor::LION.coords_mask() {
+            // If the active lion is in somebody's hand,
+            // it must be in the passive player's hand.
+            passive.lion += 1;
+        }
+
+        if self.0 & Captive::LION.coords_mask() == Captive::LION.coords_mask() {
+            // If the passive lion is in somebody's hand,
+            // it must be in the active player's hand.
+            active.lion += 1;
+        }
+
+        Hands { active, passive }
+    }
+}
+
+impl Hand {
+    fn empty() -> Self {
+        Self {
+            lion: 0,
+            chick: 0,
+            elephant: 0,
+            giraffe: 0,
+        }
     }
 }
 
@@ -174,6 +219,66 @@ impl Board {
         }
 
         Self(out)
+    }
+}
+
+impl Display for Pretty<Hands> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let [h0, h1, h2, h3, h4, h5] = self.into_array();
+        let [i_h0, i_h1, i_h2, i_h3, i_h4, i_h5] = self.invert().into_array();
+        write!(
+        f,
+        "|===|{GAP}|===|\n|{h0}{h1}{h2}|{GAP}|{i_h0}{i_h1}{i_h2}|\n|{h3}{h4}{h5}|{GAP}|{i_h3}{i_h4}{i_h5}|\n|===|{GAP}|===|",
+    )
+    }
+}
+
+impl Debug for Pretty<Hands> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self, f)
+    }
+}
+
+impl Pretty<Hands> {
+    fn into_array(self) -> [char; 6] {
+        let mut array = ['.'; 6];
+        let mut i = 0;
+
+        macro_rules! check {
+            ($allegiance:ident, $field:ident, $char_:literal) => {{
+                for _ in 0..self.0.$allegiance.$field {
+                    array[i] = $char_;
+                    i += 1;
+                }
+            }};
+        }
+
+        check!(active, lion, 'l');
+        check!(active, chick, 'c');
+        check!(active, elephant, 'e');
+        check!(active, giraffe, 'g');
+
+        check!(passive, lion, 'L');
+        check!(passive, chick, 'C');
+        check!(passive, elephant, 'E');
+        check!(passive, giraffe, 'G');
+
+        array
+    }
+
+    #[must_use]
+    fn invert(self) -> Self {
+        Pretty(self.0.invert())
+    }
+}
+
+impl Hands {
+    #[must_use]
+    fn invert(self) -> Self {
+        Self {
+            active: self.passive,
+            passive: self.active,
+        }
     }
 }
 
