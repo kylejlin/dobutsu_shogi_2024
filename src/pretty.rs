@@ -39,6 +39,12 @@ impl IntoPretty for Board {
     }
 }
 
+impl IntoPretty for Outcome {
+    fn pretty(self) -> Pretty<Self> {
+        Pretty(self)
+    }
+}
+
 impl IntoPretty for Vec<SearchNode> {
     fn pretty(self) -> Pretty<Self> {
         Pretty(self)
@@ -71,8 +77,10 @@ impl Display for Pretty<NodeBuilder> {
         let board = self.0.board().pretty();
         let required_child_report_count =
             (self.0 .0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111;
-        let best_known_outcome =
-            i16::from_zero_padded_i9((self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111);
+        let best_known_outcome = Outcome(i16::from_zero_padded_i9(
+            (self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
+        ))
+        .pretty();
         write!(f, "{board}\nrequired_child_report_count: {required_child_report_count}\nbest_known_outcome: {best_known_outcome}",)
     }
 }
@@ -166,6 +174,22 @@ impl Board {
         }
 
         Self(out)
+    }
+}
+
+impl Display for Pretty<Outcome> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.0 .0 < 0 {
+            let delay = 201 + self.0 .0;
+            return write!(f, "{} (loss in {delay})", self.0 .0);
+        }
+
+        if self.0 .0 > 0 {
+            let delay = 201 - self.0 .0;
+            return write!(f, "{} (win in {delay})", self.0 .0);
+        }
+
+        write!(f, "0 (draw)")
     }
 }
 
