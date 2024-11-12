@@ -1,5 +1,7 @@
 use super::*;
 
+use std::collections::VecDeque;
+
 #[cfg(test)]
 mod tests;
 
@@ -12,10 +14,10 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
 
     init_required_child_report_count_and_best_known_outcome(states);
 
-    let mut known_stack = vec![];
-    add_terminal_nodes(states, &mut known_stack);
+    let mut known_queue = VecDeque::with_capacity(states.len());
+    add_terminal_nodes(states, &mut known_queue);
 
-    while let Some(top) = known_stack.pop() {
+    while let Some(top) = known_queue.pop_front() {
         let outcome = top.best_known_outcome();
 
         top.visit_parents(|parent| {
@@ -33,7 +35,7 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
                 .record_child_outcome(outcome)
                 .decrement_required_child_report_count();
             if parent_mut.required_child_report_count() == 0 {
-                known_stack.push(*parent_mut);
+                known_queue.push_back(*parent_mut);
             }
         });
 
@@ -71,10 +73,10 @@ fn init_required_child_report_count_and_best_known_outcome(states: &mut [SearchN
     }
 }
 
-fn add_terminal_nodes(states: &[SearchNode], stack: &mut Vec<SearchNode>) {
+fn add_terminal_nodes(states: &[SearchNode], stack: &mut VecDeque<SearchNode>) {
     for state in states {
         if state.is_terminal() {
-            stack.push(*state);
+            stack.push_back(*state);
         }
     }
 }
