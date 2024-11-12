@@ -17,30 +17,60 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
     let mut known_queue = VecDeque::with_capacity(states.len());
     add_terminal_nodes(states, &mut known_queue);
 
-    while let Some(top) = known_queue.pop_front() {
-        let outcome = top.best_known_outcome();
+    while let Some(node) = known_queue.pop_front() {
+        let outcome = node.best_known_outcome();
 
-        top.visit_parents(|parent| {
-            let parent_state = parent.state();
-            let Ok(parent_index) = states.binary_search_by(|other| {
-                let other_state = other.state();
-                other_state.cmp(&parent_state)
-            }) else {
-                // It's possible that a theoretical parent is actually unreachable.
-                return;
-            };
+        if outcome.0 < 0 {
+            visit_parents(node, states, |parent_mut| {
+                *parent_mut = parent_mut
+                    .record_child_outcome(outcome)
+                    .set_required_child_report_count_to_zero();
 
-            let parent_mut = &mut states[parent_index];
-            *parent_mut = parent_mut
-                .record_child_outcome(outcome)
-                .decrement_required_child_report_count();
-            if parent_mut.required_child_report_count() == 0 {
                 known_queue.push_back(*parent_mut);
-            }
-        });
+            });
+        } else {
+            visit_parents(node, states, |parent_mut| {
+                *parent_mut = parent_mut
+                    .record_child_outcome(outcome)
+                    .decrement_required_child_report_count();
 
-        on_node_processed(top);
+                if parent_mut.required_child_report_count() == 0 {
+                    known_queue.push_back(*parent_mut);
+                }
+            });
+        }
+
+        on_node_processed(node);
     }
+}
+
+#[inline(always)]
+fn visit_parents(
+    node_with_incorrect_nonstate_fields: SearchNode,
+    states: &mut [SearchNode],
+    mut parent_mutator: impl FnMut(&mut SearchNode),
+) {
+    node_with_incorrect_nonstate_fields.visit_parents(|parent_with_incorrect_nonstate_fields| {
+        let parent_state = parent_with_incorrect_nonstate_fields.state();
+        let Ok(parent_index) = states.binary_search_by(|other| {
+            let other_state = other.state();
+            other_state.cmp(&parent_state)
+        }) else {
+            // It's possible that a theoretical parent is actually unreachable.
+            return;
+        };
+
+        let parent_mut = &mut states[parent_index];
+
+        if parent_mut.required_child_report_count() == 0 {
+            // It's possible that the parent has already determined
+            // its best outcome before seeing all of its children's best outcomes.
+            // This happens when a child reports a loss.
+            return;
+        }
+
+        parent_mutator(parent_mut);
+    });
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -106,6 +136,11 @@ impl SearchNode {
     #[must_use]
     fn decrement_required_child_report_count(self) -> Self {
         Self(self.0 - (1 << Offset::REQUIRED_CHILD_REPORT_COUNT.0))
+    }
+
+    #[must_use]
+    fn set_required_child_report_count_to_zero(self) -> Self {
+        Self(self.0 & !(0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0))
     }
 }
 

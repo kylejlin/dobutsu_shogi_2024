@@ -12,14 +12,14 @@ pub fn reachable_states(
 
     let mut queue = std::iter::once(initial_state).collect::<VecDeque<_>>();
 
-    while let Some(top) = queue.pop_front() {
-        top.visit_children(|new_child| {
+    while let Some(node) = queue.pop_front() {
+        node.visit_children(|new_child| {
             if !reachable_states.add(new_child).did_addend_already_exist {
                 queue.push_back(new_child);
             }
         });
 
-        on_node_processed(top);
+        on_node_processed(node);
     }
 
     reachable_states.into_sorted_vec()
