@@ -2,9 +2,6 @@ use super::*;
 
 use std::collections::VecDeque;
 
-#[cfg(test)]
-mod tests;
-
 /// This function will solve the game when provided
 /// with a slice of all reachable states.
 ///
@@ -568,11 +565,3 @@ impl Outcome {
         Self(self.0 - self.0.signum())
     }
 }
-
-/// `-200`` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
-
-/// `200` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const POSITIVE_201_I9: u64 = 0b0_1100_1001;

@@ -1227,3 +1227,11 @@ impl Coords {
 
     const HAND: Self = Self(0b1111);
 }
+
+/// `-200`` in 9-bit two's complement, left-padded with zeros
+/// to fill the 64-bit integer.
+const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
+
+/// `200` in 9-bit two's complement, left-padded with zeros
+/// to fill the 64-bit integer.
+const POSITIVE_201_I9: u64 = 0b0_1100_1001;
