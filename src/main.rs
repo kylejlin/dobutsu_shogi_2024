@@ -27,7 +27,7 @@ fn main() {
         .join("solution.dat");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
-    let mut history = vec![correct_outcome(SearchNode::initial(), &solution)];
+    let mut history = vec![correct_nonstate_fields(SearchNode::initial(), &solution)];
     let mut input_buffer = String::with_capacity(256);
 
     loop {
@@ -38,7 +38,14 @@ fn main() {
             Some(i) => println!("Best child index: {i}.",),
             None => println!("Best child index: None (node is terminal)."),
         }
-        println!("Children: {}", top.children().pretty());
+        println!(
+            "Children: {}",
+            top.children()
+                .into_iter()
+                .map(|child| correct_nonstate_fields(child, &solution))
+                .collect::<Vec<_>>()
+                .pretty()
+        );
         println!("Enter a command: ");
         input_buffer.clear();
         std::io::stdin().read_line(&mut input_buffer).unwrap();
@@ -69,7 +76,7 @@ fn main() {
                 if index >= children.len() {
                     println!("Invalid child index.");
                 } else {
-                    history.push(correct_outcome(children[index], &solution));
+                    history.push(correct_nonstate_fields(children[index], &solution));
                 }
             }
         }
@@ -201,7 +208,7 @@ impl Command {
     }
 }
 
-fn correct_outcome(target: SearchNode, solution: &[SearchNode]) -> SearchNode {
+fn correct_nonstate_fields(target: SearchNode, solution: &[SearchNode]) -> SearchNode {
     let target_state = target.state();
     let index = solution
         .binary_search_by(|other| other.state().cmp(&target_state))
@@ -232,5 +239,5 @@ fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize
 }
 
 fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Outcome {
-    correct_outcome(target, solution).best_known_outcome()
+    correct_nonstate_fields(target, solution).best_known_outcome()
 }
