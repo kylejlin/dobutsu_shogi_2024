@@ -10,6 +10,10 @@ edition = "2021"
 [dev-dependencies]
 insta = "1.41.1"
 
+# For fuzz testing:
+rand = "0.8.5"
+rand_xorshift = "0.3.0"
+
 [profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3

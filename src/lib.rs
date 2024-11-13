@@ -183,6 +183,12 @@ impl SearchNode {
         out
     }
 
+    pub fn parents(self) -> Vec<SearchNode> {
+        let mut out = vec![];
+        self.visit_parents(|parent| out.push(parent));
+        out
+    }
+
     /// This returns the state of the node,
     /// it its original (i.e., nonshifted) position.
     pub const fn state(self) -> u64 {

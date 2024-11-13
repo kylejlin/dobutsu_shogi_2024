@@ -142,7 +142,8 @@ impl SearchNode {
 }
 
 impl SearchNode {
-    fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
+    // TODO: Move
+    pub(crate) fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
         let inverted = self.into_builder().invert_active_player();
         inverted.visit_parents_with_actor(Actor::LION, &mut visitor);
         inverted.visit_parents_with_actor(Actor::CHICK0, &mut visitor);

@@ -1,6 +1,7 @@
 use super::{pretty::IntoPretty, *};
 
 mod i9;
+mod parent_child_consistency;
 
 #[test]
 fn initial_search_node_is_correct() {
