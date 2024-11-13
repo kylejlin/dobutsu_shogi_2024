@@ -27,10 +27,26 @@ fn main() {
         .join("solution.dat");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
-    let mut history = vec![correct_nonstate_fields(SearchNode::initial(), &solution)];
+
     let mut input_buffer = String::with_capacity(256);
 
+    println!("Tree inspector ready. Type \"launch\" to launch.");
+    println!("This will clear the console, so be sure to save any important information.");
     loop {
+        input_buffer.clear();
+        std::io::stdin().read_line(&mut input_buffer).unwrap();
+        if input_buffer.trim() == "launch" {
+            break;
+        }
+
+        println!("Invalid command. Type \"launch\" to launch.");
+    }
+
+    let mut history = vec![correct_nonstate_fields(SearchNode::initial(), &solution)];
+
+    loop {
+        clear_console();
+
         let top = *history.last().unwrap();
         println!("----------------------------------------------------------------");
         println!("Current state:\n{}", top.pretty());
@@ -240,4 +256,9 @@ fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize
 
 fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Outcome {
     correct_nonstate_fields(target, solution).best_known_outcome()
+}
+
+fn clear_console() {
+    print!("{esc}c", esc = 27 as char);
+    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 }
