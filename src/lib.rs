@@ -36,7 +36,7 @@ enum Terminality {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Outcome(pub i16);
 
-/// The **least** significant 4 bits are used.
+/// The **least** significant 56 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SearchNode(
     // Must be non-zero.
