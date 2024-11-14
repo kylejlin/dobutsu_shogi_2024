@@ -26,6 +26,28 @@ fn state_set_is_consistent_with_hash_set() {
     }
 }
 
+#[test]
+fn state_set_vec_is_consistent_with_hash_set() {
+    const FUZZ_TIMES: usize = 1000;
+
+    let mut prng = deterministic_prng();
+
+    for _ in 0..FUZZ_TIMES {
+        let (state_set, reference) = random_state_set_pair(&mut prng);
+        let state_set_vec = state_set.into_unsorted_vec();
+
+        for state in reference.iter().copied() {
+            assert!(state_set_vec.contains(&state));
+        }
+
+        for state in state_set_vec.iter().copied() {
+            assert!(reference.contains(&state));
+        }
+
+        assert_eq!(state_set_vec.len(), reference.len());
+    }
+}
+
 fn random_state_set_pair(prng: &mut XorShiftRng) -> (StateSet, HashSet<SearchNode>) {
     let mut state_set = StateSet::empty();
     let mut reference = HashSet::new();
