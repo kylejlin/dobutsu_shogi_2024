@@ -14,7 +14,7 @@ fn every_child_lists_parent_as_parent() {
                 let parent_children = parent.0.children().pretty();
                 let child = child.pretty();
                 let child_parents = child.0.parents().pretty();
-                panic!("Child did not list parent as parent.\n\nPARENT:\n\n{parent}\n\nCHILD:\n\n{child}\n\nPARENT.CHILDREN:\n\n{parent_children}\n\nCHILD.PARENTS:\n\n{child_parents}");
+                panic!("Child did not list parent as parent.\n\nPARENT:\n\n{parent}\n\nCHILD:\n\n{child}\n\nCHILD.PARENTS:\n\n{child_parents}\n\nPARENT.CHILDREN:\n\n{parent_children}");
             }
         })
     });
