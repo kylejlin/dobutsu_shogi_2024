@@ -85,8 +85,11 @@ struct Piece(u8);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Actor(Piece);
 
+// TODO: Delete if possible
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Captive(Piece);
+struct PassivePiece(Piece);
+
+struct PassiveLion;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Nonlion(Piece);
@@ -103,6 +106,22 @@ struct Offset(u8);
 /// are on the board.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Coords(u8);
+
+#[derive(Clone, Copy, Debug)]
+struct ChildCalculator {
+    node: SearchNode,
+    board: Board,
+    empty_squares: CoordVec,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ParentCalculator {
+    inverted_node: NodeBuilder,
+    inverted_board: Board,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ShouldDemoteActorInParent(bool);
 
 impl Terminality {
     const fn is_terminal(self) -> bool {
@@ -362,7 +381,7 @@ impl Actor {
     }
 }
 
-impl Captive {
+impl PassivePiece {
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
         0b1111 << self.coords_offset().0
@@ -371,13 +390,13 @@ impl Captive {
     #[inline(always)]
     const fn coords_offset(self) -> Offset {
         match self {
-            Captive::LION => Offset::PASSIVE_LION_COLUMN,
-            Captive::CHICK0 => Offset::CHICK0_COLUMN,
-            Captive::CHICK1 => Offset::CHICK1_COLUMN,
-            Captive::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
-            Captive::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
-            Captive::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
-            Captive::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
+            PassivePiece::LION => Offset::PASSIVE_LION_COLUMN,
+            PassivePiece::CHICK0 => Offset::CHICK0_COLUMN,
+            PassivePiece::CHICK1 => Offset::CHICK1_COLUMN,
+            PassivePiece::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
+            PassivePiece::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
+            PassivePiece::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
+            PassivePiece::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
 
             _ => Offset(0),
         }
@@ -449,6 +468,11 @@ impl CoordVec {
 
         Self((self.0 | ((coords.0 as u64) << (len * 4 + 4))) + 1)
     }
+
+    #[inline(always)]
+    const fn singleton(coords: Coords) -> Self {
+        Self(((coords.0 as u64) << 4) | 1)
+    }
 }
 
 impl Iterator for CoordVec {
@@ -473,13 +497,6 @@ impl SearchNode {
     fn visit_children(self, visitor: impl FnMut(SearchNode)) {
         ChildCalculator::new(self).visit_children(visitor);
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct ChildCalculator {
-    node: SearchNode,
-    board: Board,
-    empty_squares: CoordVec,
 }
 
 impl ChildCalculator {
@@ -554,6 +571,223 @@ impl ChildCalculator {
             let node = actor.set_coords_and_promote_if_in_last_row(node, dest);
             visitor(node.invert_active_player().build());
         }
+    }
+}
+
+impl SearchNode {
+    fn visit_parents(self, visitor: impl FnMut(SearchNode)) {
+        ParentCalculator::new(self).visit_parents(visitor);
+    }
+}
+
+impl ParentCalculator {
+    fn new(node: SearchNode) -> Self {
+        let inverted_node = node.into_builder().invert_active_player();
+        Self {
+            inverted_node,
+            inverted_board: inverted_node.board(),
+        }
+    }
+
+    fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
+        self.visit_parents_with_actor(Actor::LION, &mut visitor);
+        self.visit_parents_with_actor(Actor::CHICK0, &mut visitor);
+        self.visit_parents_with_actor(Actor::CHICK1, &mut visitor);
+        self.visit_parents_with_actor(Actor::ELEPHANT0, &mut visitor);
+        self.visit_parents_with_actor(Actor::ELEPHANT1, &mut visitor);
+        self.visit_parents_with_actor(Actor::GIRAFFE0, &mut visitor);
+        self.visit_parents_with_actor(Actor::GIRAFFE1, &mut visitor);
+    }
+
+    #[inline(always)]
+    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+        let node = self.inverted_node;
+        if !(actor.is_active(node) && actor.is_on_board(node)) {
+            return;
+        }
+
+        if !actor.is_hen(node) && !actor.is_lion() {
+            self.visit_dropping_parent(actor, &mut visitor);
+        }
+
+        if actor.is_chick() && actor.is_in_last_row(node) {
+            return;
+        }
+
+        self.visit_moving_parents(
+            actor,
+            ShouldDemoteActorInParent(false),
+            actor.legal_starting_squares_in_state(node),
+            &mut visitor,
+        );
+
+        if actor.is_hen(node) && actor.is_in_last_row(node) {
+            let legal_starting_squares = CoordVec::singleton(Coords(actor.coords(node).0 - 0b0100));
+            self.visit_moving_parents(
+                actor,
+                ShouldDemoteActorInParent(true),
+                legal_starting_squares,
+                &mut visitor,
+            );
+        }
+    }
+
+    #[inline(always)]
+    fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
+        let node = self.inverted_node;
+        let coords = Coords::HAND;
+        let node = actor.set_coords(node, coords);
+        visitor(node.build());
+    }
+
+    #[inline(always)]
+    fn visit_moving_parents(
+        self,
+        actor: Actor,
+        should_demote: ShouldDemoteActorInParent,
+        starting_squares: CoordVec,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let node = self.inverted_node;
+        let board = self.inverted_board;
+
+        let dest_square = actor.coords(node);
+
+        for starting_square in starting_squares {
+            if board.is_empty(starting_square) {
+                continue;
+            }
+
+            if PassiveLion.is_in_hand(node) {
+                let out = node;
+                let out = actor.set_coords(out, starting_square);
+                let out = if should_demote.0 {
+                    actor.demote(out)
+                } else {
+                    out
+                };
+                let out = PassiveLion.set_coords(out, dest_square);
+
+                visitor(out.build());
+
+                // If the passive lion is in hand in the inverted current node,
+                // then it must be on the board for all parent nodes.
+                // Therefore, we should not consider parents where a non-lion is captured
+                // or where no piece is captured.
+                return;
+            }
+
+            self.visit_noncapturing_moving_parent(
+                actor,
+                should_demote,
+                starting_square,
+                &mut visitor,
+            );
+
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::CHICK0,
+                &mut visitor,
+            );
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::CHICK1,
+                &mut visitor,
+            );
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::ELEPHANT0,
+                &mut visitor,
+            );
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::ELEPHANT1,
+                &mut visitor,
+            );
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::GIRAFFE0,
+                &mut visitor,
+            );
+            self.visit_capturing_parents(
+                actor,
+                should_demote,
+                starting_square,
+                dest_square,
+                Nonlion::GIRAFFE1,
+                &mut visitor,
+            );
+        }
+    }
+
+    #[inline(always)]
+    fn visit_noncapturing_moving_parent(
+        self,
+        actor: Actor,
+        should_demote: ShouldDemoteActorInParent,
+        starting_square: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let node = self.inverted_node;
+        let board = self.inverted_board;
+
+        let out = node;
+        let out = actor.set_coords(out, starting_square);
+        let out = if should_demote.0 {
+            actor.demote(out)
+        } else {
+            out
+        };
+        visitor(out.build());
+    }
+
+    #[inline(always)]
+    fn visit_capturing_parents(
+        self,
+        actor: Actor,
+        should_demote: ShouldDemoteActorInParent,
+        starting_square: Coords,
+        dest_square: Coords,
+        captive: Nonlion,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
+        let node = self.inverted_node;
+        let board = self.inverted_board;
+
+        // If a piece was captured, then it would be moved to the active hand.
+        if !(captive.is_active(node) && captive.is_in_hand(node)) {
+            return;
+        }
+
+        if captive.is_chick() {
+            let out = node;
+            let out = actor.set_coords(out, starting_square);
+            let out = captive.set_coords(out, dest_square);
+            let out = captive.make_passive(out);
+            let out = captive.promote(out);
+            visitor(out.build());
+        }
+
+        let out = node;
+        let out = actor.set_coords(out, starting_square);
+        let out = captive.set_coords(out, dest_square);
+        let out = captive.make_passive(out);
+        visitor(out.build());
     }
 }
 
@@ -1180,7 +1414,7 @@ impl Actor {
     const GIRAFFE1: Self = Self(Piece::GIRAFFE1);
 }
 
-impl Captive {
+impl PassivePiece {
     const LION: Self = Self(Piece::AMBIGUOUS_LION);
     const CHICK0: Self = Self(Piece::CHICK0);
     const CHICK1: Self = Self(Piece::CHICK1);
