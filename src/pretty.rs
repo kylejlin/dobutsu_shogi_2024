@@ -115,7 +115,7 @@ impl NodeBuilder {
             passive.lion += 1;
         }
 
-        if self.0 & PassivePiece::LION.coords_mask() == PassivePiece::LION.coords_mask() {
+        if self.0 & PassiveLion::COORDS_MASK == PassiveLion::COORDS_MASK {
             // If the passive lion is in somebody's hand,
             // it must be in the active player's hand.
             active.lion += 1;

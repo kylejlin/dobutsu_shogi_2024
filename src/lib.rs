@@ -85,10 +85,6 @@ struct Piece(u8);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Actor(Piece);
 
-// TODO: Delete if possible
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct PassivePiece(Piece);
-
 struct PassiveLion;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -356,28 +352,6 @@ impl NodeBuilder {
                 | giraffe0
                 | giraffe1,
         )
-    }
-}
-
-impl PassivePiece {
-    #[inline(always)]
-    const fn coords_mask(self) -> u64 {
-        0b1111 << self.coords_offset().0
-    }
-
-    #[inline(always)]
-    const fn coords_offset(self) -> Offset {
-        match self {
-            PassivePiece::LION => Offset::PASSIVE_LION_COLUMN,
-            PassivePiece::CHICK0 => Offset::CHICK0_COLUMN,
-            PassivePiece::CHICK1 => Offset::CHICK1_COLUMN,
-            PassivePiece::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
-            PassivePiece::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
-            PassivePiece::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
-            PassivePiece::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
-
-            _ => Offset(0),
-        }
     }
 }
 
@@ -1527,16 +1501,6 @@ impl Piece {
 }
 
 impl Actor {
-    const LION: Self = Self(Piece::AMBIGUOUS_LION);
-    const CHICK0: Self = Self(Piece::CHICK0);
-    const CHICK1: Self = Self(Piece::CHICK1);
-    const ELEPHANT0: Self = Self(Piece::ELEPHANT0);
-    const ELEPHANT1: Self = Self(Piece::ELEPHANT1);
-    const GIRAFFE0: Self = Self(Piece::GIRAFFE0);
-    const GIRAFFE1: Self = Self(Piece::GIRAFFE1);
-}
-
-impl PassivePiece {
     const LION: Self = Self(Piece::AMBIGUOUS_LION);
     const CHICK0: Self = Self(Piece::CHICK0);
     const CHICK1: Self = Self(Piece::CHICK1);
