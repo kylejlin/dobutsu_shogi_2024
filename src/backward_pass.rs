@@ -97,10 +97,10 @@ fn init_required_child_report_count_and_best_known_outcome(nodes: &mut [SearchNo
     }
 }
 
-fn add_terminal_nodes(nodes: &[SearchNode], stack: &mut VecDeque<SearchNode>) {
+fn add_terminal_nodes(nodes: &[SearchNode], known_queue: &mut VecDeque<SearchNode>) {
     for node in nodes {
         if node.is_terminal() {
-            stack.push_back(*node);
+            known_queue.push_back(*node);
         }
     }
 }
