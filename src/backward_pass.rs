@@ -70,9 +70,6 @@ fn visit_parents(
     });
 }
 
-#[derive(Clone, Copy, Debug)]
-struct RequireLionCapture(bool);
-
 fn init_required_child_report_count_and_best_known_outcome(states: &mut [SearchNode]) {
     const DELETION_MASK: u64 = !((0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
         | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
