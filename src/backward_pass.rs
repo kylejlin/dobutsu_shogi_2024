@@ -70,26 +70,26 @@ fn visit_parents(
     });
 }
 
-fn init_required_child_report_count_and_best_known_outcome(states: &mut [SearchNode]) {
+fn init_required_child_report_count_and_best_known_outcome(nodes: &mut [SearchNode]) {
     const DELETION_MASK: u64 = !((0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
         | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
 
-    for state in states {
-        match state.terminality() {
+    for node in nodes {
+        match node.terminality() {
             Terminality::Nonterminal => {
-                state.0 = (state.0 & DELETION_MASK)
-                    | ((state.total_child_count() as u64) << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
+                node.0 = (node.0 & DELETION_MASK)
+                    | ((node.total_child_count() as u64) << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Win => {
-                state.0 = (state.0 & DELETION_MASK)
+                node.0 = (node.0 & DELETION_MASK)
                     | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (POSITIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
             Terminality::Loss => {
-                state.0 = (state.0 & DELETION_MASK)
+                node.0 = (node.0 & DELETION_MASK)
                     | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
@@ -97,10 +97,10 @@ fn init_required_child_report_count_and_best_known_outcome(states: &mut [SearchN
     }
 }
 
-fn add_terminal_nodes(states: &[SearchNode], stack: &mut VecDeque<SearchNode>) {
-    for state in states {
-        if state.is_terminal() {
-            stack.push_back(*state);
+fn add_terminal_nodes(nodes: &[SearchNode], stack: &mut VecDeque<SearchNode>) {
+    for node in nodes {
+        if node.is_terminal() {
+            stack.push_back(*node);
         }
     }
 }
