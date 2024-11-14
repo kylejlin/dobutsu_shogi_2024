@@ -1,9 +1,8 @@
 use super::*;
 
-#[ignore]
 #[test]
 fn every_child_lists_parent_as_parent() {
-    fuzz(10_000, |parent| {
+    fuzz(1_000_000, |parent| {
         parent.visit_children(|child| {
             let mut found_parent = false;
             child.visit_parents(|child_parent| {

@@ -424,8 +424,8 @@ impl Nonlion {
     }
 
     #[inline(always)]
-    const fn is_chick(self) -> bool {
-        self.0.is_chick()
+    const fn is_bird(self) -> bool {
+        self.0.is_bird()
     }
 
     #[must_use]
@@ -612,7 +612,7 @@ impl ParentCalculator {
             self.visit_dropping_parent(actor, &mut visitor);
         }
 
-        if actor.is_chick() && actor.is_in_last_row(node) {
+        if actor.is_chick(node) && actor.is_in_last_row(node) {
             return;
         }
 
@@ -774,7 +774,7 @@ impl ParentCalculator {
             return;
         }
 
-        if captive.is_chick() {
+        if captive.is_bird() {
             let out = node;
             let out = actor.set_coords(out, starting_square);
             let out = if should_demote.0 {
@@ -928,7 +928,7 @@ impl Actor {
     ) -> NodeBuilder {
         let node = self.set_coords(node, coords);
 
-        if self.is_chick() && coords.is_in_last_row() {
+        if self.is_bird() && coords.is_in_last_row() {
             return Chick(self.0).promote(node);
         }
 
@@ -946,8 +946,19 @@ impl Actor {
     }
 
     #[inline(always)]
-    const fn is_chick(self) -> bool {
-        self.0.is_chick()
+    const fn is_bird(self) -> bool {
+        self.0.is_bird()
+    }
+
+    #[inline(always)]
+    const fn is_chick(self, node: NodeBuilder) -> bool {
+        let promotion_status_offset = match self {
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return false,
+        };
+        node.0 & (1 << promotion_status_offset.0) == 0
     }
 
     #[inline(always)]
@@ -994,8 +1005,9 @@ impl Actor {
 }
 
 impl Piece {
+    /// A bird is a chick or a hen.
     #[inline(always)]
-    const fn is_chick(self) -> bool {
+    const fn is_bird(self) -> bool {
         self.0 & !1 == 0b010
     }
 
