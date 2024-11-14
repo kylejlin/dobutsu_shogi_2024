@@ -25,6 +25,13 @@ struct Hand {
     giraffe: u8,
 }
 
+#[derive(Clone, Copy)]
+struct BoardWithPromotionData {
+    board: Board,
+    is_chick0_promoted: bool,
+    is_chick1_promoted: bool,
+}
+
 const GAP: &str = "                ";
 
 pub trait IntoPretty: Sized {
@@ -40,7 +47,7 @@ trait Indent {
 impl IntoPretty for SearchNode {}
 impl IntoPretty for NodeBuilder {}
 impl IntoPretty for Hands {}
-impl IntoPretty for Board {}
+impl IntoPretty for BoardWithPromotionData {}
 impl IntoPretty for Outcome {}
 impl IntoPretty for Vec<SearchNode> {}
 
@@ -68,7 +75,12 @@ impl Debug for Pretty<SearchNode> {
 impl Display for Pretty<NodeBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let hands = self.0.hands().pretty();
-        let board = self.0.board().pretty();
+        let board = BoardWithPromotionData {
+            board: self.0.board(),
+            is_chick0_promoted: Actor::CHICK0.is_promoted(self.0),
+            is_chick1_promoted: Actor::CHICK1.is_promoted(self.0),
+        }
+        .pretty();
         let required_child_report_count =
             (self.0 .0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111;
         let best_known_outcome = Outcome(i16::from_zero_padded_i9(
@@ -136,7 +148,7 @@ impl Hand {
     }
 }
 
-impl Display for Pretty<Board> {
+impl Display for Pretty<BoardWithPromotionData> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let [[r0c0, r0c1, r0c2], [r1c0, r1c1, r1c2], [r2c0, r2c1, r2c2], [r3c0, r3c1, r3c2]]: [[char;
             3];
@@ -150,13 +162,13 @@ impl Display for Pretty<Board> {
     }
 }
 
-impl Debug for Pretty<Board> {
+impl Debug for Pretty<BoardWithPromotionData> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
 }
 
-impl Pretty<Board> {
+impl Pretty<BoardWithPromotionData> {
     fn into_array(self) -> [[char; 3]; 4] {
         let mut array = [['*'; 3]; 4];
         for (row, row_array) in array.iter_mut().enumerate() {
@@ -169,20 +181,44 @@ impl Pretty<Board> {
     }
 
     fn char_at_offset(self, offset: u8) -> char {
-        let square = (self.0 .0 >> offset) & 0b1111;
+        let square = (self.0.board.0 >> offset) & 0b1111;
         match square {
             0b0_000 => '*',
             0b0_001 => 'l',
-            0b0_010 => 'c',
-            0b0_011 => 'c',
+            0b0_010 => {
+                if self.0.is_chick0_promoted {
+                    'h'
+                } else {
+                    'c'
+                }
+            }
+            0b0_011 => {
+                if self.0.is_chick1_promoted {
+                    'h'
+                } else {
+                    'c'
+                }
+            }
             0b0_100 => 'e',
             0b0_101 => 'e',
             0b0_110 => 'g',
             0b0_111 => 'g',
 
             0b1_001 => 'L',
-            0b1_010 => 'C',
-            0b1_011 => 'C',
+            0b1_010 => {
+                if self.0.is_chick0_promoted {
+                    'H'
+                } else {
+                    'C'
+                }
+            }
+            0b1_011 => {
+                if self.0.is_chick1_promoted {
+                    'H'
+                } else {
+                    'C'
+                }
+            }
             0b1_100 => 'E',
             0b1_101 => 'E',
             0b1_110 => 'G',
@@ -190,6 +226,16 @@ impl Pretty<Board> {
 
             // Bad square
             _ => '!',
+        }
+    }
+}
+
+impl BoardWithPromotionData {
+    fn invert_active_player(self) -> Self {
+        Self {
+            board: self.board.invert_active_player(),
+            is_chick0_promoted: self.is_chick0_promoted,
+            is_chick1_promoted: self.is_chick1_promoted,
         }
     }
 }
