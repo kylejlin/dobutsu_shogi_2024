@@ -5,6 +5,11 @@ The name is qualified with "2024" to distinguish it from
 a similar solver I wrote in 2021.
 I'm creating a new solver because I want to try a different approach.
 
+## Tip for developers: Run in release mode.
+
+I recommend using `cargo run --release` and `cargo test --release`,
+since the program (as well as the tests) can be quite computationally intensive.
+
 ## Table of contents
 
 1. [Official rules](#official-rules)
