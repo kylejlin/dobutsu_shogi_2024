@@ -6,19 +6,19 @@ use std::collections::VecDeque;
 /// with a slice of all reachable states.
 ///
 /// The slice of states will be sorted.
-pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
-    states.sort_unstable();
+pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
+    nodes.sort_unstable();
 
-    init_required_child_report_count_and_best_known_outcome(states);
+    init_required_child_report_count_and_best_known_outcome(nodes);
 
-    let mut known_queue = VecDeque::with_capacity(states.len());
-    add_terminal_nodes(states, &mut known_queue);
+    let mut known_queue = VecDeque::with_capacity(nodes.len());
+    add_terminal_nodes(nodes, &mut known_queue);
 
     while let Some(node) = known_queue.pop_front() {
         let outcome = node.best_known_outcome();
 
         if outcome.0 < 0 {
-            visit_parents(node, states, |parent_mut| {
+            visit_parents(node, nodes, |parent_mut| {
                 *parent_mut = parent_mut
                     .record_child_outcome(outcome)
                     .set_required_child_report_count_to_zero();
@@ -26,7 +26,7 @@ pub fn solve(states: &mut [SearchNode], mut on_node_processed: impl FnMut(Search
                 known_queue.push_back(*parent_mut);
             });
         } else {
-            visit_parents(node, states, |parent_mut| {
+            visit_parents(node, nodes, |parent_mut| {
                 *parent_mut = parent_mut
                     .record_child_outcome(outcome)
                     .decrement_required_child_report_count();
