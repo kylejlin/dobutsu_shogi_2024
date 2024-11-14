@@ -60,6 +60,18 @@ fn allegiance_inversion_is_involutive() {
     });
 }
 
+#[test]
+fn terminality_and_childlessness_are_equivalent() {
+    fuzz(1_000_000, |state| {
+        let mut has_child = false;
+        state.visit_children(|_| {
+            has_child = true;
+        });
+
+        assert_eq!(state.is_terminal(), !has_child);
+    });
+}
+
 /// Pseudorandomly plays `game_count` games and calls `callback`
 /// for each state in each game.
 ///
