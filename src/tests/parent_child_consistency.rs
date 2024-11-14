@@ -19,7 +19,6 @@ fn every_child_lists_parent() {
     });
 }
 
-#[ignore]
 #[test]
 fn every_parent_lists_child() {
     fuzz(1_000_000, |child| {

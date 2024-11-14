@@ -638,8 +638,12 @@ impl ParentCalculator {
     fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
         let node = self.inverted_node;
         let coords = Coords::HAND;
-        let node = actor.set_coords(node, coords);
-        visitor(node.build());
+
+        let out = node;
+        let out = actor.set_coords(out, coords);
+        if !out.is_terminal() {
+            visitor(out.build());
+        }
     }
 
     #[inline(always)]
@@ -660,13 +664,6 @@ impl ParentCalculator {
                 continue;
             }
 
-            // The lion could not have started in the last row
-            // the previous turn, otherwise it would have ended the game
-            // (due to the Try Rule).
-            if actor.is_lion() && starting_square.is_in_last_row() {
-                continue;
-            }
-
             if PassiveLion.is_in_hand(node) {
                 let out = node;
                 let out = actor.set_coords(out, starting_square);
@@ -677,7 +674,9 @@ impl ParentCalculator {
                 };
                 let out = PassiveLion.set_coords(out, dest_square);
 
-                visitor(out.build());
+                if !out.is_terminal() {
+                    visitor(out.build());
+                }
 
                 // If the passive lion is in hand in the inverted current node,
                 // then it must be on the board for all parent nodes.
@@ -761,7 +760,10 @@ impl ParentCalculator {
         } else {
             out
         };
-        visitor(out.build());
+
+        if !out.is_terminal() {
+            visitor(out.build());
+        }
     }
 
     #[inline(always)]
@@ -792,7 +794,10 @@ impl ParentCalculator {
             let out = captive.set_coords(out, dest_square);
             let out = captive.make_passive(out);
             let out = captive.promote(out);
-            visitor(out.build());
+
+            if !out.is_terminal() {
+                visitor(out.build());
+            }
         }
 
         let out = node;
@@ -804,7 +809,9 @@ impl ParentCalculator {
         };
         let out = captive.set_coords(out, dest_square);
         let out = captive.make_passive(out);
-        visitor(out.build());
+        if !out.is_terminal() {
+            visitor(out.build());
+        }
     }
 }
 
