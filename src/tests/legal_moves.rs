@@ -4,30 +4,30 @@ use super::*;
 struct CoordSet(u16);
 
 #[test]
-fn every_start_square_is_lists_original_square_as_dest_square() {
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::LION, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::LION, true);
+fn every_start_square_lists_original_square_as_dest_square() {
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::LION, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::LION, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::CHICK0, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::CHICK0, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::CHICK0, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::CHICK0, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::CHICK1, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::CHICK1, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::CHICK1, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::CHICK1, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::ELEPHANT0, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::ELEPHANT0, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::ELEPHANT0, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::ELEPHANT0, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::ELEPHANT1, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::ELEPHANT1, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::ELEPHANT1, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::ELEPHANT1, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::GIRAFFE0, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::GIRAFFE0, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::GIRAFFE0, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::GIRAFFE0, true);
 
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::GIRAFFE1, false);
-    every_actor_start_square_is_lists_original_square_as_dest_square(Actor::GIRAFFE1, true);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::GIRAFFE1, false);
+    every_start_square_lists_original_square_as_dest_square_for_actor(Actor::GIRAFFE1, true);
 }
 
-fn every_actor_start_square_is_lists_original_square_as_dest_square(
+fn every_start_square_lists_original_square_as_dest_square_for_actor(
     actor: Actor,
     is_promoted: bool,
 ) {
@@ -40,6 +40,49 @@ fn every_actor_start_square_is_lists_original_square_as_dest_square(
             if !dest_squares.contains(original_square) {
                 panic!(
                     "When {actor:?} was at {original_square:?}, it listed {start_square:?} as a starting square, but when it was at said starting square (i.e., {start_square:?}), it did not list {original_square:?} as a destination square.",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn every_dest_square_lists_original_square_as_start_square() {
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::LION, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::LION, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::CHICK0, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::CHICK0, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::CHICK1, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::CHICK1, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::ELEPHANT0, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::ELEPHANT0, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::ELEPHANT1, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::ELEPHANT1, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::GIRAFFE0, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::GIRAFFE0, true);
+
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::GIRAFFE1, false);
+    every_dest_square_lists_original_square_as_start_square_for_actor(Actor::GIRAFFE1, true);
+}
+
+fn every_dest_square_lists_original_square_as_start_square_for_actor(
+    actor: Actor,
+    is_promoted: bool,
+) {
+    for original_square in CoordVec::ALL_BOARD_SQUARES {
+        let dest_squares = actor.legal_dest_squares(is_promoted, original_square);
+        for dest_square in dest_squares {
+            let start_squares = actor
+                .legal_starting_squares(is_promoted, dest_square)
+                .into_set();
+            if !start_squares.contains(original_square) {
+                panic!(
+                    "When {actor:?} was at {original_square:?}, it listed {dest_square:?} as a destination square, but when it was at said destination square (i.e., {dest_square:?}), it did not list {original_square:?} as a starting square.",
                 );
             }
         }
