@@ -14,21 +14,21 @@ pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchN
     let mut known_queue = VecDeque::with_capacity(nodes.len());
     add_terminal_nodes(nodes, &mut known_queue);
 
-    while let Some(node) = known_queue.pop_front() {
-        let outcome = node.best_known_outcome();
+    while let Some(child) = known_queue.pop_front() {
+        let child_outcome = child.best_known_outcome();
 
-        if outcome.0 < 0 {
-            visit_parents(node, nodes, |parent_mut| {
+        if child_outcome.0 < 0 {
+            visit_parents(child, nodes, |parent_mut| {
                 *parent_mut = parent_mut
-                    .record_child_outcome(outcome)
+                    .record_child_outcome(child_outcome)
                     .set_required_child_report_count_to_zero();
 
                 known_queue.push_back(*parent_mut);
             });
         } else {
-            visit_parents(node, nodes, |parent_mut| {
+            visit_parents(child, nodes, |parent_mut| {
                 *parent_mut = parent_mut
-                    .record_child_outcome(outcome)
+                    .record_child_outcome(child_outcome)
                     .decrement_required_child_report_count();
 
                 if parent_mut.required_child_report_count() == 0 {
@@ -37,7 +37,7 @@ pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchN
             });
         }
 
-        on_node_processed(node);
+        on_node_processed(child);
     }
 }
 
