@@ -5,17 +5,17 @@ pub struct StateSet {
     raw: [Option<Box<Bucket0>>; 256 * 256],
 }
 
-type StateSetNode<T> = [Option<Box<T>>; 16];
-
 #[derive(Clone, Copy, Debug, Default)]
-struct Bitset16(u16);
+pub struct Bitset16(pub u16);
 
-type Bucket5 = Bitset16;
-type Bucket4 = [Bucket5; 16];
-type Bucket3 = StateSetNode<Bucket4>;
-type Bucket2 = StateSetNode<Bucket3>;
-type Bucket1 = StateSetNode<Bucket2>;
-type Bucket0 = StateSetNode<Bucket1>;
+pub type StateSetNode<T> = [Option<Box<T>>; 16];
+
+pub type Bucket5 = Bitset16;
+pub type Bucket4 = [Bucket5; 16];
+pub type Bucket3 = StateSetNode<Bucket4>;
+pub type Bucket2 = StateSetNode<Bucket3>;
+pub type Bucket1 = StateSetNode<Bucket2>;
+pub type Bucket0 = StateSetNode<Bucket1>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct DidAddendAlreadyExist {
@@ -24,9 +24,7 @@ pub struct DidAddendAlreadyExist {
 
 impl StateSet {
     pub fn empty() -> Self {
-        let empty: Option<
-            Box<StateSetNode<StateSetNode<StateSetNode<StateSetNode<[Bitset16; 16]>>>>>,
-        > = Default::default();
+        let empty: Option<Box<Bucket0>> = Default::default();
 
         let mut v = Vec::with_capacity(256 * 256);
 
@@ -64,11 +62,17 @@ impl StateSet {
     }
 
     pub fn into_sorted_vec(self) -> Vec<SearchNode> {
+        let mut v = self.into_unsorted_vec();
+
+        v.sort_unstable();
+
+        v
+    }
+
+    pub fn into_unsorted_vec(self) -> Vec<SearchNode> {
         let mut raw = Vec::new();
 
         self.write(&mut raw);
-
-        raw.sort_unstable();
 
         raw
     }

@@ -14,7 +14,7 @@ pub use forward_pass::reachable_states;
 
 mod state_set;
 
-use state_set::StateSet;
+use state_set::*;
 
 // A note about fileds with the comment "Must be non-zero":
 //
@@ -41,7 +41,7 @@ enum Terminality {
 pub struct Outcome(pub i16);
 
 /// The **least** significant 56 bits are used.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SearchNode(
     // Must be non-zero.
     pub u64,

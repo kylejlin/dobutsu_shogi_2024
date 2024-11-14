@@ -67,7 +67,7 @@ fn allegiance_inversion_is_involutive() {
 /// of `fuzz`, so you can safely use `fuzz` in your
 /// tests without introducing nondeterminism.
 pub fn fuzz<F: FnMut(SearchNode)>(game_count: usize, mut callback: F) {
-    let mut rng = XorShiftRng::from_seed(PRNG_SEED);
+    let mut rng = deterministic_prng();
     let mut child_buffer = Vec::with_capacity(8 * 12);
 
     for _ in 0..game_count {
@@ -88,7 +88,11 @@ pub fn fuzz<F: FnMut(SearchNode)>(game_count: usize, mut callback: F) {
     }
 }
 
-/// Randomly chosen seed
-pub const PRNG_SEED: [u8; 16] = [
-    113, 8, 5, 99, 97, 161, 194, 214, 140, 140, 80, 143, 213, 130, 254, 107,
-];
+fn deterministic_prng() -> XorShiftRng {
+    /// Randomly chosen seed
+    const PRNG_SEED: [u8; 16] = [
+        113, 8, 5, 99, 97, 161, 194, 214, 140, 140, 80, 143, 213, 130, 254, 107,
+    ];
+
+    XorShiftRng::from_seed(PRNG_SEED)
+}
