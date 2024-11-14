@@ -1,7 +1,11 @@
+use std::hash::Hash;
+
 use super::{pretty::IntoPretty, *};
 
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
+
+use std::collections::HashSet;
 
 mod i9;
 mod legal_moves;
@@ -106,6 +110,22 @@ fn terminality_and_childlessness_are_equivalent() {
         });
 
         assert_eq!(state.is_terminal(), !has_child);
+    });
+}
+
+#[test]
+fn visited_children_are_unique() {
+    fuzz(1_000_000, |parent| {
+        let mut visited = HashSet::new();
+        parent.visit_children(|child| {
+            if visited.contains(&child) {
+                let parent = parent.pretty();
+                let child = child.pretty();
+                panic!("Visited child twice.\n\nPARENT:\n\n{parent}\n\nCHILD:\n\n{child}");
+            }
+
+            visited.insert(child);
+        });
     });
 }
 
