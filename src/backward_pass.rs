@@ -118,7 +118,7 @@ impl SearchNode {
         let challenger = child_outcome.invert().delay_by_one();
         if challenger > incumbent {
             Self(
-                self.0 & !(0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0)
+                (self.0 & !(0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0))
                     | (challenger.0.into_zero_padded_i9_unchecked()
                         << Offset::BEST_KNOWN_OUTCOME.0),
             )
