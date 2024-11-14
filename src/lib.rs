@@ -1001,7 +1001,7 @@ impl Piece {
 
     #[inline(always)]
     const fn is_lion(self) -> bool {
-        self.0 & !1 == 0b001
+        self.0 == 0b001
     }
 }
 
