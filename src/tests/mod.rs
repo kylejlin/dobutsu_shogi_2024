@@ -1,6 +1,7 @@
 use super::{pretty::IntoPretty, *};
 
 mod i9;
+mod legal_moves;
 mod parent_child_consistency;
 
 #[test]

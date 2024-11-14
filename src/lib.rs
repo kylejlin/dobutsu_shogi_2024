@@ -439,6 +439,7 @@ impl CoordVec {
 
     /// If the vector is already full, then this function
     /// behaves as the identity function.
+    #[must_use]
     #[inline(always)]
     const fn push(self, coords: Coords) -> Self {
         let len = self.0 & 0b1111;
