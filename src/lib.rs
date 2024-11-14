@@ -660,6 +660,13 @@ impl ParentCalculator {
                 continue;
             }
 
+            // The lion could not have started in the last row
+            // the previous turn, otherwise it would have ended the game
+            // (due to the Try Rule).
+            if actor.is_lion() && starting_square.is_in_last_row() {
+                continue;
+            }
+
             if PassiveLion.is_in_hand(node) {
                 let out = node;
                 let out = actor.set_coords(out, starting_square);
