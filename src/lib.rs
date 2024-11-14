@@ -72,16 +72,10 @@ pub struct OptionalSearchNode(
 struct Board(u64);
 
 /// This is a C-string-inspired vector of
-/// up to 8 board coordinates.
-/// The first coordinate is in the first (i.e., least significant) 4 bits,
-/// the second coordinate is in the second 4 bits, and so on.
-/// If a coordinate is `0b1111`, this is a "null terminator"
-/// (analogous `'\0'` in C strings) which indicates the end of the vector.
-///
-/// The advantage of `CoordVec` over `CoordSet` is that
-/// iteration is fast.
-///
-/// The disadvantage is that inclusion lookups are O(n).
+/// up to 13 board coordinates.
+/// The first (i.e., least significant) 4 bits hold the length.
+/// The next 4 bits hold the first coordinate.
+/// The next 4 bits hold the second coordinate, and so on.
 #[derive(Clone, Copy, Debug)]
 struct CoordVec(u64);
 
@@ -440,28 +434,19 @@ impl Coords {
 }
 
 impl CoordVec {
-    const EMPTY: Self = Self(0b1111);
-    const MAX_ELEMENTS: usize = 8;
-    const TERMINATOR: Coords = Coords(0b1111);
+    const EMPTY: Self = Self(0);
+    const MAX_ELEMENTS: usize = 13;
 
     /// If the vector is already full, then this function
     /// behaves as the identity function.
     #[inline(always)]
     const fn push(self, coords: Coords) -> Self {
-        let mut i = 0;
-        while i < Self::MAX_ELEMENTS {
-            let mask = 0b1111 << (i * 4);
-
-            if self.0 & mask == mask {
-                return Self(
-                    (self.0 & !mask) | ((coords.0 as u64) << (i * 4)) | (0b1111 << ((i + 1) * 4)),
-                );
-            }
-
-            i += 1;
+        let len = self.0 & 0b1111;
+        if len >= (Self::MAX_ELEMENTS as u64) {
+            return self;
         }
 
-        self
+        Self((self.0 | ((coords.0 as u64) << (len * 4 + 1))) + 1)
     }
 }
 
@@ -469,14 +454,17 @@ impl Iterator for CoordVec {
     type Item = Coords;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.0 & 0b1111;
-        if next == Self::TERMINATOR.0.into() {
+        let len = self.0 & 0b1111;
+        if len == 0 {
             return None;
         }
 
-        self.0 >>= 4;
+        let shifted = self.0 >> 4;
+        let out = Coords((shifted & 0b1111) as u8);
 
-        Some(Coords(next as u8))
+        self.0 = (shifted & !(0b1111)) | (len - 1);
+
+        Some(out)
     }
 }
 
@@ -834,7 +822,7 @@ impl Board {
     #[inline(always)]
     const fn empty_squares(self) -> CoordVec {
         let mut buffer = 0;
-        let mut buffer_offset = 0;
+        let mut buffer_offset = 4;
 
         macro_rules! check_square {
             ($coords:expr) => {{
@@ -862,7 +850,8 @@ impl Board {
         check_square!(Coords::R3C1);
         check_square!(Coords::R3C2);
 
-        buffer |= 0b1111 << buffer_offset;
+        let len = buffer_offset / 4 - 1;
+        buffer |= len;
 
         CoordVec(buffer)
     }
