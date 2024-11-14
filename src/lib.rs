@@ -359,28 +359,6 @@ impl NodeBuilder {
     }
 }
 
-impl Actor {
-    #[inline(always)]
-    const fn coords_mask(self) -> u64 {
-        0b1111 << self.coords_offset().0
-    }
-
-    #[inline(always)]
-    const fn coords_offset(self) -> Offset {
-        match self {
-            Actor::LION => Offset::ACTIVE_LION_COLUMN,
-            Actor::CHICK0 => Offset::CHICK0_COLUMN,
-            Actor::CHICK1 => Offset::CHICK1_COLUMN,
-            Actor::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
-            Actor::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
-            Actor::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
-            Actor::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
-
-            _ => Offset(0),
-        }
-    }
-}
-
 impl PassivePiece {
     #[inline(always)]
     const fn coords_mask(self) -> u64 {
@@ -424,6 +402,18 @@ impl Nonlion {
     }
 
     #[inline(always)]
+    const fn is_in_hand(self, node: NodeBuilder) -> bool {
+        node.0 & self.coords_mask() == self.coords_mask()
+    }
+
+    #[must_use]
+    #[inline(always)]
+    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+        let coords_offset = self.coords_offset().0;
+        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+    }
+
+    #[inline(always)]
     const fn allegiance_mask(self) -> u64 {
         let allegiance_bit_offset = match self {
             Nonlion::CHICK0 => Offset::CHICK0_ALLEGIANCE,
@@ -437,6 +427,44 @@ impl Nonlion {
         };
         1 << allegiance_bit_offset.0
     }
+
+    #[must_use]
+    #[inline(always)]
+    const fn make_passive(self, node: NodeBuilder) -> NodeBuilder {
+        NodeBuilder(node.0 | self.allegiance_mask())
+    }
+
+    #[inline(always)]
+    const fn is_active(self, node: NodeBuilder) -> bool {
+        let allegiance_bit_offset = match self {
+            Nonlion::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Nonlion::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Nonlion::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Nonlion::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Nonlion::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Nonlion::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return false,
+        };
+        node.0 & (1 << allegiance_bit_offset.0) == 0
+    }
+
+    #[inline(always)]
+    const fn is_chick(self) -> bool {
+        self.0.is_chick()
+    }
+
+    #[must_use]
+    #[inline(always)]
+    const fn promote(self, node: NodeBuilder) -> NodeBuilder {
+        let promotion_status_offset = match self {
+            Nonlion::CHICK0 => Offset::CHICK0_PROMOTION,
+            Nonlion::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return node,
+        };
+        NodeBuilder(node.0 | (1 << promotion_status_offset.0))
+    }
 }
 
 impl Coords {
@@ -446,7 +474,7 @@ impl Coords {
     }
 
     #[inline(always)]
-    const fn in_last_row(self) -> bool {
+    const fn is_in_last_row(self) -> bool {
         const LOOKUP_TABLE: u16 = 0b0111_0000_0000_0000;
         (LOOKUP_TABLE >> self.0) & 1 != 0
     }
@@ -654,7 +682,7 @@ impl ParentCalculator {
         let dest_square = actor.coords(node);
 
         for starting_square in starting_squares {
-            if board.is_empty(starting_square) {
+            if !board.is_square_empty(starting_square) {
                 continue;
             }
 
@@ -674,7 +702,7 @@ impl ParentCalculator {
                 // then it must be on the board for all parent nodes.
                 // Therefore, we should not consider parents where a non-lion is captured
                 // or where no piece is captured.
-                return;
+                continue;
             }
 
             self.visit_noncapturing_moving_parent(
@@ -744,7 +772,6 @@ impl ParentCalculator {
         mut visitor: impl FnMut(SearchNode),
     ) {
         let node = self.inverted_node;
-        let board = self.inverted_board;
 
         let out = node;
         let out = actor.set_coords(out, starting_square);
@@ -767,7 +794,6 @@ impl ParentCalculator {
         mut visitor: impl FnMut(SearchNode),
     ) {
         let node = self.inverted_node;
-        let board = self.inverted_board;
 
         // If a piece was captured, then it would be moved to the active hand.
         if !(captive.is_active(node) && captive.is_in_hand(node)) {
@@ -777,6 +803,11 @@ impl ParentCalculator {
         if captive.is_chick() {
             let out = node;
             let out = actor.set_coords(out, starting_square);
+            let out = if should_demote.0 {
+                actor.demote(out)
+            } else {
+                out
+            };
             let out = captive.set_coords(out, dest_square);
             let out = captive.make_passive(out);
             let out = captive.promote(out);
@@ -785,6 +816,11 @@ impl ParentCalculator {
 
         let out = node;
         let out = actor.set_coords(out, starting_square);
+        let out = if should_demote.0 {
+            actor.demote(out)
+        } else {
+            out
+        };
         let out = captive.set_coords(out, dest_square);
         let out = captive.make_passive(out);
         visitor(out.build());
@@ -859,16 +895,57 @@ impl Actor {
     }
 
     #[inline(always)]
+    const fn is_active(self, node: NodeBuilder) -> bool {
+        let allegiance_bit_offset = match self {
+            // The active lion is always active.
+            Actor::LION => return true,
+
+            Actor::CHICK0 => Offset::CHICK0_ALLEGIANCE,
+            Actor::CHICK1 => Offset::CHICK1_ALLEGIANCE,
+            Actor::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
+            Actor::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
+            Actor::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
+            Actor::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
+
+            _ => return false,
+        };
+
+        (node.0 & (1 << allegiance_bit_offset.0)) == 0
+    }
+
+    #[inline(always)]
+    const fn coords_mask(self) -> u64 {
+        0b1111 << self.coords_offset().0
+    }
+
+    #[inline(always)]
+    const fn coords_offset(self) -> Offset {
+        match self {
+            Actor::LION => Offset::ACTIVE_LION_COLUMN,
+            Actor::CHICK0 => Offset::CHICK0_COLUMN,
+            Actor::CHICK1 => Offset::CHICK1_COLUMN,
+            Actor::ELEPHANT0 => Offset::ELEPHANT0_COLUMN,
+            Actor::ELEPHANT1 => Offset::ELEPHANT1_COLUMN,
+            Actor::GIRAFFE0 => Offset::GIRAFFE0_COLUMN,
+            Actor::GIRAFFE1 => Offset::GIRAFFE1_COLUMN,
+
+            _ => Offset(0),
+        }
+    }
+
+    #[inline(always)]
     const fn coords(self, node: NodeBuilder) -> Coords {
         Coords(((node.0 >> self.coords_offset().0) & 0b1111) as u8)
     }
 
+    #[must_use]
     #[inline(always)]
     const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
         let coords_offset = self.coords_offset().0;
         NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
     }
 
+    #[must_use]
     #[inline(always)]
     const fn set_coords_and_promote_if_in_last_row(
         self,
@@ -877,11 +954,21 @@ impl Actor {
     ) -> NodeBuilder {
         let node = self.set_coords(node, coords);
 
-        if self.is_chick() && coords.in_last_row() {
+        if self.is_chick() && coords.is_in_last_row() {
             return Chick(self.0).promote(node);
         }
 
         node
+    }
+
+    #[inline(always)]
+    const fn is_in_last_row(self, node: NodeBuilder) -> bool {
+        self.coords(node).is_in_last_row()
+    }
+
+    #[inline(always)]
+    const fn is_on_board(self, node: NodeBuilder) -> bool {
+        node.0 & self.coords_mask() != self.coords_mask()
     }
 
     #[inline(always)]
@@ -890,14 +977,45 @@ impl Actor {
     }
 
     #[inline(always)]
+    const fn is_hen(self, node: NodeBuilder) -> bool {
+        // Since hens are the only promoted pieces, it follows that
+        // a piece is a hen if and only if it is promoted.
+        self.is_promoted(node)
+    }
+
+    #[inline(always)]
+    const fn is_lion(self) -> bool {
+        self.0.is_lion()
+    }
+
+    #[inline(always)]
     const fn is_promoted(self, node: NodeBuilder) -> bool {
-        let promotion_status_bit = match self {
+        let promotion_status_offset = match self {
             Actor::CHICK0 => Offset::CHICK0_PROMOTION,
             Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
-        node.0 & (1 << promotion_status_bit.0) != 0
+        node.0 & (1 << promotion_status_offset.0) != 0
+    }
+
+    #[must_use]
+    #[inline(always)]
+    const fn demote(self, node: NodeBuilder) -> NodeBuilder {
+        let promotion_status_offset = match self {
+            Actor::CHICK0 => Offset::CHICK0_PROMOTION,
+            Actor::CHICK1 => Offset::CHICK1_PROMOTION,
+
+            _ => return node,
+        };
+        NodeBuilder(node.0 & !(1 << promotion_status_offset.0))
+    }
+
+    #[inline(always)]
+    const fn legal_starting_squares_in_state(self, node: NodeBuilder) -> CoordVec {
+        let is_promoted = self.is_promoted(node);
+        let dest = self.coords(node);
+        self.legal_starting_squares(is_promoted, dest)
     }
 }
 
@@ -905,6 +1023,11 @@ impl Piece {
     #[inline(always)]
     const fn is_chick(self) -> bool {
         self.0 & !1 == 0b010
+    }
+
+    #[inline(always)]
+    const fn is_lion(self) -> bool {
+        self.0 & !1 == 0b001
     }
 }
 
@@ -918,6 +1041,23 @@ impl Chick {
             _ => return node,
         };
         NodeBuilder(node.0 | (1 << promotion_status_bit.0))
+    }
+}
+
+impl PassiveLion {
+    const COORDS_OFFSET: Offset = Offset::PASSIVE_LION_COLUMN;
+    const COORDS_MASK: u64 = 0b1111 << Self::COORDS_OFFSET.0;
+
+    #[must_use]
+    #[inline(always)]
+    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+        let coords_offset = Self::COORDS_OFFSET.0;
+        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+    }
+
+    #[inline(always)]
+    const fn is_in_hand(self, node: NodeBuilder) -> bool {
+        node.0 & Self::COORDS_MASK == Self::COORDS_MASK
     }
 }
 
@@ -956,30 +1096,6 @@ impl IntoZeroPaddedI9Unchecked<u64> for i16 {
 }
 
 impl NodeBuilder {
-    #[inline(always)]
-    const fn is_actor_passive(self, actor: Actor) -> bool {
-        let allegiance_bit_offset = match actor {
-            // The active lion can never be passive.
-            Actor::LION => return false,
-
-            Actor::CHICK0 => Offset::CHICK0_ALLEGIANCE,
-            Actor::CHICK1 => Offset::CHICK1_ALLEGIANCE,
-            Actor::ELEPHANT0 => Offset::ELEPHANT0_ALLEGIANCE,
-            Actor::ELEPHANT1 => Offset::ELEPHANT1_ALLEGIANCE,
-            Actor::GIRAFFE0 => Offset::GIRAFFE0_ALLEGIANCE,
-            Actor::GIRAFFE1 => Offset::GIRAFFE1_ALLEGIANCE,
-
-            _ => return false,
-        };
-
-        self.0 & (1 << allegiance_bit_offset.0) != 0
-    }
-
-    #[inline(always)]
-    const fn actor_coords(self, actor: Actor) -> Coords {
-        Coords(((self.0 >> actor.coords_offset().0) as u8) & 0b1111)
-    }
-
     const fn board(self) -> Board {
         let mut board: u64 = 0;
 
@@ -1089,6 +1205,12 @@ impl Board {
         buffer |= len;
 
         CoordVec(buffer)
+    }
+
+    #[inline(always)]
+    const fn is_square_empty(self, square: Coords) -> bool {
+        let mask = 0b1111 << square.board_offset();
+        self.0 & mask == 0
     }
 }
 

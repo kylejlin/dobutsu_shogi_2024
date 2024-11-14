@@ -141,13 +141,6 @@ impl SearchNode {
     }
 }
 
-impl PassivePiece {
-    #[inline(always)]
-    const fn is_chick(self) -> bool {
-        self.0.is_chick()
-    }
-}
-
 impl Outcome {
     const fn invert(self) -> Self {
         Self(-self.0)
