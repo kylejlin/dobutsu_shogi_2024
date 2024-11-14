@@ -1008,13 +1008,13 @@ impl Piece {
 impl Chick {
     #[inline(always)]
     const fn promote(self, node: NodeBuilder) -> NodeBuilder {
-        let promotion_status_bit = match self {
+        let promotion_status_offset = match self {
             Chick::CHICK0 => Offset::CHICK0_PROMOTION,
             Chick::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return node,
         };
-        NodeBuilder(node.0 | (1 << promotion_status_bit.0))
+        NodeBuilder(node.0 | (1 << promotion_status_offset.0))
     }
 }
 
