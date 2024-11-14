@@ -89,6 +89,76 @@ fn every_dest_square_lists_original_square_as_start_square_for_actor(
     }
 }
 
+/// It's redundant to test chick0 and chick1, as well as elephant0 and elephant1, etc.
+/// So, we only test chick0, elephant0, giraffe0, and the lion.
+/// In another test, we ensure that chick0 and chick1 (as well as elephant0 and elephant1, etc., respectively) have the same legal moves.
+#[test]
+fn test_piece0_legal_destination_square_snapshots() {
+    let mut out = String::new();
+
+    // Test promotables.
+    out += "# PROMOTABLES:\n\n";
+    for actor in [Actor::CHICK0] {
+        // Add nonpromoted destinations.
+        out += "## NONPROMOTED:\n\n";
+        for start_square in CoordVec::ALL_BOARD_SQUARES {
+            let dest_squares = actor.legal_dest_squares(false, start_square);
+            let mut board: [char; 16] = ['.'; 16];
+            board[start_square.0 as usize] = actor.char_();
+            for d in dest_squares {
+                board[d.0 as usize] = 'X';
+            }
+            let [r0c0, r0c1, r0c2, _, r1c0, r1c1, r1c2, _, r2c0, r2c1, r2c2, _, r3c0, r3c1, r3c2, _] =
+                board;
+            out.push_str(&format!(
+                "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|\n|---|\n\n",
+            ));
+        }
+
+        // Add promoted destinations.
+        out += "## PROMOTED:\n\n";
+        for start_square in CoordVec::ALL_BOARD_SQUARES {
+            let dest_squares = actor.legal_dest_squares(true, start_square);
+            let mut board: [char; 16] = ['.'; 16];
+            board[start_square.0 as usize] = actor.char_();
+            for d in dest_squares {
+                board[d.0 as usize] = 'X';
+            }
+            let [r0c0, r0c1, r0c2, _, r1c0, r1c1, r1c2, _, r2c0, r2c1, r2c2, _, r3c0, r3c1, r3c2, _] =
+                board;
+            out.push_str(&format!(
+                "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|\n|---|\n\n",
+            ));
+        }
+    }
+
+    // Test nonpromotables.
+    out += "# NONPROMOTABLES:\n\n";
+    for actor in [Actor::LION, Actor::ELEPHANT0, Actor::GIRAFFE0] {
+        for start_square in CoordVec::ALL_BOARD_SQUARES {
+            // Add nonpromoted destinations.
+
+            let nonpromoted_dest_squares = actor.legal_dest_squares(false, start_square);
+            let mut board: [char; 16] = ['.'; 16];
+            board[start_square.0 as usize] = actor.char_();
+            for d in nonpromoted_dest_squares {
+                board[d.0 as usize] = 'X';
+            }
+            let [r0c0, r0c1, r0c2, _, r1c0, r1c1, r1c2, _, r2c0, r2c1, r2c2, _, r3c0, r3c1, r3c2, _] =
+                board;
+            out.push_str(&format!(
+                "|---|\n|{r3c0}{r3c1}{r3c2}|\n|{r2c0}{r2c1}{r2c2}|\n|{r1c0}{r1c1}{r1c2}|\n|{r0c0}{r0c1}{r0c2}|\n|---|\n\n",
+            ));
+
+            // There should not be any promoted destinations.
+            let promoted_dest_squares = actor.legal_dest_squares(true, start_square);
+            assert!(promoted_dest_squares.is_empty());
+        }
+    }
+
+    insta::assert_snapshot!(out);
+}
+
 impl CoordVec {
     const ALL_BOARD_SQUARES: Self = CoordVec::EMPTY
         .push(Coords::R0C0)
@@ -111,6 +181,10 @@ impl CoordVec {
         }
         set
     }
+
+    fn is_empty(self) -> bool {
+        (self.0 & 0b1111) == 0
+    }
 }
 
 impl CoordSet {
@@ -123,5 +197,20 @@ impl CoordSet {
 
     fn contains(self, coords: Coords) -> bool {
         (self.0 & (1 << coords.0)) != 0
+    }
+}
+
+impl Actor {
+    fn char_(self) -> char {
+        match self {
+            Actor::LION => 'l',
+            Actor::CHICK0 => 'c',
+            Actor::CHICK1 => 'c',
+            Actor::ELEPHANT0 => 'e',
+            Actor::ELEPHANT1 => 'e',
+            Actor::GIRAFFE0 => 'g',
+            Actor::GIRAFFE1 => 'g',
+            _ => '?',
+        }
     }
 }
