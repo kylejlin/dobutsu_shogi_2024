@@ -17,9 +17,12 @@ fn state_set_is_consistent_with_hash_set() {
             assert!(state_set.add(state).did_addend_already_exist);
         }
 
-        for state in state_set.into_unsorted_vec() {
+        let state_set_vec = state_set.into_unsorted_vec();
+        for state in state_set_vec.iter().copied() {
             assert!(reference.contains(&state));
         }
+
+        assert_eq!(state_set_vec.len(), reference.len());
     }
 }
 
