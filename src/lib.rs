@@ -12,6 +12,10 @@ pub mod pretty;
 pub use backward_pass::solve;
 pub use forward_pass::reachable_states;
 
+mod state_set;
+
+use state_set::StateSet;
+
 // A note about fileds with the comment "Must be non-zero":
 //
 // I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
