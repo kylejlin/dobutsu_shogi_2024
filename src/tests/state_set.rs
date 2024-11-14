@@ -20,6 +20,7 @@ fn state_set_is_consistent_with_hash_set() {
         let state_set_vec = state_set.into_unsorted_vec();
         for state in state_set_vec.iter().copied() {
             assert!(reference.contains(&state));
+            assert_eq!(state.state(), state.0);
         }
 
         assert_eq!(state_set_vec.len(), reference.len());
@@ -42,6 +43,7 @@ fn state_set_vec_is_consistent_with_hash_set() {
 
         for state in state_set_vec.iter().copied() {
             assert!(reference.contains(&state));
+            assert_eq!(state.state(), state.0);
         }
 
         assert_eq!(state_set_vec.len(), reference.len());
