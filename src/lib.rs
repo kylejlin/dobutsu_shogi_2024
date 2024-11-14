@@ -446,7 +446,7 @@ impl CoordVec {
             return self;
         }
 
-        Self((self.0 | ((coords.0 as u64) << (len * 4 + 1))) + 1)
+        Self((self.0 | ((coords.0 as u64) << (len * 4 + 4))) + 1)
     }
 }
 
