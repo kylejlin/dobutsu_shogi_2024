@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct CoordSet(u16);
 
 #[test]
@@ -157,6 +157,23 @@ fn test_piece0_legal_destination_square_snapshots() {
     }
 
     insta::assert_snapshot!(out);
+}
+
+#[test]
+fn piece0_and_piece1_have_the_same_set_of_moves() {
+    for (actor0, actor1) in [
+        (Actor::CHICK0, Actor::CHICK1),
+        (Actor::ELEPHANT0, Actor::ELEPHANT1),
+        (Actor::GIRAFFE0, Actor::GIRAFFE1),
+    ] {
+        let actor0_nonpromoted = actor0.legal_dest_squares(false, Coords::R0C0).into_set();
+        let actor0_promoted = actor0.legal_dest_squares(true, Coords::R0C0).into_set();
+        let actor1_nonpromoted = actor1.legal_dest_squares(false, Coords::R0C0).into_set();
+        let actor1_promoted = actor1.legal_dest_squares(true, Coords::R0C0).into_set();
+
+        assert_eq!(actor0_nonpromoted, actor1_nonpromoted);
+        assert_eq!(actor0_promoted, actor1_promoted);
+    }
 }
 
 impl CoordVec {
