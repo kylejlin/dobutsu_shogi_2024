@@ -44,12 +44,12 @@ pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchN
 #[inline(always)]
 fn visit_parents(
     node_with_incorrect_nonstate_fields: SearchNode,
-    states: &mut [SearchNode],
+    nodes: &mut [SearchNode],
     mut parent_mutator: impl FnMut(&mut SearchNode),
 ) {
     node_with_incorrect_nonstate_fields.visit_parents(|parent_with_incorrect_nonstate_fields| {
         let parent_state = parent_with_incorrect_nonstate_fields.state();
-        let Ok(parent_index) = states.binary_search_by(|other| {
+        let Ok(parent_index) = nodes.binary_search_by(|other| {
             let other_state = other.state();
             other_state.cmp(&parent_state)
         }) else {
@@ -57,7 +57,7 @@ fn visit_parents(
             return;
         };
 
-        let parent_mut = &mut states[parent_index];
+        let parent_mut = &mut nodes[parent_index];
 
         if parent_mut.required_child_report_count() == 0 {
             // It's possible that the parent has already determined
