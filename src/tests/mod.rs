@@ -129,6 +129,22 @@ fn visited_children_are_unique() {
     });
 }
 
+#[test]
+fn visited_parents_are_unique() {
+    fuzz(1_000_000, |child| {
+        let mut visited = HashSet::new();
+        child.visit_parents(|parent| {
+            if visited.contains(&parent) {
+                let child = child.pretty();
+                let parent = parent.pretty();
+                panic!("Visited parent twice.\n\nCHILD:\n\n{child}\n\nPARENT:\n\n{parent}");
+            }
+
+            visited.insert(parent);
+        });
+    });
+}
+
 /// Pseudorandomly plays `game_count` games and calls `callback`
 /// for each state in each game.
 ///
