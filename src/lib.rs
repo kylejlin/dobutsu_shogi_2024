@@ -443,6 +443,22 @@ impl Nonlion {
         };
         NodeBuilder(node.0 | (1 << promotion_status_offset.0))
     }
+
+    #[inline(always)]
+    const fn is_piece1(self) -> bool {
+        self.0.is_piece1()
+    }
+
+    #[inline(always)]
+    const fn is_piece0_in_active_hand(self, node: NodeBuilder) -> bool {
+        let piece0 = self.piece0();
+        piece0.is_active(node) && piece0.is_in_hand(node)
+    }
+
+    #[inline(always)]
+    const fn piece0(self) -> Self {
+        Self(self.0.piece0())
+    }
 }
 
 impl Coords {
@@ -794,6 +810,12 @@ impl ParentCalculator {
             return;
         }
 
+        // If two of the same species are in the active hand,
+        // we must be careful to avoid double counting the associated parent.
+        if captive.is_piece1() && captive.is_piece0_in_active_hand(node) {
+            return;
+        }
+
         if captive.is_bird() {
             let out = node;
             let out = actor.set_coords(out, starting_square);
@@ -1016,13 +1038,7 @@ impl Actor {
 
     #[inline(always)]
     const fn piece0(self) -> Self {
-        match self {
-            Actor::CHICK1 => Actor::CHICK0,
-            Actor::ELEPHANT1 => Actor::ELEPHANT0,
-            Actor::GIRAFFE1 => Actor::GIRAFFE0,
-
-            _ => self,
-        }
+        Self(self.0.piece0())
     }
 
     #[inline(always)]
@@ -1073,6 +1089,17 @@ impl Piece {
         const LOOKUP_TABLE: u16 =
             (1 << Piece::CHICK1.0) | (1 << Piece::ELEPHANT1.0) | (1 << Piece::GIRAFFE1.0);
         LOOKUP_TABLE & (1 << self.0) != 0
+    }
+
+    #[inline(always)]
+    const fn piece0(self) -> Self {
+        match self {
+            Self::CHICK1 => Self::CHICK0,
+            Self::ELEPHANT1 => Self::ELEPHANT0,
+            Self::GIRAFFE1 => Self::GIRAFFE0,
+
+            _ => self,
+        }
     }
 }
 

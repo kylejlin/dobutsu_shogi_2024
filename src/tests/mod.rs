@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use super::{pretty::IntoPretty, *};
 
 use rand::{Rng, SeedableRng};
