@@ -551,6 +551,13 @@ impl ChildCalculator {
     #[inline(always)]
     fn visit_dropping_children(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
         let node = self.node.into_builder();
+
+        // If two of the same species are in the active hand,
+        // we must be careful to avoid double counting the associated child.
+        if actor.is_piece1() && actor.is_piece0_in_active_hand(node) {
+            return;
+        }
+
         for dest in self.empty_squares {
             let node = actor.set_coords(node, dest);
             visitor(node.invert_active_player().build());
@@ -964,6 +971,11 @@ impl Actor {
     }
 
     #[inline(always)]
+    const fn is_in_hand(self, node: NodeBuilder) -> bool {
+        node.0 & self.coords_mask() == self.coords_mask()
+    }
+
+    #[inline(always)]
     const fn is_bird(self) -> bool {
         self.0.is_bird()
     }
@@ -989,6 +1001,28 @@ impl Actor {
     #[inline(always)]
     const fn is_lion(self) -> bool {
         self.0.is_lion()
+    }
+
+    #[inline(always)]
+    const fn is_piece1(self) -> bool {
+        self.0.is_piece1()
+    }
+
+    #[inline(always)]
+    const fn is_piece0_in_active_hand(self, node: NodeBuilder) -> bool {
+        let piece0 = self.piece0();
+        piece0.is_active(node) && piece0.is_in_hand(node)
+    }
+
+    #[inline(always)]
+    const fn piece0(self) -> Self {
+        match self {
+            Actor::CHICK1 => Actor::CHICK0,
+            Actor::ELEPHANT1 => Actor::ELEPHANT0,
+            Actor::GIRAFFE1 => Actor::GIRAFFE0,
+
+            _ => self,
+        }
     }
 
     #[inline(always)]
@@ -1032,6 +1066,13 @@ impl Piece {
     #[inline(always)]
     const fn is_lion(self) -> bool {
         self.0 == 0b001
+    }
+
+    #[inline(always)]
+    const fn is_piece1(self) -> bool {
+        const LOOKUP_TABLE: u16 =
+            (1 << Piece::CHICK1.0) | (1 << Piece::ELEPHANT1.0) | (1 << Piece::GIRAFFE1.0);
+        LOOKUP_TABLE & (1 << self.0) != 0
     }
 }
 
