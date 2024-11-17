@@ -9,68 +9,87 @@ use std::collections::VecDeque;
 pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
     nodes.sort_unstable();
 
-    init_required_child_report_count_and_best_known_outcome(nodes);
+    let mut parent_buffer = Vec::with_capacity(8 * 12);
+
+    init_required_child_report_count_and_best_known_outcome(nodes, &mut parent_buffer);
 
     let mut known_queue = VecDeque::with_capacity(nodes.len());
     add_terminal_nodes(nodes, &mut known_queue);
 
     while let Some(child) = known_queue.pop_front() {
+        parent_buffer.clear();
+        child.visit_parents(&mut parent_buffer);
+
         let child_outcome = child.best_known_outcome();
 
         if child_outcome.0 < 0 {
-            visit_parents(child, nodes, |parent_mut| {
-                *parent_mut = parent_mut
+            for &parent_with_incorrect_nonstate_fields in &parent_buffer {
+                let parent_state = parent_with_incorrect_nonstate_fields.state();
+                let Ok(parent_index) = nodes.binary_search_by(|other| {
+                    let other_state = other.state();
+                    other_state.cmp(&parent_state)
+                }) else {
+                    // It's possible that a theoretical parent is actually unreachable.
+                    continue;
+                };
+
+                let original_parent = nodes[parent_index];
+
+                if original_parent.required_child_report_count() == 0 {
+                    // It's possible that the parent has already determined
+                    // its best outcome before seeing all of its children's best outcomes.
+                    // This happens when a child reports a loss.
+                    continue;
+                }
+
+                let updated_parent = original_parent
                     .record_child_outcome(child_outcome)
                     .set_required_child_report_count_to_zero();
 
-                known_queue.push_back(*parent_mut);
-            });
+                known_queue.push_back(updated_parent);
+
+                nodes[parent_index] = updated_parent;
+            }
         } else {
-            visit_parents(child, nodes, |parent_mut| {
-                *parent_mut = parent_mut
+            for &parent_with_incorrect_nonstate_fields in &parent_buffer {
+                let parent_state = parent_with_incorrect_nonstate_fields.state();
+                let Ok(parent_index) = nodes.binary_search_by(|other| {
+                    let other_state = other.state();
+                    other_state.cmp(&parent_state)
+                }) else {
+                    // It's possible that a theoretical parent is actually unreachable.
+                    continue;
+                };
+
+                let original_parent = nodes[parent_index];
+
+                if original_parent.required_child_report_count() == 0 {
+                    // It's possible that the parent has already determined
+                    // its best outcome before seeing all of its children's best outcomes.
+                    // This happens when a child reports a loss.
+                    continue;
+                }
+
+                let updated_parent = original_parent
                     .record_child_outcome(child_outcome)
                     .decrement_required_child_report_count();
 
-                if parent_mut.required_child_report_count() == 0 {
-                    known_queue.push_back(*parent_mut);
+                if updated_parent.required_child_report_count() == 0 {
+                    known_queue.push_back(updated_parent);
                 }
-            });
+
+                nodes[parent_index] = updated_parent;
+            }
         }
 
         on_node_processed(child);
     }
 }
 
-#[inline(always)]
-fn visit_parents(
-    node_with_incorrect_nonstate_fields: SearchNode,
+fn init_required_child_report_count_and_best_known_outcome(
     nodes: &mut [SearchNode],
-    mut parent_mutator: impl FnMut(&mut SearchNode),
+    parent_buffer: &mut Vec<SearchNode>,
 ) {
-    node_with_incorrect_nonstate_fields.visit_parents(|parent_with_incorrect_nonstate_fields| {
-        let parent_state = parent_with_incorrect_nonstate_fields.state();
-        let Ok(parent_index) = nodes.binary_search_by(|other| {
-            let other_state = other.state();
-            other_state.cmp(&parent_state)
-        }) else {
-            // It's possible that a theoretical parent is actually unreachable.
-            return;
-        };
-
-        let parent_mut = &mut nodes[parent_index];
-
-        if parent_mut.required_child_report_count() == 0 {
-            // It's possible that the parent has already determined
-            // its best outcome before seeing all of its children's best outcomes.
-            // This happens when a child reports a loss.
-            return;
-        }
-
-        parent_mutator(parent_mut);
-    });
-}
-
-fn init_required_child_report_count_and_best_known_outcome(nodes: &mut [SearchNode]) {
     const DELETION_MASK: u64 = !((0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
         | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
 
@@ -78,7 +97,8 @@ fn init_required_child_report_count_and_best_known_outcome(nodes: &mut [SearchNo
         match node.terminality() {
             Terminality::Nonterminal => {
                 node.0 = (node.0 & DELETION_MASK)
-                    | ((node.total_child_count() as u64) << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
+                    | ((node.total_child_count(parent_buffer) as u64)
+                        << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
                     | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
             }
 
@@ -106,10 +126,10 @@ fn add_terminal_nodes(nodes: &[SearchNode], known_queue: &mut VecDeque<SearchNod
 }
 
 impl SearchNode {
-    fn total_child_count(self) -> u8 {
-        let mut count = 0;
-        self.visit_children(|_| count += 1);
-        count
+    fn total_child_count(self, parent_buffer: &mut Vec<SearchNode>) -> u8 {
+        parent_buffer.clear();
+        self.visit_children(parent_buffer);
+        parent_buffer.len() as u8
     }
 
     #[must_use]
