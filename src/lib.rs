@@ -123,6 +123,20 @@ struct ParentCalculator {
 #[derive(Clone, Copy, Debug)]
 struct ShouldDemoteActorInParent(bool);
 
+// TODO: Delete after we are done debugging.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Progress {
+    pub already_solved_parent_visits: usize,
+    pub unsolved_parent_visits: usize,
+    pub unreachable_parent_visits: usize,
+
+    pub winning_parent_conclusions: usize,
+    pub uncertain_parent_conclusions: usize,
+    pub losing_parent_conclusions: usize,
+
+    pub queue_pushes: usize,
+}
+
 impl Terminality {
     const fn is_terminal(self) -> bool {
         (self as i8) != (Terminality::Nonterminal as i8)

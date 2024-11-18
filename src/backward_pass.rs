@@ -6,7 +6,11 @@ use std::collections::VecDeque;
 /// with a slice of all reachable states.
 ///
 /// The slice of states will be sorted.
-pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchNode)) {
+pub fn solve(
+    nodes: &mut [SearchNode],
+    progress: &mut Progress,
+    mut on_node_processed: impl FnMut(&Progress) -> bool,
+) {
     nodes.sort_unstable();
 
     init_required_child_report_count_and_best_known_outcome(nodes);
@@ -18,26 +22,41 @@ pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchN
         let child_outcome = child.best_known_outcome();
 
         if child_outcome.0 < 0 {
-            visit_parents(child, nodes, |parent_mut| {
+            visit_parents(child, nodes, progress, |parent_mut, progress| {
                 *parent_mut = parent_mut
                     .record_child_outcome(child_outcome)
                     .set_required_child_report_count_to_zero();
 
                 known_queue.push_back(*parent_mut);
+
+                progress.queue_pushes += 1;
+                progress.winning_parent_conclusions += 1;
             });
         } else {
-            visit_parents(child, nodes, |parent_mut| {
+            visit_parents(child, nodes, progress, |parent_mut, progress| {
                 *parent_mut = parent_mut
                     .record_child_outcome(child_outcome)
                     .decrement_required_child_report_count();
 
                 if parent_mut.required_child_report_count() == 0 {
                     known_queue.push_back(*parent_mut);
+
+                    progress.queue_pushes += 1;
+                    progress.losing_parent_conclusions += 1;
+                } else {
+                    progress.uncertain_parent_conclusions += 1;
                 }
             });
         }
 
-        on_node_processed(child);
+        assert!(
+            known_queue.len() <= nodes.len(),
+            "Queue is growing too large.",
+        );
+
+        if on_node_processed(&progress) {
+            *progress = Progress::default();
+        }
     }
 }
 
@@ -45,7 +64,8 @@ pub fn solve(nodes: &mut [SearchNode], mut on_node_processed: impl FnMut(SearchN
 fn visit_parents(
     node_with_incorrect_nonstate_fields: SearchNode,
     nodes: &mut [SearchNode],
-    mut parent_mutator: impl FnMut(&mut SearchNode),
+    progress: &mut Progress,
+    mut parent_mutator: impl FnMut(&mut SearchNode, &mut Progress),
 ) {
     node_with_incorrect_nonstate_fields.visit_parents(|parent_with_incorrect_nonstate_fields| {
         let parent_state = parent_with_incorrect_nonstate_fields.state();
@@ -54,19 +74,31 @@ fn visit_parents(
             other_state.cmp(&parent_state)
         }) else {
             // It's possible that a theoretical parent is actually unreachable.
+            progress.unreachable_parent_visits += 1;
             return;
         };
 
         let parent_mut = &mut nodes[parent_index];
 
-        if parent_mut.required_child_report_count() == 0 {
+        let required_child_report_count = parent_mut.required_child_report_count();
+        use crate::pretty::*;
+        assert!(
+            required_child_report_count <= 8 * 12,
+            "Required_child_report_count is too large.\n\nNODE:\n\n{}",
+            parent_mut.pretty()
+        );
+
+        if required_child_report_count == 0 {
             // It's possible that the parent has already determined
             // its best outcome before seeing all of its children's best outcomes.
             // This happens when a child reports a loss.
+            progress.already_solved_parent_visits += 1;
             return;
         }
 
-        parent_mutator(parent_mut);
+        progress.unsolved_parent_visits += 1;
+
+        parent_mutator(parent_mut, progress);
     });
 }
 

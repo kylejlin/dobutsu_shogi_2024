@@ -115,8 +115,9 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
         let mut prev_time = start_time;
         let mut countup = 0;
         let mut checkpoints = 0;
+        let mut progress = Progress::default();
         const CHECKPOINT_SIZE: u64 = 1_000_000;
-        solve(&mut reachable_states, |_| {
+        solve(&mut reachable_states, &mut progress, |current_progress| {
             countup += 1;
 
             if countup >= CHECKPOINT_SIZE {
@@ -126,7 +127,13 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
                     "Backtracked {checkpoints} checkpoints. Duration: {:?}",
                     prev_time.elapsed()
                 );
+                println!("Progress:\n{:#?}", current_progress);
+                println!();
                 prev_time = Instant::now();
+
+                true
+            } else {
+                false
             }
         });
         let solution = reachable_states;
