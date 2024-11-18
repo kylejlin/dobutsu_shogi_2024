@@ -2,9 +2,6 @@
 #![allow(clippy::unusual_byte_groupings)]
 #![allow(clippy::type_complexity)]
 
-// TODO: Rename visit_children to write_children
-// and visit_parents to write_parents.
-
 #[cfg(test)]
 mod tests;
 
@@ -195,13 +192,13 @@ impl SearchNode {
 
     pub fn children(self) -> Vec<SearchNode> {
         let mut out = vec![];
-        self.visit_children(&mut out);
+        self.visit_children(|child| out.push(child));
         out
     }
 
     pub fn parents(self) -> Vec<SearchNode> {
         let mut out = vec![];
-        self.visit_parents(&mut out);
+        self.visit_parents(|parent| out.push(parent));
         out
     }
 
@@ -519,8 +516,8 @@ impl Iterator for CoordVec {
 }
 
 impl SearchNode {
-    fn visit_children(self, out: &mut Vec<SearchNode>) {
-        ChildCalculator::new(self).visit_children(out);
+    fn visit_children(self, visitor: impl FnMut(SearchNode)) {
+        ChildCalculator::new(self).visit_children(visitor);
     }
 }
 
@@ -536,22 +533,22 @@ impl ChildCalculator {
     }
 
     #[inline(always)]
-    fn visit_children(self, out: &mut Vec<SearchNode>) {
+    fn visit_children(self, mut visitor: impl FnMut(SearchNode)) {
         if self.node.is_terminal() {
             return;
         }
 
-        self.visit_children_with_actor(Actor::LION, out);
-        self.visit_children_with_actor(Actor::CHICK0, out);
-        self.visit_children_with_actor(Actor::CHICK1, out);
-        self.visit_children_with_actor(Actor::ELEPHANT0, out);
-        self.visit_children_with_actor(Actor::ELEPHANT1, out);
-        self.visit_children_with_actor(Actor::GIRAFFE0, out);
-        self.visit_children_with_actor(Actor::GIRAFFE1, out);
+        self.visit_children_with_actor(Actor::LION, &mut visitor);
+        self.visit_children_with_actor(Actor::CHICK0, &mut visitor);
+        self.visit_children_with_actor(Actor::CHICK1, &mut visitor);
+        self.visit_children_with_actor(Actor::ELEPHANT0, &mut visitor);
+        self.visit_children_with_actor(Actor::ELEPHANT1, &mut visitor);
+        self.visit_children_with_actor(Actor::GIRAFFE0, &mut visitor);
+        self.visit_children_with_actor(Actor::GIRAFFE1, &mut visitor);
     }
 
     #[inline(always)]
-    fn visit_children_with_actor(self, actor: Actor, out: &mut Vec<SearchNode>) {
+    fn visit_children_with_actor(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
         let node = self.node.into_builder();
 
         if actor.is_passive(node) {
@@ -561,14 +558,14 @@ impl ChildCalculator {
         let start = actor.coords(node);
 
         if start == Coords::HAND {
-            self.visit_dropping_children(actor, out);
+            self.visit_dropping_children(actor, visitor);
         } else {
-            self.visit_moving_children(actor, start, out);
+            self.visit_moving_children(actor, start, visitor);
         }
     }
 
     #[inline(always)]
-    fn visit_dropping_children(self, actor: Actor, out: &mut Vec<SearchNode>) {
+    fn visit_dropping_children(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
         let node = self.node.into_builder();
 
         // If two of the same species are in the active hand,
@@ -579,12 +576,17 @@ impl ChildCalculator {
 
         for dest in self.empty_squares {
             let node = actor.set_coords(node, dest);
-            out.push(node.invert_active_player().build());
+            visitor(node.invert_active_player().build());
         }
     }
 
     #[inline(always)]
-    fn visit_moving_children(self, actor: Actor, start: Coords, out: &mut Vec<SearchNode>) {
+    fn visit_moving_children(
+        self,
+        actor: Actor,
+        start: Coords,
+        mut visitor: impl FnMut(SearchNode),
+    ) {
         let node = self.node.into_builder();
         let is_promoted = actor.is_promoted(node);
         let dest_candidates = actor.legal_dest_squares(is_promoted, start);
@@ -596,14 +598,14 @@ impl ChildCalculator {
             }
             let node = optional_node.unchecked_unwrap();
             let node = actor.set_coords_and_promote_if_in_last_row(node, dest);
-            out.push(node.invert_active_player().build());
+            visitor(node.invert_active_player().build());
         }
     }
 }
 
 impl SearchNode {
-    fn visit_parents(self, out: &mut Vec<SearchNode>) {
-        ParentCalculator::new(self).visit_parents(out);
+    fn visit_parents(self, visitor: impl FnMut(SearchNode)) {
+        ParentCalculator::new(self).visit_parents(visitor);
     }
 }
 
@@ -616,25 +618,25 @@ impl ParentCalculator {
         }
     }
 
-    fn visit_parents(self, out: &mut Vec<SearchNode>) {
-        self.visit_parents_with_actor(Actor::LION, out);
-        self.visit_parents_with_actor(Actor::CHICK0, out);
-        self.visit_parents_with_actor(Actor::CHICK1, out);
-        self.visit_parents_with_actor(Actor::ELEPHANT0, out);
-        self.visit_parents_with_actor(Actor::ELEPHANT1, out);
-        self.visit_parents_with_actor(Actor::GIRAFFE0, out);
-        self.visit_parents_with_actor(Actor::GIRAFFE1, out);
+    fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
+        self.visit_parents_with_actor(Actor::LION, &mut visitor);
+        self.visit_parents_with_actor(Actor::CHICK0, &mut visitor);
+        self.visit_parents_with_actor(Actor::CHICK1, &mut visitor);
+        self.visit_parents_with_actor(Actor::ELEPHANT0, &mut visitor);
+        self.visit_parents_with_actor(Actor::ELEPHANT1, &mut visitor);
+        self.visit_parents_with_actor(Actor::GIRAFFE0, &mut visitor);
+        self.visit_parents_with_actor(Actor::GIRAFFE1, &mut visitor);
     }
 
     #[inline(always)]
-    fn visit_parents_with_actor(self, actor: Actor, out: &mut Vec<SearchNode>) {
+    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
         let node = self.inverted_node;
         if !(actor.is_active(node) && actor.is_on_board(node)) {
             return;
         }
 
         if !actor.is_hen(node) && !actor.is_lion() {
-            self.visit_dropping_parent(actor, out);
+            self.visit_dropping_parent(actor, &mut visitor);
         }
 
         if actor.is_chick(node) && actor.is_in_last_row(node) {
@@ -645,7 +647,7 @@ impl ParentCalculator {
             actor,
             ShouldDemoteActorInParent(false),
             actor.legal_starting_squares_in_state(node),
-            out,
+            &mut visitor,
         );
 
         if actor.is_hen(node) && actor.is_in_last_row(node) {
@@ -654,20 +656,20 @@ impl ParentCalculator {
                 actor,
                 ShouldDemoteActorInParent(true),
                 legal_starting_squares,
-                out,
+                &mut visitor,
             );
         }
     }
 
     #[inline(always)]
-    fn visit_dropping_parent(self, actor: Actor, out: &mut Vec<SearchNode>) {
+    fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
         let node = self.inverted_node;
         let coords = Coords::HAND;
 
-        let parent = node;
-        let parent = actor.set_coords(parent, coords);
-        if !parent.is_terminal() {
-            out.push(parent.build());
+        let out = node;
+        let out = actor.set_coords(out, coords);
+        if !out.is_terminal() {
+            visitor(out.build());
         }
     }
 
@@ -677,7 +679,7 @@ impl ParentCalculator {
         actor: Actor,
         should_demote: ShouldDemoteActorInParent,
         starting_squares: CoordVec,
-        out: &mut Vec<SearchNode>,
+        mut visitor: impl FnMut(SearchNode),
     ) {
         let node = self.inverted_node;
         let board = self.inverted_board;
@@ -690,17 +692,17 @@ impl ParentCalculator {
             }
 
             if PassiveLion.is_in_hand(node) {
-                let parent = node;
-                let parent = actor.set_coords(parent, starting_square);
-                let parent = if should_demote.0 {
-                    actor.demote(parent)
+                let out = node;
+                let out = actor.set_coords(out, starting_square);
+                let out = if should_demote.0 {
+                    actor.demote(out)
                 } else {
-                    parent
+                    out
                 };
-                let parent = PassiveLion.set_coords(parent, dest_square);
+                let out = PassiveLion.set_coords(out, dest_square);
 
-                if !parent.is_terminal() {
-                    out.push(parent.build());
+                if !out.is_terminal() {
+                    visitor(out.build());
                 }
 
                 // If the passive lion is in hand in the inverted current node,
@@ -710,7 +712,12 @@ impl ParentCalculator {
                 continue;
             }
 
-            self.visit_noncapturing_moving_parent(actor, should_demote, starting_square, out);
+            self.visit_noncapturing_moving_parent(
+                actor,
+                should_demote,
+                starting_square,
+                &mut visitor,
+            );
 
             self.visit_capturing_parents(
                 actor,
@@ -718,7 +725,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::CHICK0,
-                out,
+                &mut visitor,
             );
             self.visit_capturing_parents(
                 actor,
@@ -726,7 +733,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::CHICK1,
-                out,
+                &mut visitor,
             );
             self.visit_capturing_parents(
                 actor,
@@ -734,7 +741,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::ELEPHANT0,
-                out,
+                &mut visitor,
             );
             self.visit_capturing_parents(
                 actor,
@@ -742,7 +749,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::ELEPHANT1,
-                out,
+                &mut visitor,
             );
             self.visit_capturing_parents(
                 actor,
@@ -750,7 +757,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::GIRAFFE0,
-                out,
+                &mut visitor,
             );
             self.visit_capturing_parents(
                 actor,
@@ -758,7 +765,7 @@ impl ParentCalculator {
                 starting_square,
                 dest_square,
                 Nonlion::GIRAFFE1,
-                out,
+                &mut visitor,
             );
         }
     }
@@ -769,20 +776,20 @@ impl ParentCalculator {
         actor: Actor,
         should_demote: ShouldDemoteActorInParent,
         starting_square: Coords,
-        out: &mut Vec<SearchNode>,
+        mut visitor: impl FnMut(SearchNode),
     ) {
         let node = self.inverted_node;
 
-        let parent = node;
-        let parent = actor.set_coords(parent, starting_square);
-        let parent = if should_demote.0 {
-            actor.demote(parent)
+        let out = node;
+        let out = actor.set_coords(out, starting_square);
+        let out = if should_demote.0 {
+            actor.demote(out)
         } else {
-            parent
+            out
         };
 
-        if !parent.is_terminal() {
-            out.push(parent.build());
+        if !out.is_terminal() {
+            visitor(out.build());
         }
     }
 
@@ -794,7 +801,7 @@ impl ParentCalculator {
         starting_square: Coords,
         dest_square: Coords,
         captive: Nonlion,
-        out: &mut Vec<SearchNode>,
+        mut visitor: impl FnMut(SearchNode),
     ) {
         let node = self.inverted_node;
 
@@ -810,33 +817,33 @@ impl ParentCalculator {
         }
 
         if captive.is_bird() {
-            let parent = node;
-            let parent = actor.set_coords(parent, starting_square);
-            let parent = if should_demote.0 {
-                actor.demote(parent)
+            let out = node;
+            let out = actor.set_coords(out, starting_square);
+            let out = if should_demote.0 {
+                actor.demote(out)
             } else {
-                parent
+                out
             };
-            let parent = captive.set_coords(parent, dest_square);
-            let parent = captive.make_passive(parent);
-            let parent = captive.promote(parent);
+            let out = captive.set_coords(out, dest_square);
+            let out = captive.make_passive(out);
+            let out = captive.promote(out);
 
-            if !parent.is_terminal() {
-                out.push(parent.build());
+            if !out.is_terminal() {
+                visitor(out.build());
             }
         }
 
-        let parent = node;
-        let parent = actor.set_coords(parent, starting_square);
-        let parent = if should_demote.0 {
-            actor.demote(parent)
+        let out = node;
+        let out = actor.set_coords(out, starting_square);
+        let out = if should_demote.0 {
+            actor.demote(out)
         } else {
-            parent
+            out
         };
-        let parent = captive.set_coords(parent, dest_square);
-        let parent = captive.make_passive(parent);
-        if !parent.is_terminal() {
-            out.push(parent.build());
+        let out = captive.set_coords(out, dest_square);
+        let out = captive.make_passive(out);
+        if !out.is_terminal() {
+            visitor(out.build());
         }
     }
 }

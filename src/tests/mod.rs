@@ -63,21 +63,12 @@ fn allegiance_inversion_is_involutive() {
 
 #[test]
 fn every_child_lists_parent() {
-    let mut child_buffer = Vec::with_capacity(8 * 12);
-    let mut parent_buffer = Vec::with_capacity(8 * 12);
-
     fuzz(1_000_000, |parent| {
-        child_buffer.clear();
-        parent.visit_children(&mut child_buffer);
-
-        for &child in &child_buffer {
-            parent_buffer.clear();
-            child.visit_parents(&mut parent_buffer);
-
-            let found_parent = parent_buffer
-                .iter()
-                .any(|child_parent| *child_parent == parent);
-
+        parent.visit_children(|child| {
+            let mut found_parent = false;
+            child.visit_parents(|child_parent| {
+                found_parent |= child_parent == parent;
+            });
             if !found_parent {
                 let parent = parent.pretty();
                 let parent_children = parent.0.children().pretty();
@@ -85,26 +76,18 @@ fn every_child_lists_parent() {
                 let child_parents = child.0.parents().pretty();
                 panic!("Child did not list parent.\n\nPARENT:\n\n{parent}\n\nCHILD:\n\n{child}\n\nCHILD.PARENTS:\n\n{child_parents}\n\nPARENT.CHILDREN:\n\n{parent_children}");
             }
-        }
+        });
     });
 }
 
 #[test]
 fn every_parent_lists_child() {
-    let mut child_buffer = Vec::with_capacity(8 * 12);
-    let mut parent_buffer = Vec::with_capacity(8 * 12);
     fuzz(1_000_000, |child| {
-        parent_buffer.clear();
-        child.visit_parents(&mut parent_buffer);
-
-        for &parent in &parent_buffer {
-            child_buffer.clear();
-            parent.visit_children(&mut child_buffer);
-
-            let found_child = child_buffer
-                .iter()
-                .any(|parent_child| *parent_child == child);
-
+        child.visit_parents(|parent| {
+            let mut found_child = false;
+            parent.visit_children(|parent_child| {
+                found_child |= parent_child == child;
+            });
             if !found_child {
                 let child = child.pretty();
                 let child_parents = child.0.parents().pretty();
@@ -112,19 +95,17 @@ fn every_parent_lists_child() {
                 let parent_children = parent.0.children().pretty();
                 panic!("Parent did not list child.\n\nCHILD:\n\n{child}\n\nPARENT:\n\n{parent}\n\nPARENT.CHILDREN:\n\n{parent_children}\n\nCHILD.PARENTS:\n\n{child_parents}");
             }
-        }
+        })
     });
 }
 
 #[test]
 fn terminality_and_childlessness_are_equivalent() {
-    let mut child_buffer = Vec::with_capacity(8 * 12);
-
     fuzz(1_000_000, |state| {
-        child_buffer.clear();
-        state.visit_children(&mut child_buffer);
-
-        let has_child = !child_buffer.is_empty();
+        let mut has_child = false;
+        state.visit_children(|_| {
+            has_child = true;
+        });
 
         assert_eq!(state.is_terminal(), !has_child);
     });
@@ -132,15 +113,9 @@ fn terminality_and_childlessness_are_equivalent() {
 
 #[test]
 fn visited_children_are_unique() {
-    let mut child_buffer = Vec::with_capacity(8 * 12);
-
     fuzz(1_000_000, |parent| {
         let mut visited = HashSet::new();
-
-        child_buffer.clear();
-        parent.visit_children(&mut child_buffer);
-
-        for &child in &child_buffer {
+        parent.visit_children(|child| {
             if visited.contains(&child) {
                 let parent = parent.pretty();
                 let child = child.pretty();
@@ -148,19 +123,15 @@ fn visited_children_are_unique() {
             }
 
             visited.insert(child);
-        }
+        });
     });
 }
 
 #[test]
 fn visited_parents_are_unique() {
-    let mut parent_buffer = Vec::with_capacity(8 * 12);
     fuzz(1_000_000, |child| {
         let mut visited = HashSet::new();
-
-        parent_buffer.clear();
-        child.visit_parents(&mut parent_buffer);
-        for &parent in &parent_buffer {
+        child.visit_parents(|parent| {
             if visited.contains(&parent) {
                 let child = child.pretty();
                 let parent = parent.pretty();
@@ -168,7 +139,7 @@ fn visited_parents_are_unique() {
             }
 
             visited.insert(parent);
-        }
+        });
     });
 }
 
@@ -189,7 +160,7 @@ pub fn fuzz<F: FnMut(SearchNode)>(game_count: usize, mut callback: F) {
 
         while !state.is_terminal() {
             child_buffer.clear();
-            state.visit_children(&mut child_buffer);
+            state.visit_children(|child| child_buffer.push(child));
 
             let selected_child = child_buffer[rng.gen_range(0..child_buffer.len())];
 
