@@ -62,9 +62,10 @@ impl StateSet {
     }
 
     pub fn union(mut self, other: &Self) -> Self {
-        for node in other.to_unsorted_vec() {
+        other.visit(|node| {
             self.add(node);
-        }
+        });
+
         self
     }
 
@@ -79,73 +80,73 @@ impl StateSet {
     pub fn to_unsorted_vec(&self) -> Vec<SearchNode> {
         let mut raw = Vec::new();
 
-        self.write(&mut raw);
+        self.visit(|node| raw.push(node));
 
         raw
     }
 
-    fn write(&self, out: &mut Vec<SearchNode>) {
+    pub fn visit(&self, mut visitor: impl FnMut(SearchNode)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {
                 continue;
             };
             let prefix = (i0 as u64) << (56 - 16);
-            self.write0(prefix, bucket0, out);
+            self.visit0(prefix, bucket0, &mut visitor);
         }
     }
 
-    fn write0(&self, prefix: u64, bucket0: &Bucket0, out: &mut Vec<SearchNode>) {
+    fn visit0(&self, prefix: u64, bucket0: &Bucket0, mut visitor: impl FnMut(SearchNode)) {
         for (i1, bucket1) in bucket0.iter().enumerate() {
             let Some(bucket1) = bucket1 else {
                 continue;
             };
             let prefix = prefix | ((i1 as u64) << (56 - 16 - 4));
-            self.write1(prefix, bucket1, out);
+            self.visit1(prefix, bucket1, &mut visitor);
         }
     }
 
-    fn write1(&self, prefix: u64, bucket1: &Bucket1, out: &mut Vec<SearchNode>) {
+    fn visit1(&self, prefix: u64, bucket1: &Bucket1, mut visitor: impl FnMut(SearchNode)) {
         for (i2, bucket2) in bucket1.iter().enumerate() {
             let Some(bucket2) = bucket2 else {
                 continue;
             };
             let prefix = prefix | ((i2 as u64) << (56 - 16 - 2 * 4));
-            self.write2(prefix, bucket2, out);
+            self.visit2(prefix, bucket2, &mut visitor);
         }
     }
 
-    fn write2(&self, prefix: u64, bucket2: &Bucket2, out: &mut Vec<SearchNode>) {
+    fn visit2(&self, prefix: u64, bucket2: &Bucket2, mut visitor: impl FnMut(SearchNode)) {
         for (i3, bucket3) in bucket2.iter().enumerate() {
             let Some(bucket3) = bucket3 else {
                 continue;
             };
             let prefix = prefix | ((i3 as u64) << (56 - 16 - 3 * 4));
-            self.write3(prefix, bucket3, out);
+            self.visit3(prefix, bucket3, &mut visitor);
         }
     }
 
-    fn write3(&self, prefix: u64, bucket3: &Bucket3, out: &mut Vec<SearchNode>) {
+    fn visit3(&self, prefix: u64, bucket3: &Bucket3, mut visitor: impl FnMut(SearchNode)) {
         for (i4, bucket4) in bucket3.iter().enumerate() {
             let Some(bucket4) = bucket4 else {
                 continue;
             };
             let prefix = prefix | ((i4 as u64) << (56 - 16 - 4 * 4));
-            self.write4(prefix, bucket4, out);
+            self.visit4(prefix, bucket4, &mut visitor);
         }
     }
 
-    fn write4(&self, prefix: u64, bucket4: &Bucket4, out: &mut Vec<SearchNode>) {
+    fn visit4(&self, prefix: u64, bucket4: &Bucket4, mut visitor: impl FnMut(SearchNode)) {
         for (i5, bucket5) in bucket4.iter().enumerate() {
             let prefix = prefix | ((i5 as u64) << (56 - 16 - 5 * 4));
-            self.write5(prefix, *bucket5, out);
+            self.visit5(prefix, *bucket5, &mut visitor);
         }
     }
 
-    fn write5(&self, prefix: u64, bucket5: Bucket5, out: &mut Vec<SearchNode>) {
+    fn visit5(&self, prefix: u64, bucket5: Bucket5, mut visitor: impl FnMut(SearchNode)) {
         for i6 in 0..16 {
             if bucket5.0 & (1 << i6) != 0 {
                 let prefix = prefix | ((i6 as u64) << (56 - 16 - 6 * 4));
-                out.push(SearchNode(prefix));
+                visitor(SearchNode(prefix));
             }
         }
     }
