@@ -221,7 +221,31 @@ fn load_or_compute_best_child_map(
     } else {
         println!("Computing best child map. This will probably take a while.");
 
-        let best_child_map = best_child_map(solution);
+        let start_time = Instant::now();
+        let mut prev_time = start_time;
+        let mut countup = 0;
+        let mut checkpoints = 0;
+        const CHECKPOINT_SIZE: u64 = 1_000_000;
+
+        let best_child_map = best_child_map(solution, |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Found best children for {checkpoints} checkpoints. Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                prev_time = Instant::now();
+            }
+        });
+        println!(
+            "Computed best child map for {} nodes. It took {:?}.",
+            checkpoints * CHECKPOINT_SIZE + countup,
+            start_time.elapsed()
+        );
+
         let bytes = node_pair_slice_to_bytes(&best_child_map.to_sorted_vec());
         fs::write(&best_child_map_path, bytes).unwrap();
         println!("Wrote best child map to {:?}.", best_child_map_path);

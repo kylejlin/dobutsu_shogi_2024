@@ -8,13 +8,18 @@ impl Null for SearchNode {
     }
 }
 
-pub fn best_child_map(nodes: &[SearchNode]) -> StateMap<SearchNode> {
+pub fn best_child_map(
+    nodes: &[SearchNode],
+    mut on_node_processed: impl FnMut(SearchNode),
+) -> StateMap<SearchNode> {
     let mut out = StateMap::empty();
 
     for &node in nodes {
         if let Some(best) = best_child(node, nodes) {
             out.add(node, best);
         }
+
+        on_node_processed(node);
     }
 
     out
