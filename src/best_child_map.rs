@@ -12,7 +12,9 @@ pub fn best_child_map(nodes: &[SearchNode]) -> StateMap<SearchNode> {
     let mut out = StateMap::empty();
 
     for &node in nodes {
-        out.add(node, best_child(node, nodes).unwrap_or_else(Null::null));
+        if let Some(best) = best_child(node, nodes) {
+            out.add(node, best);
+        }
     }
 
     out
@@ -30,7 +32,8 @@ fn best_child(parent: SearchNode, nodes: &[SearchNode]) -> Option<SearchNode> {
             best_outcome = outcome;
         }
     });
-    best_child
+
+    Some(find(best_child?, nodes))
 }
 
 fn get_node_outcome(
