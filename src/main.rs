@@ -246,8 +246,25 @@ fn load_or_compute_best_child_map(
             start_time.elapsed()
         );
 
-        let bytes = node_pair_slice_to_bytes(&best_child_map.to_sorted_vec());
-        fs::write(&best_child_map_path, bytes).unwrap();
+        {
+            use std::{fs::File, io::Write};
+
+            let mut file = File::create(&best_child_map_path).unwrap();
+            let mut out_buffer =
+                Vec::with_capacity(2 * std::mem::size_of::<u64>() * (CHECKPOINT_SIZE as usize));
+            best_child_map.visit(|parent, child| {
+                out_buffer.extend_from_slice(&parent.0.to_le_bytes());
+                out_buffer.extend_from_slice(&child.0.to_le_bytes());
+
+                if out_buffer.len() >= 2 * std::mem::size_of::<u64>() * (CHECKPOINT_SIZE as usize) {
+                    file.write_all(&out_buffer).unwrap();
+                    out_buffer.clear();
+                }
+            });
+            file.write_all(&out_buffer).unwrap();
+            out_buffer.clear();
+        }
+
         println!("Wrote best child map to {:?}.", best_child_map_path);
         best_child_map
     }
@@ -352,15 +369,6 @@ fn node_slice_to_bytes(reachable_states: &[SearchNode]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(reachable_states.len() * std::mem::size_of::<u64>());
     for state in reachable_states {
         bytes.extend_from_slice(&state.0.to_le_bytes())
-    }
-    bytes
-}
-
-fn node_pair_slice_to_bytes(reachable_states: &[(SearchNode, SearchNode)]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(reachable_states.len() * 2 * std::mem::size_of::<u64>());
-    for (parent, child) in reachable_states {
-        bytes.extend_from_slice(&parent.0.to_le_bytes());
-        bytes.extend_from_slice(&child.0.to_le_bytes());
     }
     bytes
 }
