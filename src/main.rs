@@ -57,7 +57,7 @@ fn main() {
         }
 
         if trimmed_input == "prune" {
-            prune(&solution, &pruned_tree_path);
+            prune(&best_child_map, &pruned_tree_path);
             break;
         }
 
@@ -125,47 +125,19 @@ fn launch_tree_inspector(solution: &[SearchNode]) {
     }
 }
 
-fn prune(solution: &[SearchNode], pruned_tree_path: &Path) -> StateSet {
+fn prune(best_child_map: &StateMap<SearchNode>, pruned_tree_path: &Path) -> StateSet {
     let initial_state = SearchNode(SearchNode::initial().state());
 
-    let sente_optimal_start_time = Instant::now();
-    let mut prev_time = sente_optimal_start_time;
+    let gote_optimal_start_time = Instant::now();
+    let mut prev_time = gote_optimal_start_time;
     let mut countup = 0;
     let mut checkpoints = 0;
     const CHECKPOINT_SIZE: u64 = 1_000_000;
 
-    let sente_optimal = prune::prune_assuming_one_player_plays_optimally(
-        initial_state,
-        Player::Sente,
-        solution,
-        |_| {
-            countup += 1;
-
-            if countup >= CHECKPOINT_SIZE {
-                countup %= CHECKPOINT_SIZE;
-                checkpoints += 1;
-                println!(
-                    "Pruned {checkpoints} checkpoints (sente-optimal). Duration: {:?}",
-                    prev_time.elapsed()
-                );
-                prev_time = Instant::now();
-            }
-        },
-    );
-    let sente_optimal_duration = sente_optimal_start_time.elapsed();
-    println!(
-        "Completed pruning the sente-optimal tree. It took {} dequeues and {:?}.",
-        checkpoints * CHECKPOINT_SIZE + countup,
-        sente_optimal_duration,
-    );
-
-    let gote_optimal_start_time = Instant::now();
-    prev_time = gote_optimal_start_time;
-
     let gote_optimal = prune::prune_assuming_one_player_plays_optimally(
         initial_state,
         Player::Gote,
-        solution,
+        best_child_map,
         |_| {
             countup += 1;
 
@@ -185,6 +157,34 @@ fn prune(solution: &[SearchNode], pruned_tree_path: &Path) -> StateSet {
         "Completed pruning the gote-optimal tree. It took {} dequeues and {:?}.",
         checkpoints * CHECKPOINT_SIZE + countup,
         gote_optimal_duration,
+    );
+
+    let sente_optimal_start_time = Instant::now();
+    prev_time = sente_optimal_start_time;
+
+    let sente_optimal = prune::prune_assuming_one_player_plays_optimally(
+        initial_state,
+        Player::Sente,
+        best_child_map,
+        |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Pruned {checkpoints} checkpoints (sente-optimal). Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                prev_time = Instant::now();
+            }
+        },
+    );
+    let sente_optimal_duration = sente_optimal_start_time.elapsed();
+    println!(
+        "Completed pruning the sente-optimal tree. It took {} dequeues and {:?}.",
+        checkpoints * CHECKPOINT_SIZE + countup,
+        sente_optimal_duration,
     );
 
     println!(

@@ -1,9 +1,8 @@
-use core::panic;
 use std::collections::VecDeque;
 
 use super::*;
 
-use crate::pretty::*;
+use crate::state_map::*;
 
 #[derive(Clone, Copy, Debug)]
 struct QueueItem {
@@ -18,12 +17,12 @@ struct QueueItem {
 pub fn prune_assuming_one_player_plays_optimally(
     initial_state: SearchNode,
     optimal_player: Player,
-    nodes: &[SearchNode],
+    best_child_map: &StateMap<SearchNode>,
     mut on_node_processed: impl FnMut(SearchNode),
 ) -> StateSet {
     let mut once_enqueued_states_where_optimal_player_is_active = StateSet::empty();
     let mut once_enqueued_states_where_unpredictable_player_is_active = StateSet::empty();
-    let mut queue = VecDeque::with_capacity(nodes.len());
+    let mut queue = VecDeque::new();
 
     match optimal_player {
         Player::Sente => {
@@ -43,9 +42,11 @@ pub fn prune_assuming_one_player_plays_optimally(
         // we only need to explore the best child.
 
         if item.active_player == optimal_player {
-            let Some(best_child) = best_child(item.state, nodes) else {
+            let best_child = best_child_map.get(item.state);
+
+            if best_child.is_null() {
                 continue;
-            };
+            }
 
             if once_enqueued_states_where_unpredictable_player_is_active
                 .add(best_child)
@@ -86,43 +87,4 @@ pub fn prune_assuming_one_player_plays_optimally(
 
     once_enqueued_states_where_optimal_player_is_active
         .union(&once_enqueued_states_where_unpredictable_player_is_active)
-}
-
-fn best_child(parent: SearchNode, nodes: &[SearchNode]) -> Option<SearchNode> {
-    let mut best_child = None;
-    let mut best_outcome = Outcome(i16::MAX);
-    parent.visit_children(|child| {
-        let outcome = get_node_outcome(child, nodes).unwrap_or(Outcome(0));
-        // We invert perspectives, since child nodes represent the opponent's turn.
-        // Therefore, lower scores are better.
-        if outcome < best_outcome {
-            best_child = Some(child);
-            best_outcome = outcome;
-        }
-    });
-    best_child
-}
-
-fn get_node_outcome(
-    node_with_incorrect_nonstate_fields: SearchNode,
-    nodes: &[SearchNode],
-) -> Option<Outcome> {
-    find(node_with_incorrect_nonstate_fields, nodes).best_outcome()
-}
-
-fn find(node_with_incorrect_nonstate_fields: SearchNode, nodes: &[SearchNode]) -> SearchNode {
-    let state = node_with_incorrect_nonstate_fields.state();
-    let node = nodes
-        .binary_search_by(|other| other.state().cmp(&state))
-        .ok()
-        .map(|i| nodes[i]);
-
-    if let Some(node) = node {
-        node
-    } else {
-        panic!(
-            "Could not find node in node vector.\n\nNode:\n\n{}",
-            node_with_incorrect_nonstate_fields.pretty()
-        )
-    }
 }
