@@ -17,7 +17,7 @@ fn state_set_is_consistent_with_hash_set() {
             assert!(state_set.add(state).did_addend_already_exist);
         }
 
-        let state_set_vec = state_set.into_unsorted_vec();
+        let state_set_vec = state_set.to_unsorted_vec();
         for state in state_set_vec.iter().copied() {
             assert!(reference.contains(&state));
             assert_eq!(state.state(), state.0);
@@ -35,7 +35,7 @@ fn state_set_vec_is_consistent_with_hash_set() {
 
     for _ in 0..FUZZ_TIMES {
         let (state_set, reference) = random_state_set_pair(&mut prng);
-        let state_set_vec = state_set.into_unsorted_vec();
+        let state_set_vec = state_set.to_unsorted_vec();
 
         for state in reference.iter().copied() {
             assert!(state_set_vec.contains(&state));

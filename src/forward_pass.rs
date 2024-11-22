@@ -22,5 +22,5 @@ pub fn reachable_states(
         on_node_processed(node);
     }
 
-    reachable_states.into_sorted_vec()
+    reachable_states.to_sorted_vec()
 }

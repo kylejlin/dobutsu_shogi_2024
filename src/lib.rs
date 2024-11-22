@@ -8,9 +8,11 @@ mod tests;
 pub mod backward_pass;
 pub mod forward_pass;
 pub mod pretty;
+pub mod prune;
 
 pub use backward_pass::solve;
 pub use forward_pass::reachable_states;
+pub use prune::prune_assuming_one_player_plays_optimally;
 
 mod state_set;
 
@@ -123,6 +125,12 @@ struct ParentCalculator {
 #[derive(Clone, Copy, Debug)]
 struct ShouldDemoteActorInParent(bool);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Player {
+    Sente,
+    Gote,
+}
+
 // TODO: Delete after we are done debugging.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Progress {
@@ -152,6 +160,17 @@ impl OptionalNodeBuilder {
 
     const fn unchecked_unwrap(self) -> NodeBuilder {
         NodeBuilder(self.0)
+    }
+}
+
+impl std::ops::Not for Player {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        match self {
+            Player::Sente => Player::Gote,
+            Player::Gote => Player::Sente,
+        }
     }
 }
 

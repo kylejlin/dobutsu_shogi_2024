@@ -61,15 +61,22 @@ impl StateSet {
         }
     }
 
-    pub fn into_sorted_vec(self) -> Vec<SearchNode> {
-        let mut v = self.into_unsorted_vec();
+    pub fn union(mut self, other: &Self) -> Self {
+        for node in other.to_unsorted_vec() {
+            self.add(node);
+        }
+        self
+    }
+
+    pub fn to_sorted_vec(&self) -> Vec<SearchNode> {
+        let mut v = self.to_unsorted_vec();
 
         v.sort_unstable();
 
         v
     }
 
-    pub fn into_unsorted_vec(self) -> Vec<SearchNode> {
+    pub fn to_unsorted_vec(&self) -> Vec<SearchNode> {
         let mut raw = Vec::new();
 
         self.write(&mut raw);
