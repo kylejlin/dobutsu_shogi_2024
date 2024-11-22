@@ -246,10 +246,10 @@ fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize
     }
 
     let mut best_index = 0;
-    let mut best_outcome = get_node_outcome(children[0], solution);
+    let mut best_outcome: Outcome = get_node_outcome(children[0], solution).unwrap_or(Outcome(0));
 
     for (i, child) in children.iter().enumerate().skip(1) {
-        let outcome = get_node_outcome(*child, solution);
+        let outcome = get_node_outcome(*child, solution).unwrap_or(Outcome(0));
         // We invert perspectives, since child nodes represent the opponent's turn.
         // Therefore, lower scores are better.
         if outcome < best_outcome {
@@ -261,8 +261,8 @@ fn best_child_index(parent: SearchNode, solution: &[SearchNode]) -> Option<usize
     Some(best_index)
 }
 
-fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Outcome {
-    correct_nonstate_fields(target, solution).best_known_outcome()
+fn get_node_outcome(target: SearchNode, solution: &[SearchNode]) -> Option<Outcome> {
+    correct_nonstate_fields(target, solution).best_outcome()
 }
 
 fn clear_console() {
