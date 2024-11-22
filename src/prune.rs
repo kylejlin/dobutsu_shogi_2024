@@ -7,7 +7,7 @@ use crate::pretty::*;
 
 #[derive(Clone, Copy, Debug)]
 struct QueueItem {
-    node: SearchNode,
+    state: SearchNode,
     active_player: Player,
 }
 
@@ -25,17 +25,16 @@ pub fn prune_assuming_one_player_plays_optimally(
     let mut once_enqueued_states_where_unpredictable_player_is_active = StateSet::empty();
     let mut queue = VecDeque::with_capacity(nodes.len());
 
-    let initial_node = find(initial_state, nodes);
     match optimal_player {
         Player::Sente => {
-            once_enqueued_states_where_optimal_player_is_active.add(initial_node);
+            once_enqueued_states_where_optimal_player_is_active.add(initial_state);
         }
         Player::Gote => {
-            once_enqueued_states_where_unpredictable_player_is_active.add(initial_node);
+            once_enqueued_states_where_unpredictable_player_is_active.add(initial_state);
         }
     }
     queue.push_back(QueueItem {
-        node: initial_node,
+        state: initial_state,
         active_player: Player::Sente,
     });
 
@@ -44,7 +43,7 @@ pub fn prune_assuming_one_player_plays_optimally(
         // we only need to explore the best child.
 
         if item.active_player == optimal_player {
-            let Some(best_child) = best_child(item.node, nodes) else {
+            let Some(best_child) = best_child(item.state, nodes) else {
                 continue;
             };
 
@@ -56,11 +55,11 @@ pub fn prune_assuming_one_player_plays_optimally(
             }
 
             queue.push_back(QueueItem {
-                node: best_child,
+                state: best_child,
                 active_player: !item.active_player,
             });
 
-            on_node_processed(item.node);
+            on_node_processed(item.state);
 
             continue;
         }
@@ -68,25 +67,47 @@ pub fn prune_assuming_one_player_plays_optimally(
         // Otherwise, the active player is the unpredictable player.
         // Therefore, we need to explore all possible children.
 
-        for child in item.node.children().iter().copied().map(|c| find(c, nodes)) {
+        item.state.visit_children(|child| {
             if once_enqueued_states_where_optimal_player_is_active
                 .add(child)
                 .did_addend_already_exist
             {
-                continue;
+                return;
             }
 
             queue.push_back(QueueItem {
-                node: child,
+                state: child,
                 active_player: !item.active_player,
             });
-        }
+        });
 
-        on_node_processed(item.node);
+        on_node_processed(item.state);
     }
 
     once_enqueued_states_where_optimal_player_is_active
         .union(&once_enqueued_states_where_unpredictable_player_is_active)
+}
+
+fn best_child(parent: SearchNode, nodes: &[SearchNode]) -> Option<SearchNode> {
+    let mut best_child = None;
+    let mut best_outcome = Outcome(i16::MAX);
+    parent.visit_children(|child| {
+        let outcome = get_node_outcome(child, nodes).unwrap_or(Outcome(0));
+        // We invert perspectives, since child nodes represent the opponent's turn.
+        // Therefore, lower scores are better.
+        if outcome < best_outcome {
+            best_child = Some(child);
+            best_outcome = outcome;
+        }
+    });
+    best_child
+}
+
+fn get_node_outcome(
+    node_with_incorrect_nonstate_fields: SearchNode,
+    nodes: &[SearchNode],
+) -> Option<Outcome> {
+    find(node_with_incorrect_nonstate_fields, nodes).best_outcome()
 }
 
 fn find(node_with_incorrect_nonstate_fields: SearchNode, nodes: &[SearchNode]) -> SearchNode {
@@ -104,33 +125,4 @@ fn find(node_with_incorrect_nonstate_fields: SearchNode, nodes: &[SearchNode]) -
             node_with_incorrect_nonstate_fields.pretty()
         )
     }
-}
-
-fn best_child(parent: SearchNode, nodes: &[SearchNode]) -> Option<SearchNode> {
-    let children = parent.children();
-    if children.is_empty() {
-        return None;
-    }
-
-    let mut best_index = 0;
-    let mut best_outcome = get_node_outcome(children[0], nodes).unwrap_or(Outcome(0));
-
-    for (i, child) in children.iter().enumerate().skip(1) {
-        let outcome = get_node_outcome(*child, nodes).unwrap_or(Outcome(0));
-        // We invert perspectives, since child nodes represent the opponent's turn.
-        // Therefore, lower scores are better.
-        if outcome < best_outcome {
-            best_index = i;
-            best_outcome = outcome;
-        }
-    }
-
-    Some(find(children[best_index], nodes))
-}
-
-fn get_node_outcome(
-    node_with_incorrect_nonstate_fields: SearchNode,
-    nodes: &[SearchNode],
-) -> Option<Outcome> {
-    find(node_with_incorrect_nonstate_fields, nodes).best_outcome()
 }
