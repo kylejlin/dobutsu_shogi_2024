@@ -6,6 +6,7 @@
 mod tests;
 
 pub mod backward_pass;
+pub mod best_child_map;
 pub mod forward_pass;
 pub mod pretty;
 pub mod prune;
