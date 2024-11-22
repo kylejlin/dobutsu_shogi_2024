@@ -141,7 +141,6 @@ fn prune(solution: &[SearchNode], pruned_tree_path: &Path) -> StateSet {
                     "Pruned {checkpoints} checkpoints (sente-optimal). Duration: {:?}",
                     prev_time.elapsed()
                 );
-                println!();
                 prev_time = Instant::now();
             }
         },
@@ -170,7 +169,6 @@ fn prune(solution: &[SearchNode], pruned_tree_path: &Path) -> StateSet {
                     "Pruned {checkpoints} checkpoints (gote-optimal). Duration: {:?}",
                     prev_time.elapsed()
                 );
-                println!();
                 prev_time = Instant::now();
             }
         },
