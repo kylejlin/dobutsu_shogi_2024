@@ -25,24 +25,43 @@ fn main() {
         .parent()
         .unwrap()
         .join("solution.dat");
+    let pruned_tree_path = Path::new(file!())
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("pruned_tree.dat");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
 
     let mut input_buffer = String::with_capacity(256);
 
-    println!("Tree inspector ready. Type \"launch\" to launch.");
-    println!("This will clear the console, so be sure to save any important information.");
+    println!("Tree inspector ready. Type \"launch\" to launch, or \"prune\" to prune.");
+    println!("Launching will clear the console, so be sure to save any important information.");
     loop {
         input_buffer.clear();
         std::io::stdin().read_line(&mut input_buffer).unwrap();
-        if input_buffer.trim() == "launch" {
+
+        let trimmed_input = input_buffer.trim();
+
+        if trimmed_input == "launch" {
+            launch_tree_inspector(&solution);
             break;
         }
 
-        println!("Invalid command. Type \"launch\" to launch.");
-    }
+        if trimmed_input == "prune" {
+            prune(&solution, &pruned_tree_path);
+            break;
+        }
 
-    let mut history = vec![correct_nonstate_fields(SearchNode::initial(), &solution)];
+        println!("Invalid command. Type \"launch\" to launch, or \"prune\" to prune.");
+    }
+}
+
+fn launch_tree_inspector(solution: &[SearchNode]) {
+    let mut input_buffer = String::with_capacity(256);
+
+    let mut history = vec![correct_nonstate_fields(SearchNode::initial(), solution)];
 
     loop {
         clear_console();
@@ -97,6 +116,87 @@ fn main() {
             }
         }
     }
+}
+
+fn prune(solution: &[SearchNode], pruned_tree_path: &Path) -> StateSet {
+    let initial_state = SearchNode(SearchNode::initial().state());
+
+    let sente_optimal_start_time = Instant::now();
+    let mut prev_time = sente_optimal_start_time;
+    let mut countup = 0;
+    let mut checkpoints = 0;
+    const CHECKPOINT_SIZE: u64 = 1_000_000;
+
+    let sente_optimal = prune::prune_assuming_one_player_plays_optimally(
+        initial_state,
+        Player::Sente,
+        solution,
+        |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Pruned {checkpoints} checkpoints (sente-optimal). Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                println!();
+                prev_time = Instant::now();
+            }
+        },
+    );
+    let sente_optimal_duration = sente_optimal_start_time.elapsed();
+    println!(
+        "Completed pruning the sente-optimal tree. It took {} dequeues and {:?}.",
+        checkpoints * CHECKPOINT_SIZE + countup,
+        sente_optimal_duration,
+    );
+
+    let gote_optimal_start_time = Instant::now();
+    prev_time = gote_optimal_start_time;
+
+    let gote_optimal = prune::prune_assuming_one_player_plays_optimally(
+        initial_state,
+        Player::Gote,
+        solution,
+        |_| {
+            countup += 1;
+
+            if countup >= CHECKPOINT_SIZE {
+                countup %= CHECKPOINT_SIZE;
+                checkpoints += 1;
+                println!(
+                    "Pruned {checkpoints} checkpoints (gote-optimal). Duration: {:?}",
+                    prev_time.elapsed()
+                );
+                println!();
+                prev_time = Instant::now();
+            }
+        },
+    );
+    let gote_optimal_duration = gote_optimal_start_time.elapsed();
+    println!(
+        "Completed pruning the gote-optimal tree. It took {} dequeues and {:?}.",
+        checkpoints * CHECKPOINT_SIZE + countup,
+        gote_optimal_duration,
+    );
+
+    println!(
+        "Completed pruning both trees. It took {:?}.",
+        sente_optimal_duration + gote_optimal_duration
+    );
+
+    let combined = sente_optimal.union(&gote_optimal);
+    let combined_vec = combined.to_sorted_vec();
+    let bytes = node_slice_to_bytes(&combined_vec);
+    fs::write(&pruned_tree_path, bytes).unwrap();
+    println!(
+        "Wrote pruned tree ({} nodes) to {:?}.",
+        combined_vec.len(),
+        pruned_tree_path
+    );
+    combined
 }
 
 fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) -> Vec<SearchNode> {

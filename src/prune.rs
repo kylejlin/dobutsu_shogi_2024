@@ -19,7 +19,7 @@ pub fn prune_assuming_one_player_plays_optimally(
     initial_state: SearchNode,
     optimal_player: Player,
     nodes: &[SearchNode],
-    mut on_node_processed: impl FnMut(SearchNode) -> bool,
+    mut on_node_processed: impl FnMut(SearchNode),
 ) -> StateSet {
     let mut once_enqueued_states_where_optimal_player_is_active = StateSet::empty();
     let mut once_enqueued_states_where_unpredictable_player_is_active = StateSet::empty();
