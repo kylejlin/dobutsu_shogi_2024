@@ -9,11 +9,13 @@ pub mod backward_pass;
 pub mod forward_pass;
 pub mod pretty;
 pub mod prune;
+pub mod state_map;
 pub mod state_set;
 
 pub use backward_pass::solve;
 pub use forward_pass::reachable_states;
 pub use prune::prune_assuming_one_player_plays_optimally;
+pub use state_map::StateMap;
 pub use state_set::StateSet;
 
 // A note about fileds with the comment "Must be non-zero":
