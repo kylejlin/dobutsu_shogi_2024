@@ -14,6 +14,7 @@ pub mod state_map;
 pub mod state_set;
 
 pub use backward_pass::solve;
+pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
 pub use prune::prune_assuming_one_player_plays_optimally;
 pub use state_map::StateMap;
