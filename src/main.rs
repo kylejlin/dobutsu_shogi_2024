@@ -281,8 +281,8 @@ fn load_or_compute_best_child_map(
         let mut out = StateMap::empty();
         const CHECKPOINT_SIZE: usize = 1_000_000;
         const U64_BYTES: usize = std::mem::size_of::<u64>();
-        let mut buffer: Box<[u8; CHECKPOINT_SIZE * U64_BYTES]> =
-            Box::new([0; CHECKPOINT_SIZE * U64_BYTES]);
+        let mut buffer: Box<[u8; CHECKPOINT_SIZE * 2 * U64_BYTES]> =
+            Box::new([0; CHECKPOINT_SIZE * 2 * U64_BYTES]);
         let mut buffer_len = 0;
         let mut checkpoints = 0;
         let start_time = Instant::now();
@@ -294,7 +294,7 @@ fn load_or_compute_best_child_map(
 
             buffer_len += bytes_read;
 
-            if buffer_len == CHECKPOINT_SIZE {
+            if buffer_len == CHECKPOINT_SIZE * 2 * U64_BYTES {
                 for i in (0..buffer_len).step_by(2 * U64_BYTES) {
                     let mut parent_bytes = [0; U64_BYTES];
                     parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
@@ -404,7 +404,7 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
 
             buffer_len += bytes_read;
 
-            if buffer_len == CHECKPOINT_SIZE {
+            if buffer_len == CHECKPOINT_SIZE * U64_BYTES {
                 for i in (0..buffer_len).step_by(U64_BYTES) {
                     let mut bytes = [0; U64_BYTES];
                     bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
