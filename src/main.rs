@@ -319,7 +319,7 @@ fn load_or_compute_best_child_map(
         println!("Loading best child map from {:?}.", best_child_map_path);
         let mut file = File::open(&best_child_map_path).unwrap();
         let mut out = StateMap::empty();
-        const CHECKPOINT_SIZE: usize = 1_000_000;
+        const CHECKPOINT_SIZE: usize = 10_000_000;
         const U64_BYTES: usize = std::mem::size_of::<u64>();
         let mut buffer: Box<[u8; CHECKPOINT_SIZE * 2 * U64_BYTES]> =
             Box::new([0; CHECKPOINT_SIZE * 2 * U64_BYTES]);
@@ -427,7 +427,7 @@ fn load_or_compute_best_child_map(
 fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) -> Vec<SearchNode> {
     if solution_path.exists() {
         println!("Loading solution from {:?}.", solution_path);
-        const CHECKPOINT_SIZE: usize = 1_000_000;
+        const CHECKPOINT_SIZE: usize = 10_000_000;
         const U64_BYTES: usize = std::mem::size_of::<u64>();
         let mut file = File::open(&solution_path).unwrap();
         let mut buffer: Box<[u8; CHECKPOINT_SIZE * U64_BYTES]> =
