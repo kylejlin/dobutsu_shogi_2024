@@ -394,6 +394,8 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
             Box::new([0; CHECKPOINT_SIZE * U64_BYTES]);
         let mut buffer_len = 0;
         let mut out = vec![];
+        let mut checkpoints = 0;
+        let start_time = Instant::now();
         loop {
             let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
             if bytes_read == 0 && !buffer[buffer_len..].is_empty() {
@@ -411,6 +413,10 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
                 }
 
                 buffer_len = 0;
+
+                checkpoints += 1;
+
+                println!("Loaded {checkpoints} solution checkpoints.");
             }
         }
 
@@ -422,9 +428,10 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
         }
 
         println!(
-            "Loaded solution ({} states) from {:?}.",
+            "Loaded solution ({} states) from {:?}. It took {:?}.",
             out.len(),
-            solution_path
+            solution_path,
+            start_time.elapsed()
         );
         out
     } else {
