@@ -287,7 +287,7 @@ fn load_or_compute_best_child_map(
             let mut buffer_len = 0;
             loop {
                 let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
-                if bytes_read == 0 {
+                if bytes_read == 0 && !buffer[buffer_len..].is_empty() {
                     break;
                 }
 
@@ -387,7 +387,7 @@ fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) 
         let mut out = vec![];
         loop {
             let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
-            if bytes_read == 0 {
+            if bytes_read == 0 && !buffer[buffer_len..].is_empty() {
                 break;
             }
 
