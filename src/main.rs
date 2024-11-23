@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -237,19 +237,32 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
     let mut checkpoints = 0;
     const CHECKPOINT_SIZE: u64 = 1_000_000;
 
+    const U64_BYTES: usize = std::mem::size_of::<u64>();
+    const NODES_PER_PACKET: usize = 1024;
+    let mut packet_buffer: Vec<u8> = Vec::with_capacity(U64_BYTES * NODES_PER_PACKET);
+    let mut parent_of_most_recent_packet_addition: Option<SearchNode> = None;
+    let mut packet_parent_shifted_state_maximums: Vec<u64> = vec![];
+
     fs::create_dir(&simple_db_path).unwrap();
     best_child_map.visit(|parent, child| {
-        let bytes = parent.shifted_state().to_le_bytes();
-        let prefix = simple_db_path
-            .join(format!("{:02x}", bytes[0]))
-            .join(format!("{:02x}", bytes[1]))
-            .join(format!("{:02x}", bytes[2]))
-            .join(format!("{:02x}", bytes[3]));
-        fs::create_dir_all(&prefix).unwrap();
+        packet_buffer.extend_from_slice(&child.0.to_le_bytes());
+        parent_of_most_recent_packet_addition = Some(parent);
 
-        let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
-        let content = child.0.to_le_bytes();
-        fs::write(&file_path, &content).unwrap();
+        if packet_buffer.len() == U64_BYTES * NODES_PER_PACKET {
+            let bytes = parent.shifted_state().to_le_bytes();
+            let prefix = simple_db_path
+                .join(format!("{:02x}", bytes[0]))
+                .join(format!("{:02x}", bytes[1]))
+                .join(format!("{:02x}", bytes[2]))
+                .join(format!("{:02x}", bytes[3]));
+            fs::create_dir_all(&prefix).unwrap();
+
+            let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
+            fs::write(&file_path, &packet_buffer).unwrap();
+
+            packet_parent_shifted_state_maximums.push(parent.shifted_state());
+            packet_buffer.clear();
+        }
 
         countup += 1;
 
@@ -257,12 +270,39 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
             countup %= CHECKPOINT_SIZE;
             checkpoints += 1;
             println!(
-                "Created {checkpoints} checkpoints worth of files. Duration: {:?}",
+                "Reached {checkpoints} database checkpoints. Duration: {:?}",
                 prev_time.elapsed()
             );
             prev_time = Instant::now();
         }
     });
+
+    if let Some(parent) = parent_of_most_recent_packet_addition {
+        if !packet_buffer.is_empty() {
+            let bytes = parent.shifted_state().to_le_bytes();
+            let prefix = simple_db_path
+                .join(format!("{:02x}", bytes[0]))
+                .join(format!("{:02x}", bytes[1]))
+                .join(format!("{:02x}", bytes[2]))
+                .join(format!("{:02x}", bytes[3]));
+            fs::create_dir_all(&prefix).unwrap();
+
+            let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
+            fs::write(&file_path, &packet_buffer).unwrap();
+
+            packet_parent_shifted_state_maximums.push(parent.shifted_state());
+            packet_buffer.clear();
+        }
+    }
+
+    let maximums_file = File::create(simple_db_path.join("maximums.dat")).unwrap();
+    let mut maximums_file_writer = BufWriter::new(maximums_file);
+    for maximum in packet_parent_shifted_state_maximums {
+        maximums_file_writer
+            .write_all(&maximum.to_le_bytes()[0..5])
+            .unwrap();
+    }
+    maximums_file_writer.flush().unwrap();
 
     println!(
         "Created simple best-child database at {:?}. It took {:?}.",
