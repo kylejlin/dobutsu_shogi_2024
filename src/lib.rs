@@ -244,6 +244,10 @@ impl SearchNode {
         self.0 & STATE_MASK
     }
 
+    pub const fn shifted_state(self) -> u64 {
+        (self.0 >> Offset::PASSIVE_LION.0) & 0xFF_FFFF_FFFF
+    }
+
     pub const fn required_child_report_count(self) -> u8 {
         ((self.0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111) as u8
     }

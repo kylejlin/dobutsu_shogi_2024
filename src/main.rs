@@ -37,13 +37,19 @@ fn main() {
         .parent()
         .unwrap()
         .join("best_child_map.dat");
+    let simple_db_path = Path::new(file!())
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("db");
 
     let solution = load_or_compute_solution(&solution_path, &reachable_states_path);
     let best_child_map = load_or_compute_best_child_map(&solution, &best_child_map_path);
 
     let mut input_buffer = String::with_capacity(256);
 
-    println!("Tree inspector ready. Type \"launch\" to launch, or \"prune\" to prune.");
+    println!("Tree inspector ready. Type \"launch\" to launch, \"prune\" to prune,\nor \"simpledb\" to create a simple best-child database.");
     println!("Launching will clear the console, so be sure to save any important information.");
     loop {
         input_buffer.clear();
@@ -61,7 +67,12 @@ fn main() {
             break;
         }
 
-        println!("Invalid command. Type \"launch\" to launch, or \"prune\" to prune.");
+        if trimmed_input == "simpledb" {
+            create_simple_db(&best_child_map, &simple_db_path);
+            break;
+        }
+
+        println!("Invalid command. Type \"launch\" to launch, \"prune\" to prune,\nor or \"simpledb\" to create a simple best-child database.");
     }
 }
 
@@ -202,6 +213,61 @@ fn prune(best_child_map: &StateMap<SearchNode>, pruned_tree_path: &Path) -> Stat
         pruned_tree_path
     );
     combined
+}
+
+fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path) {
+    if simple_db_path.exists() {
+        println!(
+            "Simple best-child database already exists at {:?}.",
+            simple_db_path
+        );
+        println!("Aborting.");
+        return;
+    }
+
+    println!(
+        "Creating simple best-child database at {:?}.",
+        simple_db_path
+    );
+
+    let start_time = Instant::now();
+    let mut prev_time = start_time;
+    let mut countup = 0;
+    let mut checkpoints = 0;
+    const CHECKPOINT_SIZE: u64 = 1_000_000;
+
+    std::fs::create_dir(&simple_db_path).unwrap();
+    best_child_map.visit(|parent, child| {
+        let bytes = parent.shifted_state().to_le_bytes();
+        let prefix = simple_db_path
+            .join(format!("{:02x}", bytes[0]))
+            .join(format!("{:02x}", bytes[1]))
+            .join(format!("{:02x}", bytes[2]))
+            .join(format!("{:02x}", bytes[3]));
+        std::fs::create_dir_all(&prefix).unwrap();
+
+        let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
+        let content = child.0.to_le_bytes();
+        std::fs::write(&file_path, &content).unwrap();
+
+        countup += 1;
+
+        if countup >= CHECKPOINT_SIZE {
+            countup %= CHECKPOINT_SIZE;
+            checkpoints += 1;
+            println!(
+                "Created {checkpoints} checkpoints worth of files. Duration: {:?}",
+                prev_time.elapsed()
+            );
+            prev_time = Instant::now();
+        }
+    });
+
+    println!(
+        "Created simple best-child database at {:?}. It took {:?}.",
+        simple_db_path,
+        start_time.elapsed()
+    );
 }
 
 fn load_or_compute_best_child_map(
