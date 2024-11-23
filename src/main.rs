@@ -277,55 +277,63 @@ fn load_or_compute_best_child_map(
 ) -> StateMap<SearchNode> {
     if best_child_map_path.exists() {
         println!("Loading best child map from {:?}.", best_child_map_path);
-        let saved = {
-            let mut file = File::open(&best_child_map_path).unwrap();
-            let mut out = StateMap::empty();
-            const CHECKPOINT_SIZE: usize = 1_000_000;
-            const U64_BYTES: usize = std::mem::size_of::<u64>();
-            let mut buffer: Box<[u8; CHECKPOINT_SIZE * U64_BYTES]> =
-                Box::new([0; CHECKPOINT_SIZE * U64_BYTES]);
-            let mut buffer_len = 0;
-            loop {
-                let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
-                if bytes_read == 0 && !buffer[buffer_len..].is_empty() {
-                    break;
-                }
-
-                buffer_len += bytes_read;
-
-                if buffer_len == CHECKPOINT_SIZE {
-                    for i in (0..buffer_len).step_by(2 * U64_BYTES) {
-                        let mut parent_bytes = [0; U64_BYTES];
-                        parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
-                        let parent = SearchNode(u64::from_le_bytes(parent_bytes));
-
-                        let mut child_bytes = [0; U64_BYTES];
-                        child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
-                        let child = SearchNode(u64::from_le_bytes(child_bytes));
-
-                        out.add(parent, child);
-                    }
-
-                    buffer_len = 0;
-                }
+        let mut file = File::open(&best_child_map_path).unwrap();
+        let mut out = StateMap::empty();
+        const CHECKPOINT_SIZE: usize = 1_000_000;
+        const U64_BYTES: usize = std::mem::size_of::<u64>();
+        let mut buffer: Box<[u8; CHECKPOINT_SIZE * U64_BYTES]> =
+            Box::new([0; CHECKPOINT_SIZE * U64_BYTES]);
+        let mut buffer_len = 0;
+        let mut checkpoints = 0;
+        let start_time = Instant::now();
+        loop {
+            let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
+            if bytes_read == 0 && !buffer[buffer_len..].is_empty() {
+                break;
             }
 
-            for i in (0..buffer_len).step_by(2 * U64_BYTES) {
-                let mut parent_bytes = [0; U64_BYTES];
-                parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
-                let parent = SearchNode(u64::from_le_bytes(parent_bytes));
+            buffer_len += bytes_read;
 
-                let mut child_bytes = [0; U64_BYTES];
-                child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
-                let child = SearchNode(u64::from_le_bytes(child_bytes));
+            if buffer_len == CHECKPOINT_SIZE {
+                for i in (0..buffer_len).step_by(2 * U64_BYTES) {
+                    let mut parent_bytes = [0; U64_BYTES];
+                    parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+                    let parent = SearchNode(u64::from_le_bytes(parent_bytes));
 
-                out.add(parent, child);
+                    let mut child_bytes = [0; U64_BYTES];
+                    child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
+                    let child = SearchNode(u64::from_le_bytes(child_bytes));
+
+                    out.add(parent, child);
+                }
+
+                buffer_len = 0;
+
+                checkpoints += 1;
+                println!("Loaded {checkpoints} best child checkpoints.");
             }
+        }
 
-            out
-        };
-        println!("Loaded best child map from {:?}.", best_child_map_path);
-        saved
+        for i in (0..buffer_len).step_by(2 * U64_BYTES) {
+            let mut parent_bytes = [0; U64_BYTES];
+            parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+            let parent = SearchNode(u64::from_le_bytes(parent_bytes));
+
+            let mut child_bytes = [0; U64_BYTES];
+            child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
+            let child = SearchNode(u64::from_le_bytes(child_bytes));
+
+            out.add(parent, child);
+        }
+
+        println!(
+            "Loaded best child map ({} states) from {:?}. It took {:?}.",
+            CHECKPOINT_SIZE * checkpoints + buffer_len / (2 * U64_BYTES),
+            best_child_map_path,
+            start_time.elapsed()
+        );
+
+        out
     } else {
         println!("Computing best child map. This will probably take a while.");
 
