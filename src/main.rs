@@ -379,10 +379,45 @@ fn load_or_compute_best_child_map(
 fn load_or_compute_solution(solution_path: &Path, reachable_states_path: &Path) -> Vec<SearchNode> {
     if solution_path.exists() {
         println!("Loading solution from {:?}.", solution_path);
-        let bytes = fs::read(&solution_path).unwrap();
-        let saved = bytes_to_node_vec(&bytes);
-        println!("Loaded solution from {:?}.", solution_path);
-        saved
+        const CHECKPOINT_SIZE: usize = 1_000_000;
+        const U64_BYTES: usize = std::mem::size_of::<u64>();
+        let mut file = File::open(&solution_path).unwrap();
+        let mut buffer: [u8; CHECKPOINT_SIZE * U64_BYTES] = [0; CHECKPOINT_SIZE * U64_BYTES];
+        let mut buffer_len = 0;
+        let mut out = vec![];
+        loop {
+            let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
+
+            buffer_len += bytes_read;
+
+            if buffer_len == CHECKPOINT_SIZE {
+                for i in (0..buffer_len).step_by(U64_BYTES) {
+                    let mut bytes = [0; U64_BYTES];
+                    bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+                    let node = SearchNode(u64::from_le_bytes(bytes));
+                    out.push(node);
+                }
+
+                buffer_len = 0;
+            }
+        }
+
+        for i in (0..buffer_len).step_by(U64_BYTES) {
+            let mut bytes = [0; U64_BYTES];
+            bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+            let node = SearchNode(u64::from_le_bytes(bytes));
+            out.push(node);
+        }
+
+        println!(
+            "Loaded solution ({} states) from {:?}.",
+            out.len(),
+            solution_path
+        );
+        out
     } else {
         let reachable_states = load_or_compute_reachable_states(&reachable_states_path);
 
@@ -485,21 +520,6 @@ fn bytes_to_node_vec(bytes: &[u8]) -> Vec<SearchNode> {
         let mut bytes = [0; std::mem::size_of::<u64>()];
         bytes.copy_from_slice(chunk);
         reachable_states.push(SearchNode(u64::from_le_bytes(bytes)));
-    }
-    reachable_states
-}
-
-fn bytes_to_node_pair_vec(bytes: &[u8]) -> Vec<(SearchNode, SearchNode)> {
-    let mut reachable_states = Vec::with_capacity(bytes.len() / (2 * std::mem::size_of::<u64>()));
-    for chunk in bytes.chunks_exact(2 * std::mem::size_of::<u64>()) {
-        let mut parent_bytes = [0; std::mem::size_of::<u64>()];
-        parent_bytes.copy_from_slice(&chunk[..std::mem::size_of::<u64>()]);
-        let mut child_bytes = [0; std::mem::size_of::<u64>()];
-        child_bytes.copy_from_slice(&chunk[std::mem::size_of::<u64>()..]);
-        reachable_states.push((
-            SearchNode(u64::from_le_bytes(parent_bytes)),
-            SearchNode(u64::from_le_bytes(child_bytes)),
-        ));
     }
     reachable_states
 }
