@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{BufWriter, Read, Write};
+use std::io::{Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -241,7 +241,7 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
     const NODES_PER_PACKET: usize = 1024;
     let mut packet_buffer: Vec<u8> = Vec::with_capacity(U64_BYTES * NODES_PER_PACKET);
     let mut parent_of_most_recent_packet_addition: Option<SearchNode> = None;
-    let mut packet_parent_shifted_state_maximums: Vec<u64> = vec![];
+    let mut byte_quintuplets_representing_packet_parent_shifted_state_maximums: Vec<u8> = vec![];
 
     fs::create_dir(&simple_db_path).unwrap();
     best_child_map.visit(|parent, child| {
@@ -249,18 +249,19 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
         parent_of_most_recent_packet_addition = Some(parent);
 
         if packet_buffer.len() == U64_BYTES * NODES_PER_PACKET {
-            let bytes = parent.shifted_state().to_le_bytes();
+            let parent_state_bytes = parent.shifted_state().to_le_bytes();
             let prefix = simple_db_path
-                .join(format!("{:02x}", bytes[0]))
-                .join(format!("{:02x}", bytes[1]))
-                .join(format!("{:02x}", bytes[2]))
-                .join(format!("{:02x}", bytes[3]));
+                .join(format!("{:02x}", parent_state_bytes[0]))
+                .join(format!("{:02x}", parent_state_bytes[1]))
+                .join(format!("{:02x}", parent_state_bytes[2]))
+                .join(format!("{:02x}", parent_state_bytes[3]));
             fs::create_dir_all(&prefix).unwrap();
 
-            let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
+            let file_path = prefix.join(format!("{:02x}.dat", parent_state_bytes[4]));
             fs::write(&file_path, &packet_buffer).unwrap();
 
-            packet_parent_shifted_state_maximums.push(parent.shifted_state());
+            byte_quintuplets_representing_packet_parent_shifted_state_maximums
+                .extend_from_slice(&parent_state_bytes[0..5]);
             packet_buffer.clear();
         }
 
@@ -279,33 +280,32 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
 
     if let Some(parent) = parent_of_most_recent_packet_addition {
         if !packet_buffer.is_empty() {
-            let bytes = parent.shifted_state().to_le_bytes();
+            let parent_state_bytes = parent.shifted_state().to_le_bytes();
             let prefix = simple_db_path
-                .join(format!("{:02x}", bytes[0]))
-                .join(format!("{:02x}", bytes[1]))
-                .join(format!("{:02x}", bytes[2]))
-                .join(format!("{:02x}", bytes[3]));
+                .join(format!("{:02x}", parent_state_bytes[0]))
+                .join(format!("{:02x}", parent_state_bytes[1]))
+                .join(format!("{:02x}", parent_state_bytes[2]))
+                .join(format!("{:02x}", parent_state_bytes[3]));
             fs::create_dir_all(&prefix).unwrap();
 
-            let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
+            let file_path = prefix.join(format!("{:02x}.dat", parent_state_bytes[4]));
             fs::write(&file_path, &packet_buffer).unwrap();
 
-            packet_parent_shifted_state_maximums.push(parent.shifted_state());
+            byte_quintuplets_representing_packet_parent_shifted_state_maximums
+                .extend_from_slice(&parent_state_bytes[0..5]);
             packet_buffer.clear();
         }
     }
 
-    let maximums_file = File::create(simple_db_path.join("maximums.dat")).unwrap();
-    let mut maximums_file_writer = BufWriter::new(maximums_file);
-    for maximum in packet_parent_shifted_state_maximums {
-        maximums_file_writer
-            .write_all(&maximum.to_le_bytes()[0..5])
-            .unwrap();
-    }
-    maximums_file_writer.flush().unwrap();
+    let packet_count = byte_quintuplets_representing_packet_parent_shifted_state_maximums.len() / 5;
+    fs::write(
+        simple_db_path.join("maximums.dat"),
+        byte_quintuplets_representing_packet_parent_shifted_state_maximums,
+    )
+    .unwrap();
 
     println!(
-        "Created simple best-child database at {:?}. It took {:?}.",
+        "Created simple best-child database ({packet_count} packets) at {:?}. It took {:?}.",
         simple_db_path,
         start_time.elapsed()
     );
