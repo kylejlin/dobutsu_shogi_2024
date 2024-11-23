@@ -1,4 +1,5 @@
-use std::fs;
+use std::fs::{self, File};
+use std::io::{Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -236,7 +237,7 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
     let mut checkpoints = 0;
     const CHECKPOINT_SIZE: u64 = 1_000_000;
 
-    std::fs::create_dir(&simple_db_path).unwrap();
+    fs::create_dir(&simple_db_path).unwrap();
     best_child_map.visit(|parent, child| {
         let bytes = parent.shifted_state().to_le_bytes();
         let prefix = simple_db_path
@@ -244,11 +245,11 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
             .join(format!("{:02x}", bytes[1]))
             .join(format!("{:02x}", bytes[2]))
             .join(format!("{:02x}", bytes[3]));
-        std::fs::create_dir_all(&prefix).unwrap();
+        fs::create_dir_all(&prefix).unwrap();
 
         let file_path = prefix.join(format!("{:02x}.dat", bytes[4]));
         let content = child.0.to_le_bytes();
-        std::fs::write(&file_path, &content).unwrap();
+        fs::write(&file_path, &content).unwrap();
 
         countup += 1;
 
@@ -276,12 +277,53 @@ fn load_or_compute_best_child_map(
 ) -> StateMap<SearchNode> {
     if best_child_map_path.exists() {
         println!("Loading best child map from {:?}.", best_child_map_path);
-        let bytes = fs::read(&best_child_map_path).unwrap();
-        let pairs = bytes_to_node_pair_vec(&bytes);
-        let mut saved = StateMap::empty();
-        for (parent, child) in pairs {
-            saved.add(parent, child);
-        }
+        let saved = {
+            let mut file = File::open(&best_child_map_path).unwrap();
+            let mut out = StateMap::empty();
+            const CHECKPOINT_SIZE: usize = 1_000_000;
+            const U64_BYTES: usize = std::mem::size_of::<u64>();
+            let mut buffer: [u8; CHECKPOINT_SIZE * 2 * U64_BYTES] =
+                [0; CHECKPOINT_SIZE * 2 * U64_BYTES];
+            let mut buffer_len = 0;
+            loop {
+                let bytes_read = file.read(&mut buffer[buffer_len..]).unwrap();
+                if bytes_read == 0 {
+                    break;
+                }
+
+                buffer_len += bytes_read;
+
+                if buffer_len == CHECKPOINT_SIZE {
+                    for i in (0..buffer_len).step_by(2 * U64_BYTES) {
+                        let mut parent_bytes = [0; U64_BYTES];
+                        parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+                        let parent = SearchNode(u64::from_le_bytes(parent_bytes));
+
+                        let mut child_bytes = [0; U64_BYTES];
+                        child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
+                        let child = SearchNode(u64::from_le_bytes(child_bytes));
+
+                        out.add(parent, child);
+                    }
+
+                    buffer_len = 0;
+                }
+            }
+
+            for i in (0..buffer_len).step_by(2 * U64_BYTES) {
+                let mut parent_bytes = [0; U64_BYTES];
+                parent_bytes.copy_from_slice(&buffer[i..i + U64_BYTES]);
+                let parent = SearchNode(u64::from_le_bytes(parent_bytes));
+
+                let mut child_bytes = [0; U64_BYTES];
+                child_bytes.copy_from_slice(&buffer[i + U64_BYTES..i + 2 * U64_BYTES]);
+                let child = SearchNode(u64::from_le_bytes(child_bytes));
+
+                out.add(parent, child);
+            }
+
+            out
+        };
         println!("Loaded best child map from {:?}.", best_child_map_path);
         saved
     } else {
@@ -313,8 +355,6 @@ fn load_or_compute_best_child_map(
         );
 
         {
-            use std::{fs::File, io::Write};
-
             let mut file = File::create(&best_child_map_path).unwrap();
             let mut out_buffer =
                 Vec::with_capacity(2 * std::mem::size_of::<u64>() * (CHECKPOINT_SIZE as usize));
