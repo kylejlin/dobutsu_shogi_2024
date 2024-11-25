@@ -9,18 +9,12 @@ pub mod backward_pass;
 pub mod best_child_map;
 pub mod forward_pass;
 pub mod pretty;
-pub mod prune;
 pub mod state_map;
-
-// TODO: Delete
-pub mod state_set;
 
 pub use backward_pass::solve;
 pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
-pub use prune::prune_assuming_one_player_plays_optimally;
 pub use state_map::*;
-pub use state_set::StateSet;
 
 // A note about fields with the comment "Must be non-zero":
 //

@@ -9,9 +9,6 @@ mod i9;
 mod legal_moves;
 mod state_map;
 
-// TODO: Delete
-mod state_set;
-
 #[test]
 fn initial_search_node_is_correct() {
     insta::assert_snapshot!(State::initial().pretty());
