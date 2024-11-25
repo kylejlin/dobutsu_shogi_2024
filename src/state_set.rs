@@ -62,7 +62,7 @@ impl StateSet {
     }
 
     pub fn union(mut self, other: &Self) -> Self {
-        other.visit(|node| {
+        other.visit_in_order(|node| {
             self.add(node);
         });
 
@@ -70,22 +70,14 @@ impl StateSet {
     }
 
     pub fn to_sorted_vec(&self) -> Vec<State> {
-        let mut v = self.to_unsorted_vec();
-
-        v.sort_unstable();
-
-        v
-    }
-
-    pub fn to_unsorted_vec(&self) -> Vec<State> {
         let mut raw = Vec::new();
 
-        self.visit(|node| raw.push(node));
+        self.visit_in_order(|node| raw.push(node));
 
         raw
     }
 
-    pub fn visit(&self, mut visitor: impl FnMut(State)) {
+    pub fn visit_in_order(&self, mut visitor: impl FnMut(State)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {
                 continue;

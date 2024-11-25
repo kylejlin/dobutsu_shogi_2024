@@ -8,7 +8,7 @@ pub fn initial_stat_map(
 ) -> StateMap<StateStats> {
     let mut map = StateMap::empty();
 
-    reachable.visit(|state| {
+    reachable.visit_in_order(|state| {
         map.add(state, state.guess_stats());
 
         on_state_processed(state);
