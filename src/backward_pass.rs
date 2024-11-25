@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 ///
 /// The map must be initialized such that every state `s`
 /// is mapped to `s.guess_stats()`.
-pub fn solve(
+pub fn compute_stats(
     map: &mut StateMap<StateStats>,
     progress: &mut Progress,
     mut on_state_processed: impl FnMut(&Progress) -> bool,

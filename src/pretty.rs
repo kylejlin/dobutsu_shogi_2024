@@ -46,10 +46,12 @@ trait Indent {
 
 impl IntoPretty for State {}
 impl IntoPretty for StateBuilder {}
+impl IntoPretty for StateAndStats {}
 impl IntoPretty for Hands {}
 impl IntoPretty for BoardWithPromotionData {}
 impl IntoPretty for Outcome {}
 impl IntoPretty for Vec<State> {}
+impl IntoPretty for Vec<StateAndStats> {}
 
 impl Indent for str {
     fn indented(&self, spaces: usize) -> Indented<'_> {
@@ -363,12 +365,31 @@ impl Display for Pretty<Vec<State>> {
 
         let len = self.0.len();
 
-        writeln!(f, "SearchNodeSet(len = {len}) [")?;
+        writeln!(f, "Vec<State> (len = {len}) [")?;
 
-        for (i, node) in self.0.iter().enumerate() {
-            let node = node.pretty();
-            let node = format!("{i}:\n{node}\n{divider}\n");
-            let indented = node.indented(4);
+        for (i, state) in self.0.iter().enumerate() {
+            let state = state.pretty();
+            let state = format!("{i}:\n{state}\n{divider}\n");
+            let indented = state.indented(4);
+            write!(f, "{indented}")?;
+        }
+
+        write!(f, "]")
+    }
+}
+
+impl Display for Pretty<Vec<StateAndStats>> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let divider = "=".repeat("|---|".len() * 2 + GAP.len());
+
+        let len = self.0.len();
+
+        writeln!(f, "Vec<StateAndStats> (len = {len}) [")?;
+
+        for (i, state) in self.0.iter().enumerate() {
+            let state = state.pretty();
+            let state = format!("{i}:\n{state}\n{divider}\n");
+            let indented = state.indented(4);
             write!(f, "{indented}")?;
         }
 

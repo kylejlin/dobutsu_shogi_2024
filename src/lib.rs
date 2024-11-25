@@ -11,7 +11,7 @@ pub mod forward_pass;
 pub mod pretty;
 pub mod state_map;
 
-pub use backward_pass::solve;
+pub use backward_pass::compute_stats;
 pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
 pub use state_map::*;
@@ -199,7 +199,7 @@ impl StateStats {
         Self((outcome.into_i9() as u16) | ((required_child_report_count as u16) << 9))
     }
 
-    const fn required_child_report_count(self) -> u8 {
+    pub const fn required_child_report_count(self) -> u8 {
         (self.0 >> 9) as u8
     }
 
@@ -229,7 +229,7 @@ impl StateStats {
         }
     }
 
-    const fn best_outcome(self) -> Option<Outcome> {
+    pub const fn best_outcome(self) -> Option<Outcome> {
         if self.required_child_report_count() > 0 {
             return None;
         }
@@ -237,7 +237,7 @@ impl StateStats {
         Some(self.best_known_outcome())
     }
 
-    const fn best_known_outcome(self) -> Outcome {
+    pub const fn best_known_outcome(self) -> Outcome {
         Outcome::from_i9((self.0 & 0b1_1111_1111) as u64)
     }
 }
@@ -658,7 +658,7 @@ impl Iterator for CoordVec {
 }
 
 impl State {
-    fn visit_children(self, visitor: impl FnMut(State)) {
+    pub fn visit_children(self, visitor: impl FnMut(State)) {
         ChildCalculator::new(self).visit_children(visitor);
     }
 }
