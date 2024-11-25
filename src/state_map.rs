@@ -86,6 +86,24 @@ impl<T: Null> Null for Box<T> {
     }
 }
 
+impl Null for SearchNode {
+    fn null() -> Self {
+        SearchNode(0)
+    }
+}
+
+impl Null for StateStats {
+    fn null() -> Self {
+        // `!0` can never represent a valid `StateStats` value,
+        // because it would imply the 127 required child reports,
+        // which is impossible
+        // (since 8 pieces * 12 destination squares = 96,
+        // which gives a conservative upper bound on the number
+        // of possible actions, and thus, the number of possible children).
+        StateStats(!0)
+    }
+}
+
 impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     pub fn empty() -> Self {
         Self {

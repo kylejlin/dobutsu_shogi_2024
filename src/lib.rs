@@ -20,7 +20,7 @@ pub use prune::prune_assuming_one_player_plays_optimally;
 pub use state_map::StateMap;
 pub use state_set::StateSet;
 
-// A note about fileds with the comment "Must be non-zero":
+// A note about fields with the comment "Must be non-zero":
 //
 // I know we _could_ use a `NonZeroU64` (or another respective `NonZero*` type),
 // but that would clutter the code with a bunch of unwraps,
@@ -33,6 +33,12 @@ enum Terminality {
     Nonterminal = 0,
     Win = 1,
 }
+
+/// This struct stores the best known outcome
+/// and the required child report count
+/// associated with a given game state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StateStats(pub u16);
 
 ///  - `0` represents a draw.
 ///

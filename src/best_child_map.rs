@@ -1,12 +1,6 @@
 use super::*;
 
-use crate::{pretty::*, state_map::Null};
-
-impl Null for SearchNode {
-    fn null() -> Self {
-        SearchNode(0)
-    }
-}
+use crate::pretty::*;
 
 pub fn best_child_map(
     nodes: &[SearchNode],
