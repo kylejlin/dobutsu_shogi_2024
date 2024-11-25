@@ -198,7 +198,8 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
     const CHECKPOINT_SIZE: u64 = 1_000_000;
 
     const U64_BYTES: usize = std::mem::size_of::<u64>();
-    const NODES_PER_PACKET: usize = 1024;
+    const NODES_PER_PACKET: usize = 1000;
+    const PACKETS_PER_DIRECTORY: usize = 1000;
     let mut packet_buffer: Vec<u8> = Vec::with_capacity(U64_BYTES * NODES_PER_PACKET);
     let mut parent_of_most_recent_packet_addition: Option<State> = None;
     let mut byte_quintuplets_representing_packet_parent_shifted_state_maximums: Vec<u8> = vec![];
@@ -209,17 +210,15 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
         parent_of_most_recent_packet_addition = Some(parent);
 
         if packet_buffer.len() == U64_BYTES * NODES_PER_PACKET {
-            let parent_state_bytes = parent.0.to_le_bytes();
-            let prefix = simple_db_path
-                .join(format!("{:02x}", parent_state_bytes[0]))
-                .join(format!("{:02x}", parent_state_bytes[1]))
-                .join(format!("{:02x}", parent_state_bytes[2]))
-                .join(format!("{:02x}", parent_state_bytes[3]));
+            let packet_index =
+                byte_quintuplets_representing_packet_parent_shifted_state_maximums.len() / 5;
+            let prefix = simple_db_path.join(format!("{}", packet_index / PACKETS_PER_DIRECTORY));
             fs::create_dir_all(&prefix).unwrap();
 
-            let file_path = prefix.join(format!("{:02x}.dat", parent_state_bytes[4]));
+            let file_path = prefix.join(format!("{}.dat", packet_index % PACKETS_PER_DIRECTORY));
             fs::write(&file_path, &packet_buffer).unwrap();
 
+            let parent_state_bytes = parent.0.to_le_bytes();
             byte_quintuplets_representing_packet_parent_shifted_state_maximums
                 .extend_from_slice(&parent_state_bytes[0..5]);
             packet_buffer.clear();
@@ -240,17 +239,15 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
 
     if let Some(parent) = parent_of_most_recent_packet_addition {
         if !packet_buffer.is_empty() {
-            let parent_state_bytes = parent.0.to_le_bytes();
-            let prefix = simple_db_path
-                .join(format!("{:02x}", parent_state_bytes[0]))
-                .join(format!("{:02x}", parent_state_bytes[1]))
-                .join(format!("{:02x}", parent_state_bytes[2]))
-                .join(format!("{:02x}", parent_state_bytes[3]));
+            let packet_index =
+                byte_quintuplets_representing_packet_parent_shifted_state_maximums.len() / 5;
+            let prefix = simple_db_path.join(format!("{}", packet_index / PACKETS_PER_DIRECTORY));
             fs::create_dir_all(&prefix).unwrap();
 
-            let file_path = prefix.join(format!("{:02x}.dat", parent_state_bytes[4]));
+            let file_path = prefix.join(format!("{}.dat", packet_index % PACKETS_PER_DIRECTORY));
             fs::write(&file_path, &packet_buffer).unwrap();
 
+            let parent_state_bytes = parent.0.to_le_bytes();
             byte_quintuplets_representing_packet_parent_shifted_state_maximums
                 .extend_from_slice(&parent_state_bytes[0..5]);
             packet_buffer.clear();
