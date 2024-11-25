@@ -2,7 +2,7 @@
 source: src/tests/mod.rs
 expression: "State::initial().children().pretty()"
 ---
-SearchNodeSet(len = 4) [
+Vec<State> (len = 4) [
     0:
     |===|                |===|
     |...|                |...|
