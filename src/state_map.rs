@@ -203,7 +203,13 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
             return None;
         };
 
-        Some(&mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize])
+        let out = &mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
+
+        if out.is_null() {
+            return None;
+        }
+
+        Some(out)
     }
 
     pub fn union(mut self, other: &Self) -> Self {
