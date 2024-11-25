@@ -98,8 +98,9 @@ fn visit_parents(
             use crate::pretty::*;
             assert!(
                 required_child_report_count <= 8 * 12,
-                "Required_child_report_count is too large.\n\nSTATE:\n\n{}",
-                parent.pretty()
+                "Required_child_report_count is too large ({}).\n\nSTATE:\n\n{}",
+                required_child_report_count,
+                parent.with_stats(original_parent_stats).pretty()
             );
         }
 
