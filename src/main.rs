@@ -244,7 +244,7 @@ fn create_simple_db(best_child_map: &StateMap<SearchNode>, simple_db_path: &Path
     let mut byte_quintuplets_representing_packet_parent_shifted_state_maximums: Vec<u8> = vec![];
 
     fs::create_dir(&simple_db_path).unwrap();
-    best_child_map.visit(|parent, child| {
+    best_child_map.visit_in_key_order(|parent, child| {
         packet_buffer.extend_from_slice(&child.0.to_le_bytes());
         parent_of_most_recent_packet_addition = Some(parent);
 
@@ -406,7 +406,7 @@ fn load_or_compute_best_child_map(
             let mut file = File::create(&best_child_map_path).unwrap();
             let mut out_buffer =
                 Vec::with_capacity(2 * std::mem::size_of::<u64>() * (CHECKPOINT_SIZE as usize));
-            best_child_map.visit(|parent, child| {
+            best_child_map.visit_in_key_order(|parent, child| {
                 out_buffer.extend_from_slice(&parent.0.to_le_bytes());
                 out_buffer.extend_from_slice(&child.0.to_le_bytes());
 

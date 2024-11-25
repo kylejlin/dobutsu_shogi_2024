@@ -150,7 +150,7 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     }
 
     pub fn union(mut self, other: &Self) -> Self {
-        other.visit(|node, value| {
+        other.visit_in_key_order(|node, value| {
             self.add(node, value);
         });
 
@@ -160,14 +160,14 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     pub fn to_sorted_vec(&self) -> Vec<(SearchNode, T)> {
         let mut raw = Vec::new();
 
-        self.visit(|node, value| raw.push((node, value)));
+        self.visit_in_key_order(|node, value| raw.push((node, value)));
 
         raw
     }
 
     /// This will visit the entries in the order of their keys
     /// (defined by `<SearchNode as Ord>::cmp`).
-    pub fn visit(&self, mut visitor: impl FnMut(SearchNode, T)) {
+    pub fn visit_in_key_order(&self, mut visitor: impl FnMut(SearchNode, T)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {
                 continue;

@@ -18,7 +18,7 @@ fn state_map_is_consistent_with_hash_map() {
         }
 
         let mut state_map_cardinality = 0;
-        state_map.visit(|key, val| {
+        state_map.visit_in_key_order(|key, val| {
             assert_eq!(Some(val), reference.get(&key).copied());
             assert_eq!(key.state(), key.0);
             state_map_cardinality += 1;
@@ -29,7 +29,7 @@ fn state_map_is_consistent_with_hash_map() {
 }
 
 #[test]
-fn state_set_vec_is_consistent_with_hash_map() {
+fn state_map_vec_is_consistent_with_hash_map() {
     const FUZZ_TIMES: usize = 1000;
 
     let mut prng = deterministic_prng();
@@ -56,7 +56,7 @@ fn state_set_vec_is_consistent_with_hash_map() {
 }
 
 #[test]
-fn state_set_vec_is_sorted() {
+fn state_map_vec_is_sorted() {
     const FUZZ_TIMES: usize = 1000;
 
     let mut prng = deterministic_prng();
@@ -67,6 +67,26 @@ fn state_set_vec_is_sorted() {
 
         for i in 1..state_map_vec.len() {
             assert!(state_map_vec[i - 1].0 < state_map_vec[i].0);
+        }
+    }
+}
+
+#[test]
+fn state_map_visitable_in_key_order() {
+    const FUZZ_TIMES: usize = 1000;
+
+    let mut prng = deterministic_prng();
+
+    for _ in 0..FUZZ_TIMES {
+        let (state_map, _) = random_state_map_pair(&mut prng);
+        let visited = {
+            let mut out = vec![];
+            state_map.visit_in_key_order(|node, _| out.push(node));
+            out
+        };
+
+        for i in 1..visited.len() {
+            assert!(visited[i - 1].0 < visited[i].0);
         }
     }
 }
