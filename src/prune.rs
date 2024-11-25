@@ -6,7 +6,7 @@ use crate::state_map::*;
 
 #[derive(Clone, Copy, Debug)]
 struct QueueItem {
-    state: SearchNode,
+    state: State,
     active_player: Player,
 }
 
@@ -15,10 +15,10 @@ struct QueueItem {
 /// Returns the set of states that are reachable by assuming that one player plays optimally
 /// and the other player plays unpredictably.
 pub fn prune_assuming_one_player_plays_optimally(
-    initial_state: SearchNode,
+    initial_state: State,
     optimal_player: Player,
-    best_child_map: &StateMap<SearchNode>,
-    mut on_node_processed: impl FnMut(SearchNode),
+    best_child_map: &StateMap<StateAndStats>,
+    mut on_node_processed: impl FnMut(State),
 ) -> StateSet {
     let mut once_enqueued_states_where_optimal_player_is_active = StateSet::empty();
     let mut once_enqueued_states_where_unpredictable_player_is_active = StateSet::empty();
@@ -49,14 +49,14 @@ pub fn prune_assuming_one_player_plays_optimally(
             }
 
             if once_enqueued_states_where_unpredictable_player_is_active
-                .add(best_child)
+                .add(best_child.state())
                 .did_addend_already_exist
             {
                 continue;
             }
 
             queue.push_back(QueueItem {
-                state: best_child,
+                state: best_child.state(),
                 active_player: !item.active_player,
             });
 

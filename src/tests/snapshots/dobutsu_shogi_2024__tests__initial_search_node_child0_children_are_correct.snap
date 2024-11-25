@@ -13,8 +13,6 @@ parent:
 |*c*|                |lc*|
 |elg|                |e*g|
 |---|                |---|
-required_child_report_count: 0
-best_known_outcome: 0 (draw)
 
 children:
 SearchNodeSet(len = 4) [
@@ -29,8 +27,6 @@ SearchNodeSet(len = 4) [
     |lc*|                |lc*|
     |e*g|                |e*g|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     1:
     |===|                |===|
@@ -43,8 +39,6 @@ SearchNodeSet(len = 4) [
     |lc*|                |*cl|
     |e*g|                |e*g|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     2:
     |===|                |===|
@@ -57,8 +51,6 @@ SearchNodeSet(len = 4) [
     |lC*|                |***|
     |e*g|                |elg|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     3:
     |===|                |===|
@@ -71,7 +63,5 @@ SearchNodeSet(len = 4) [
     |lc*|                |*cg|
     |e*g|                |el*|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
 ]

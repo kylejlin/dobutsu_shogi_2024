@@ -86,9 +86,15 @@ impl<T: Null> Null for Box<T> {
     }
 }
 
-impl Null for SearchNode {
+impl Null for State {
     fn null() -> Self {
-        SearchNode(0)
+        Self(0)
+    }
+}
+
+impl Null for StateAndStats {
+    fn null() -> Self {
+        Self(0)
     }
 }
 
@@ -100,7 +106,7 @@ impl Null for StateStats {
         // (since 8 pieces * 12 destination squares = 96,
         // which gives a conservative upper bound on the number
         // of possible actions, and thus, the number of possible children).
-        StateStats(!0)
+        Self(!0)
     }
 }
 
@@ -111,19 +117,19 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         }
     }
 
-    pub fn add(&mut self, node: SearchNode, value: T) -> DidAddendAlreadyExist {
-        let bucket0 = self.raw[(node.0 >> (56 - 16)) as usize].get_or_insert_with(Null::null);
+    pub fn add(&mut self, node: State, value: T) -> DidAddendAlreadyExist {
+        let bucket0 = self.raw[(node.0 >> (40 - 16)) as usize].get_or_insert_with(Null::null);
         let bucket1 =
-            bucket0.0[((node.0 >> (56 - 16 - 4)) & 0b1111) as usize].get_or_insert_with(Null::null);
-        let bucket2 = bucket1.0[((node.0 >> (56 - 16 - 2 * 4)) & 0b1111) as usize]
+            bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].get_or_insert_with(Null::null);
+        let bucket2 = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket3 = bucket2.0[((node.0 >> (56 - 16 - 3 * 4)) & 0b1111) as usize]
+        let bucket3 = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket4 = bucket3.0[((node.0 >> (56 - 16 - 4 * 4)) & 0b1111) as usize]
+        let bucket4 = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket5 = &mut bucket4.0[((node.0 >> (56 - 16 - 5 * 4)) & 0b1111) as usize]
+        let bucket5 = &mut bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let item = &mut bucket5.0[((node.0 >> (56 - 16 - 6 * 4)) & 0b1111) as usize];
+        let item = &mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
 
         let did_addend_already_exist = !item.is_null();
 
@@ -134,37 +140,70 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         }
     }
 
-    pub fn get(&self, node: SearchNode) -> T {
-        let Some(bucket0) = self.raw[(node.0 >> (56 - 16)) as usize].as_ref() else {
+    pub fn get(&self, node: State) -> T {
+        let Some(bucket0) = self.raw[(node.0 >> (40 - 16)) as usize].as_ref() else {
             return Null::null();
         };
 
-        let Some(bucket1) = bucket0.0[((node.0 >> (56 - 16 - 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket1) = bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket2) = bucket1.0[((node.0 >> (56 - 16 - 2 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket2) = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket3) = bucket2.0[((node.0 >> (56 - 16 - 3 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket3) = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket4) = bucket3.0[((node.0 >> (56 - 16 - 4 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket4) = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket5) = bucket4.0[((node.0 >> (56 - 16 - 5 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket5) = bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        bucket5.0[((node.0 >> (56 - 16 - 6 * 4)) & 0b1111) as usize]
+        bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize]
+    }
+
+    pub fn get_mut(&mut self, node: State) -> Option<&mut T> {
+        let Some(bucket0) = self.raw[(node.0 >> (40 - 16)) as usize].as_mut() else {
+            return None;
+        };
+
+        let Some(bucket1) = bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_mut()
+        else {
+            return None;
+        };
+
+        let Some(bucket2) = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_mut()
+        else {
+            return None;
+        };
+
+        let Some(bucket3) = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_mut()
+        else {
+            return None;
+        };
+
+        let Some(bucket4) = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_mut()
+        else {
+            return None;
+        };
+
+        let Some(bucket5) = bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_mut()
+        else {
+            return None;
+        };
+
+        Some(&mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize])
     }
 
     pub fn union(mut self, other: &Self) -> Self {
@@ -175,7 +214,7 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         self
     }
 
-    pub fn to_sorted_vec(&self) -> Vec<(SearchNode, T)> {
+    pub fn to_sorted_vec(&self) -> Vec<(State, T)> {
         let mut raw = Vec::new();
 
         self.visit_in_key_order(|node, value| raw.push((node, value)));
@@ -185,72 +224,72 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
 
     /// This will visit the entries in the order of their keys
     /// (defined by `<SearchNode as Ord>::cmp`).
-    pub fn visit_in_key_order(&self, mut visitor: impl FnMut(SearchNode, T)) {
+    pub fn visit_in_key_order(&self, mut visitor: impl FnMut(State, T)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {
                 continue;
             };
-            let prefix = (i0 as u64) << (56 - 16);
+            let prefix = (i0 as u64) << (40 - 16);
             self.visit0(prefix, bucket0, &mut visitor);
         }
     }
 
-    fn visit0(&self, prefix: u64, bucket0: &Bucket0<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit0(&self, prefix: u64, bucket0: &Bucket0<T>, mut visitor: impl FnMut(State, T)) {
         for (i1, bucket1) in bucket0.0.iter().enumerate() {
             let Some(bucket1) = bucket1 else {
                 continue;
             };
-            let prefix = prefix | ((i1 as u64) << (56 - 16 - 4));
+            let prefix = prefix | ((i1 as u64) << (40 - 16 - 4));
             self.visit1(prefix, bucket1, &mut visitor);
         }
     }
 
-    fn visit1(&self, prefix: u64, bucket1: &Bucket1<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit1(&self, prefix: u64, bucket1: &Bucket1<T>, mut visitor: impl FnMut(State, T)) {
         for (i2, bucket2) in bucket1.0.iter().enumerate() {
             let Some(bucket2) = bucket2 else {
                 continue;
             };
-            let prefix = prefix | ((i2 as u64) << (56 - 16 - 2 * 4));
+            let prefix = prefix | ((i2 as u64) << (40 - 16 - 2 * 4));
             self.visit2(prefix, bucket2, &mut visitor);
         }
     }
 
-    fn visit2(&self, prefix: u64, bucket2: &Bucket2<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit2(&self, prefix: u64, bucket2: &Bucket2<T>, mut visitor: impl FnMut(State, T)) {
         for (i3, bucket3) in bucket2.0.iter().enumerate() {
             let Some(bucket3) = bucket3 else {
                 continue;
             };
-            let prefix = prefix | ((i3 as u64) << (56 - 16 - 3 * 4));
+            let prefix = prefix | ((i3 as u64) << (40 - 16 - 3 * 4));
             self.visit3(prefix, bucket3, &mut visitor);
         }
     }
 
-    fn visit3(&self, prefix: u64, bucket3: &Bucket3<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit3(&self, prefix: u64, bucket3: &Bucket3<T>, mut visitor: impl FnMut(State, T)) {
         for (i4, bucket4) in bucket3.0.iter().enumerate() {
             let Some(bucket4) = bucket4 else {
                 continue;
             };
-            let prefix = prefix | ((i4 as u64) << (56 - 16 - 4 * 4));
+            let prefix = prefix | ((i4 as u64) << (40 - 16 - 4 * 4));
             self.visit4(prefix, bucket4, &mut visitor);
         }
     }
 
-    fn visit4(&self, prefix: u64, bucket4: &Bucket4<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit4(&self, prefix: u64, bucket4: &Bucket4<T>, mut visitor: impl FnMut(State, T)) {
         for (i5, bucket5) in bucket4.0.iter().enumerate() {
             let Some(bucket5) = bucket5 else {
                 continue;
             };
-            let prefix = prefix | ((i5 as u64) << (56 - 16 - 5 * 4));
+            let prefix = prefix | ((i5 as u64) << (40 - 16 - 5 * 4));
             self.visit5(prefix, bucket5, &mut visitor);
         }
     }
 
-    fn visit5(&self, prefix: u64, bucket5: &Bucket5<T>, mut visitor: impl FnMut(SearchNode, T)) {
+    fn visit5(&self, prefix: u64, bucket5: &Bucket5<T>, mut visitor: impl FnMut(State, T)) {
         for i6 in 0..16 {
             let item = bucket5.0[i6];
             if !item.is_null() {
-                let prefix = prefix | ((i6 as u64) << (56 - 16 - 6 * 4));
-                visitor(SearchNode(prefix), item);
+                let prefix = prefix | ((i6 as u64) << (40 - 16 - 6 * 4));
+                visitor(State(prefix), item);
             }
         }
     }

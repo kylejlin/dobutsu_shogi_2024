@@ -1,5 +1,8 @@
 use super::*;
 
+// TODO: Delete this.
+// This is broken because I changed the State offsets.
+
 #[derive(Clone, Debug)]
 pub struct StateSet {
     raw: [Option<Box<Bucket0>>; 256 * 256],
@@ -37,7 +40,7 @@ impl StateSet {
         }
     }
 
-    pub fn add(&mut self, node: SearchNode) -> DidAddendAlreadyExist {
+    pub fn add(&mut self, node: State) -> DidAddendAlreadyExist {
         let bucket0 = self.raw[(node.0 >> (56 - 16)) as usize].get_or_insert_with(Default::default);
         let bucket1 = bucket0[((node.0 >> (56 - 16 - 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
@@ -69,7 +72,7 @@ impl StateSet {
         self
     }
 
-    pub fn to_sorted_vec(&self) -> Vec<SearchNode> {
+    pub fn to_sorted_vec(&self) -> Vec<State> {
         let mut v = self.to_unsorted_vec();
 
         v.sort_unstable();
@@ -77,7 +80,7 @@ impl StateSet {
         v
     }
 
-    pub fn to_unsorted_vec(&self) -> Vec<SearchNode> {
+    pub fn to_unsorted_vec(&self) -> Vec<State> {
         let mut raw = Vec::new();
 
         self.visit(|node| raw.push(node));
@@ -85,7 +88,7 @@ impl StateSet {
         raw
     }
 
-    pub fn visit(&self, mut visitor: impl FnMut(SearchNode)) {
+    pub fn visit(&self, mut visitor: impl FnMut(State)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {
                 continue;
@@ -95,7 +98,7 @@ impl StateSet {
         }
     }
 
-    fn visit0(&self, prefix: u64, bucket0: &Bucket0, mut visitor: impl FnMut(SearchNode)) {
+    fn visit0(&self, prefix: u64, bucket0: &Bucket0, mut visitor: impl FnMut(State)) {
         for (i1, bucket1) in bucket0.iter().enumerate() {
             let Some(bucket1) = bucket1 else {
                 continue;
@@ -105,7 +108,7 @@ impl StateSet {
         }
     }
 
-    fn visit1(&self, prefix: u64, bucket1: &Bucket1, mut visitor: impl FnMut(SearchNode)) {
+    fn visit1(&self, prefix: u64, bucket1: &Bucket1, mut visitor: impl FnMut(State)) {
         for (i2, bucket2) in bucket1.iter().enumerate() {
             let Some(bucket2) = bucket2 else {
                 continue;
@@ -115,7 +118,7 @@ impl StateSet {
         }
     }
 
-    fn visit2(&self, prefix: u64, bucket2: &Bucket2, mut visitor: impl FnMut(SearchNode)) {
+    fn visit2(&self, prefix: u64, bucket2: &Bucket2, mut visitor: impl FnMut(State)) {
         for (i3, bucket3) in bucket2.iter().enumerate() {
             let Some(bucket3) = bucket3 else {
                 continue;
@@ -125,7 +128,7 @@ impl StateSet {
         }
     }
 
-    fn visit3(&self, prefix: u64, bucket3: &Bucket3, mut visitor: impl FnMut(SearchNode)) {
+    fn visit3(&self, prefix: u64, bucket3: &Bucket3, mut visitor: impl FnMut(State)) {
         for (i4, bucket4) in bucket3.iter().enumerate() {
             let Some(bucket4) = bucket4 else {
                 continue;
@@ -135,18 +138,18 @@ impl StateSet {
         }
     }
 
-    fn visit4(&self, prefix: u64, bucket4: &Bucket4, mut visitor: impl FnMut(SearchNode)) {
+    fn visit4(&self, prefix: u64, bucket4: &Bucket4, mut visitor: impl FnMut(State)) {
         for (i5, bucket5) in bucket4.iter().enumerate() {
             let prefix = prefix | ((i5 as u64) << (56 - 16 - 5 * 4));
             self.visit5(prefix, *bucket5, &mut visitor);
         }
     }
 
-    fn visit5(&self, prefix: u64, bucket5: Bucket5, mut visitor: impl FnMut(SearchNode)) {
+    fn visit5(&self, prefix: u64, bucket5: Bucket5, mut visitor: impl FnMut(State)) {
         for i6 in 0..16 {
             if bucket5.0 & (1 << i6) != 0 {
                 let prefix = prefix | ((i6 as u64) << (56 - 16 - 6 * 4));
-                visitor(SearchNode(prefix));
+                visitor(State(prefix));
             }
         }
     }

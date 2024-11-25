@@ -44,12 +44,12 @@ trait Indent {
     fn indented(&self, spaces: usize) -> Indented<'_>;
 }
 
-impl IntoPretty for SearchNode {}
-impl IntoPretty for NodeBuilder {}
+impl IntoPretty for State {}
+impl IntoPretty for StateBuilder {}
 impl IntoPretty for Hands {}
 impl IntoPretty for BoardWithPromotionData {}
 impl IntoPretty for Outcome {}
-impl IntoPretty for Vec<SearchNode> {}
+impl IntoPretty for Vec<State> {}
 
 impl Indent for str {
     fn indented(&self, spaces: usize) -> Indented<'_> {
@@ -60,19 +60,19 @@ impl Indent for str {
     }
 }
 
-impl Display for Pretty<SearchNode> {
+impl Display for Pretty<State> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0.into_builder().pretty(), f)
     }
 }
 
-impl Debug for Pretty<SearchNode> {
+impl Debug for Pretty<State> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
 }
 
-impl Display for Pretty<NodeBuilder> {
+impl Display for Pretty<StateBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let hands = self.0.hands().pretty();
         let board = BoardWithPromotionData {
@@ -81,23 +81,36 @@ impl Display for Pretty<NodeBuilder> {
             is_chick1_promoted: Actor::CHICK1.is_promoted(self.0),
         }
         .pretty();
-        let required_child_report_count =
-            (self.0 .0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111;
-        let best_known_outcome = Outcome(i16::from_zero_padded_i9(
-            (self.0 .0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-        ))
+        write!(f, "{hands}\n{board}",)
+    }
+}
+
+impl Display for Pretty<StateAndStats> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let state = self.0.state().into_builder();
+        let hands = state.hands().pretty();
+        let board = BoardWithPromotionData {
+            board: state.board(),
+            is_chick0_promoted: Actor::CHICK0.is_promoted(state),
+            is_chick1_promoted: Actor::CHICK1.is_promoted(state),
+        }
         .pretty();
+
+        let stats = self.0.stats();
+        let required_child_report_count = stats.required_child_report_count();
+        let best_known_outcome = stats.best_known_outcome().pretty();
+
         write!(f, "{hands}\n{board}\nrequired_child_report_count: {required_child_report_count}\nbest_known_outcome: {best_known_outcome}",)
     }
 }
 
-impl Debug for Pretty<NodeBuilder> {
+impl Debug for Pretty<StateBuilder> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
 }
 
-impl NodeBuilder {
+impl StateBuilder {
     fn hands(self) -> Hands {
         let mut active = Hand::empty();
         let mut passive = Hand::empty();
@@ -344,7 +357,7 @@ impl Display for Pretty<Outcome> {
     }
 }
 
-impl Display for Pretty<Vec<SearchNode>> {
+impl Display for Pretty<Vec<State>> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let divider = "=".repeat("|---|".len() * 2 + GAP.len());
 

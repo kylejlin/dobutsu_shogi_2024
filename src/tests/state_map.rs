@@ -20,7 +20,7 @@ fn state_map_is_consistent_with_hash_map() {
         let mut state_map_cardinality = 0;
         state_map.visit_in_key_order(|key, val| {
             assert_eq!(Some(val), reference.get(&key).copied());
-            assert_eq!(key.state(), key.0);
+            assert_eq!(key.0 & 0xFF_FFFF_FFFF, key.0);
             state_map_cardinality += 1;
         });
 
@@ -47,8 +47,8 @@ fn state_map_vec_is_consistent_with_hash_map() {
         }
 
         for (key, val) in state_map_vec.iter().copied() {
+            assert_eq!(key.0 & 0xFF_FFFF_FFFF, key.0);
             assert_eq!(Some(val), reference.get(&key).copied());
-            assert_eq!(key.state(), key.0);
         }
 
         assert_eq!(state_map_vec.len(), reference.len());
@@ -95,7 +95,7 @@ fn random_state_map_pair(
     prng: &mut XorShiftRng,
 ) -> (
     StateMap<Option<NonZeroU64>>,
-    HashMap<SearchNode, Option<NonZeroU64>>,
+    HashMap<State, Option<NonZeroU64>>,
 ) {
     let mut state_map = StateMap::empty();
     let mut reference = HashMap::new();
@@ -111,8 +111,7 @@ fn random_state_map_pair(
     (state_map, reference)
 }
 
-fn random_state(prng: &mut XorShiftRng) -> SearchNode {
+fn random_state(prng: &mut XorShiftRng) -> State {
     let raw: u64 = prng.gen();
-    let state = SearchNode(raw).state();
-    SearchNode(state)
+    State(raw & 0xFF_FFFF_FFFF)
 }

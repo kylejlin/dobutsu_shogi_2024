@@ -11,13 +11,15 @@ pub mod forward_pass;
 pub mod pretty;
 pub mod prune;
 pub mod state_map;
+
+// TODO: Delete
 pub mod state_set;
 
 pub use backward_pass::solve;
 pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
 pub use prune::prune_assuming_one_player_plays_optimally;
-pub use state_map::StateMap;
+pub use state_map::*;
 pub use state_set::StateSet;
 
 // A note about fields with the comment "Must be non-zero":
@@ -37,6 +39,12 @@ enum Terminality {
 /// This struct stores the best known outcome
 /// and the required child report count
 /// associated with a given game state.
+///
+/// The least significant 9 bits store the best known outcome
+/// as an `i9` (i.e., a signed two's complement 9-bit integer).
+///
+/// The most significant 7 bits store the required child report count
+/// (as an unsigned 7-bit integer).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StateStats(pub u16);
 
@@ -50,9 +58,16 @@ pub struct StateStats(pub u16);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Outcome(pub i16);
 
+/// The **least** significant 40 bits are used.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct State(
+    // Must be non-zero.
+    pub u64,
+);
+
 /// The **least** significant 56 bits are used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SearchNode(
+pub struct StateAndStats(
     // Must be non-zero.
     pub u64,
 );
@@ -61,16 +76,16 @@ pub struct SearchNode(
 /// but with the `chick0 <= chick1` invariant
 /// (and all similar invariants) removed.
 /// In other words, `NodeBuilder` represents a
-/// possibly "corrupted" forward node,
+/// possibly "corrupted" forward state,
 /// and `SearchNode` is the subset of `NodeBuilder`
 /// representing "valid" forward nodes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct NodeBuilder(
+struct StateBuilder(
     /// This must be non-zero.
     u64,
 );
 
-/// An optional node builder `o` represents None if and only if `o.0 == 0`.
+/// An optional state builder `o` represents None if and only if `o.0 == 0`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct OptionalNodeBuilder(u64);
 
@@ -119,14 +134,14 @@ struct Coords(u8);
 
 #[derive(Clone, Copy, Debug)]
 struct ChildCalculator {
-    node: SearchNode,
+    state: State,
     board: Board,
     empty_squares: CoordVec,
 }
 
 #[derive(Clone, Copy, Debug)]
 struct ParentCalculator {
-    inverted_node: NodeBuilder,
+    inverted_node: StateBuilder,
     inverted_board: Board,
 }
 
@@ -166,8 +181,8 @@ impl OptionalNodeBuilder {
         self.0 == 0
     }
 
-    const fn unchecked_unwrap(self) -> NodeBuilder {
-        NodeBuilder(self.0)
+    const fn unchecked_unwrap(self) -> StateBuilder {
+        StateBuilder(self.0)
     }
 }
 
@@ -182,7 +197,100 @@ impl std::ops::Not for Player {
     }
 }
 
-impl SearchNode {
+impl StateStats {
+    const IMMEDIATE_WIN: Self = Self::new(Outcome::win_in(0), 0);
+    const IMMEDIATE_LOSS: Self = Self::new(Outcome::loss_in(0), 0);
+
+    const fn new(outcome: Outcome, required_child_report_count: u8) -> Self {
+        Self((outcome.into_i9() as u16) | ((required_child_report_count as u16) << 9))
+    }
+
+    const fn required_child_report_count(self) -> u8 {
+        (self.0 >> 9) as u8
+    }
+
+    #[must_use]
+    const fn set_required_child_report_count(self, required_child_report_count: u8) -> Self {
+        Self((self.0 & !(0b111_1111 << 9)) | ((required_child_report_count as u16) << 9))
+    }
+
+    #[must_use]
+    const fn set_required_child_report_count_to_zero(self) -> Self {
+        Self(self.0 & !(0b111_1111 << 9))
+    }
+
+    #[must_use]
+    const fn decrement_required_child_report_count(self) -> Self {
+        Self(self.0 - (1 << 9))
+    }
+
+    #[must_use]
+    const fn record_child_outcome(self, child_outcome: Outcome) -> Self {
+        let incumbent = self.best_known_outcome();
+        let challenger = child_outcome.invert().delay_by_one();
+        if challenger.0 > incumbent.0 {
+            Self((self.0 & !0b1_1111_1111) | (challenger.into_i9() as u16))
+        } else {
+            self
+        }
+    }
+
+    const fn best_outcome(self) -> Option<Outcome> {
+        if self.required_child_report_count() > 0 {
+            return None;
+        }
+
+        Some(self.best_known_outcome())
+    }
+
+    const fn best_known_outcome(self) -> Outcome {
+        Outcome::from_i9((self.0 & 0b1_1111_1111) as u64)
+    }
+}
+
+impl StateAndStats {
+    pub const fn new(state: State, stats: StateStats) -> Self {
+        Self((stats.0 as u64) << Offset::STATS.0 | state.0)
+    }
+
+    pub const fn state(self) -> State {
+        State(self.0 & 0xFF_FFFF_FFFF)
+    }
+
+    pub const fn stats(self) -> StateStats {
+        StateStats((self.0 >> Offset::STATS.0) as u16)
+    }
+}
+
+impl Outcome {
+    pub const DRAW: Self = Self(0);
+
+    const fn win_in(delay: u8) -> Self {
+        Self(201 - (delay as i16))
+    }
+
+    const fn loss_in(delay: u8) -> Self {
+        Self(-201 + (delay as i16))
+    }
+
+    const fn into_i9(self) -> u64 {
+        i16_to_i9(self.0)
+    }
+
+    const fn from_i9(i9: u64) -> Self {
+        Self(i9_to_i16(i9))
+    }
+
+    const fn invert(self) -> Self {
+        Self(-self.0)
+    }
+
+    const fn delay_by_one(self) -> Self {
+        Self(self.0 - self.0.signum())
+    }
+}
+
+impl State {
     pub const fn initial() -> Self {
         const fn ascending(a: u64, b: u64) -> (u64, u64) {
             if a <= b {
@@ -227,55 +335,61 @@ impl SearchNode {
         self.into_builder().terminality()
     }
 
-    const fn into_builder(self) -> NodeBuilder {
-        NodeBuilder(self.0)
+    const fn into_builder(self) -> StateBuilder {
+        StateBuilder(self.0)
     }
 
-    pub fn children(self) -> Vec<SearchNode> {
+    pub fn children(self) -> Vec<State> {
         let mut out = vec![];
         self.visit_children(|child| out.push(child));
         out
     }
 
-    pub fn parents(self) -> Vec<SearchNode> {
+    pub fn parents(self) -> Vec<State> {
         let mut out = vec![];
         self.visit_parents(|parent| out.push(parent));
         out
     }
 
-    /// This returns the state of the node,
-    /// it its original (i.e., nonshifted) position.
-    pub const fn state(self) -> u64 {
-        const STATE_MASK: u64 = 0xFF_FFFF_FFFF << Offset::PASSIVE_LION.0;
-        self.0 & STATE_MASK
-    }
-
-    pub const fn shifted_state(self) -> u64 {
-        (self.0 >> Offset::PASSIVE_LION.0) & 0xFF_FFFF_FFFF
-    }
-
-    pub const fn required_child_report_count(self) -> u8 {
-        ((self.0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111) as u8
-    }
-
-    pub fn best_known_outcome(self) -> Outcome {
-        Outcome(i16::from_zero_padded_i9(
-            (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-        ))
-    }
-
-    pub fn best_outcome(self) -> Option<Outcome> {
-        if self.required_child_report_count() > 0 {
-            return None;
+    pub fn guess_stats(self) -> StateStats {
+        match self.terminality() {
+            Terminality::Loss => StateStats::IMMEDIATE_LOSS,
+            Terminality::Win => StateStats::IMMEDIATE_WIN,
+            Terminality::Nonterminal => {
+                StateStats::IMMEDIATE_LOSS.set_required_child_report_count(self.child_count())
+            }
         }
-
-        Some(Outcome(i16::from_zero_padded_i9(
-            (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-        )))
     }
+
+    fn child_count(self) -> u8 {
+        let mut count = 0;
+        self.visit_children(|_| count += 1);
+        count
+    }
+
+    // TODO: Delete
+    // pub const fn required_child_report_count(self) -> u8 {
+    //     ((self.0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111) as u8
+    // }
+
+    // pub fn best_known_outcome(self) -> Outcome {
+    //     Outcome(i16::from_zero_padded_i9(
+    //         (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
+    //     ))
+    // }
+
+    // pub fn best_outcome(self) -> Option<Outcome> {
+    //     if self.required_child_report_count() > 0 {
+    //         return None;
+    //     }
+
+    //     Some(Outcome(i16::from_zero_padded_i9(
+    //         (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
+    //     )))
+    // }
 }
 
-impl NodeBuilder {
+impl StateBuilder {
     const fn invert_active_player(self) -> Self {
         const NONLION_ALLEGIANCE_INVERSION_MASK: u64 = (1 << Offset::CHICK0_ALLEGIANCE.0)
             | (1 << Offset::CHICK1_ALLEGIANCE.0)
@@ -357,7 +471,7 @@ impl NodeBuilder {
     }
 
     /// Ensures that `chick0 <= chick1`, `elephant0 <= elephant1`, and `giraffe0 <= giraffe1`.
-    const fn build(self) -> SearchNode {
+    const fn build(self) -> State {
         const CHICK0_MASK: u64 = 0b11_1111 << Offset::CHICK0.0;
         const CHICK1_MASK: u64 = 0b11_1111 << Offset::CHICK1.0;
         const ELEPHANT0_MASK: u64 = 0b1_1111 << Offset::ELEPHANT0.0;
@@ -402,7 +516,7 @@ impl NodeBuilder {
         };
 
         const NONLION_MASK: u64 = 0xFFFF_FFFF << Offset::GIRAFFE1.0;
-        SearchNode(
+        State(
             (self.0 & !NONLION_MASK)
                 | chick0
                 | chick1
@@ -435,15 +549,15 @@ impl Nonlion {
     }
 
     #[inline(always)]
-    const fn is_in_hand(self, node: NodeBuilder) -> bool {
-        node.0 & self.coords_mask() == self.coords_mask()
+    const fn is_in_hand(self, state: StateBuilder) -> bool {
+        state.0 & self.coords_mask() == self.coords_mask()
     }
 
     #[must_use]
     #[inline(always)]
-    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+    const fn set_coords(self, state: StateBuilder, coords: Coords) -> StateBuilder {
         let coords_offset = self.coords_offset().0;
-        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+        StateBuilder((state.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
     }
 
     #[inline(always)]
@@ -463,12 +577,12 @@ impl Nonlion {
 
     #[must_use]
     #[inline(always)]
-    const fn make_passive(self, node: NodeBuilder) -> NodeBuilder {
-        NodeBuilder(node.0 | self.allegiance_mask())
+    const fn make_passive(self, state: StateBuilder) -> StateBuilder {
+        StateBuilder(state.0 | self.allegiance_mask())
     }
 
     #[inline(always)]
-    const fn is_active(self, node: NodeBuilder) -> bool {
+    const fn is_active(self, state: StateBuilder) -> bool {
         let allegiance_bit_offset = match self {
             Nonlion::CHICK0 => Offset::CHICK0_ALLEGIANCE,
             Nonlion::CHICK1 => Offset::CHICK1_ALLEGIANCE,
@@ -479,7 +593,7 @@ impl Nonlion {
 
             _ => return false,
         };
-        node.0 & (1 << allegiance_bit_offset.0) == 0
+        state.0 & (1 << allegiance_bit_offset.0) == 0
     }
 
     #[inline(always)]
@@ -489,14 +603,14 @@ impl Nonlion {
 
     #[must_use]
     #[inline(always)]
-    const fn promote(self, node: NodeBuilder) -> NodeBuilder {
+    const fn promote(self, state: StateBuilder) -> StateBuilder {
         let promotion_status_offset = match self {
             Nonlion::CHICK0 => Offset::CHICK0_PROMOTION,
             Nonlion::CHICK1 => Offset::CHICK1_PROMOTION,
 
-            _ => return node,
+            _ => return state,
         };
-        NodeBuilder(node.0 | (1 << promotion_status_offset.0))
+        StateBuilder(state.0 | (1 << promotion_status_offset.0))
     }
 
     #[inline(always)]
@@ -505,9 +619,9 @@ impl Nonlion {
     }
 
     #[inline(always)]
-    const fn is_piece0_in_active_hand(self, node: NodeBuilder) -> bool {
+    const fn is_piece0_in_active_hand(self, state: StateBuilder) -> bool {
         let piece0 = self.piece0();
-        piece0.is_active(node) && piece0.is_in_hand(node)
+        piece0.is_active(state) && piece0.is_in_hand(state)
     }
 
     #[inline(always)]
@@ -570,26 +684,26 @@ impl Iterator for CoordVec {
     }
 }
 
-impl SearchNode {
-    fn visit_children(self, visitor: impl FnMut(SearchNode)) {
+impl State {
+    fn visit_children(self, visitor: impl FnMut(State)) {
         ChildCalculator::new(self).visit_children(visitor);
     }
 }
 
 impl ChildCalculator {
-    const fn new(node: SearchNode) -> Self {
-        let board = node.into_builder().board();
+    const fn new(state: State) -> Self {
+        let board = state.into_builder().board();
         let empty_squares = board.empty_squares();
         Self {
-            node,
+            state,
             board,
             empty_squares,
         }
     }
 
     #[inline(always)]
-    fn visit_children(self, mut visitor: impl FnMut(SearchNode)) {
-        if self.node.is_terminal() {
+    fn visit_children(self, mut visitor: impl FnMut(State)) {
+        if self.state.is_terminal() {
             return;
         }
 
@@ -603,14 +717,14 @@ impl ChildCalculator {
     }
 
     #[inline(always)]
-    fn visit_children_with_actor(self, actor: Actor, visitor: impl FnMut(SearchNode)) {
-        let node = self.node.into_builder();
+    fn visit_children_with_actor(self, actor: Actor, visitor: impl FnMut(State)) {
+        let state = self.state.into_builder();
 
-        if actor.is_passive(node) {
+        if actor.is_passive(state) {
             return;
         }
 
-        let start = actor.coords(node);
+        let start = actor.coords(state);
 
         if start == Coords::HAND {
             self.visit_dropping_children(actor, visitor);
@@ -620,60 +734,55 @@ impl ChildCalculator {
     }
 
     #[inline(always)]
-    fn visit_dropping_children(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
-        let node = self.node.into_builder();
+    fn visit_dropping_children(self, actor: Actor, mut visitor: impl FnMut(State)) {
+        let state = self.state.into_builder();
 
         // If two of the same species are in the active hand,
         // we must be careful to avoid double counting the associated child.
-        if actor.is_piece1() && actor.is_piece0_in_active_hand(node) {
+        if actor.is_piece1() && actor.is_piece0_in_active_hand(state) {
             return;
         }
 
         for dest in self.empty_squares {
-            let node = actor.set_coords(node, dest);
-            visitor(node.invert_active_player().build());
+            let state = actor.set_coords(state, dest);
+            visitor(state.invert_active_player().build());
         }
     }
 
     #[inline(always)]
-    fn visit_moving_children(
-        self,
-        actor: Actor,
-        start: Coords,
-        mut visitor: impl FnMut(SearchNode),
-    ) {
-        let node = self.node.into_builder();
-        let is_promoted = actor.is_promoted(node);
+    fn visit_moving_children(self, actor: Actor, start: Coords, mut visitor: impl FnMut(State)) {
+        let state = self.state.into_builder();
+        let is_promoted = actor.is_promoted(state);
         let dest_candidates = actor.legal_dest_squares(is_promoted, start);
 
         for dest in dest_candidates {
-            let optional_node = node.vacate_passive(dest, self.board);
+            let optional_node = state.vacate_passive(dest, self.board);
             if optional_node.is_none() {
                 continue;
             }
-            let node = optional_node.unchecked_unwrap();
-            let node = actor.set_coords_and_promote_if_in_last_row(node, dest);
-            visitor(node.invert_active_player().build());
+            let state = optional_node.unchecked_unwrap();
+            let state = actor.set_coords_and_promote_if_in_last_row(state, dest);
+            visitor(state.invert_active_player().build());
         }
     }
 }
 
-impl SearchNode {
-    fn visit_parents(self, visitor: impl FnMut(SearchNode)) {
+impl State {
+    fn visit_parents(self, visitor: impl FnMut(State)) {
         ParentCalculator::new(self).visit_parents(visitor);
     }
 }
 
 impl ParentCalculator {
-    fn new(node: SearchNode) -> Self {
-        let inverted_node = node.into_builder().invert_active_player();
+    fn new(state: State) -> Self {
+        let inverted_node = state.into_builder().invert_active_player();
         Self {
             inverted_node,
             inverted_board: inverted_node.board(),
         }
     }
 
-    fn visit_parents(self, mut visitor: impl FnMut(SearchNode)) {
+    fn visit_parents(self, mut visitor: impl FnMut(State)) {
         self.visit_parents_with_actor(Actor::LION, &mut visitor);
         self.visit_parents_with_actor(Actor::CHICK0, &mut visitor);
         self.visit_parents_with_actor(Actor::CHICK1, &mut visitor);
@@ -684,29 +793,30 @@ impl ParentCalculator {
     }
 
     #[inline(always)]
-    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
-        let node = self.inverted_node;
-        if !(actor.is_active(node) && actor.is_on_board(node)) {
+    fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(State)) {
+        let state = self.inverted_node;
+        if !(actor.is_active(state) && actor.is_on_board(state)) {
             return;
         }
 
-        if !actor.is_hen(node) && !actor.is_lion() {
+        if !actor.is_hen(state) && !actor.is_lion() {
             self.visit_dropping_parent(actor, &mut visitor);
         }
 
-        if actor.is_chick(node) && actor.is_in_last_row(node) {
+        if actor.is_chick(state) && actor.is_in_last_row(state) {
             return;
         }
 
         self.visit_moving_parents(
             actor,
             ShouldDemoteActorInParent(false),
-            actor.legal_starting_squares_in_state(node),
+            actor.legal_starting_squares_in_state(state),
             &mut visitor,
         );
 
-        if actor.is_hen(node) && actor.is_in_last_row(node) {
-            let legal_starting_squares = CoordVec::singleton(Coords(actor.coords(node).0 - 0b0100));
+        if actor.is_hen(state) && actor.is_in_last_row(state) {
+            let legal_starting_squares =
+                CoordVec::singleton(Coords(actor.coords(state).0 - 0b0100));
             self.visit_moving_parents(
                 actor,
                 ShouldDemoteActorInParent(true),
@@ -717,11 +827,11 @@ impl ParentCalculator {
     }
 
     #[inline(always)]
-    fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(SearchNode)) {
-        let node = self.inverted_node;
+    fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(State)) {
+        let state = self.inverted_node;
         let coords = Coords::HAND;
 
-        let out = node;
+        let out = state;
         let out = actor.set_coords(out, coords);
         if !out.is_terminal() {
             visitor(out.build());
@@ -734,20 +844,20 @@ impl ParentCalculator {
         actor: Actor,
         should_demote: ShouldDemoteActorInParent,
         starting_squares: CoordVec,
-        mut visitor: impl FnMut(SearchNode),
+        mut visitor: impl FnMut(State),
     ) {
-        let node = self.inverted_node;
+        let state = self.inverted_node;
         let board = self.inverted_board;
 
-        let dest_square = actor.coords(node);
+        let dest_square = actor.coords(state);
 
         for starting_square in starting_squares {
             if !board.is_square_empty(starting_square) {
                 continue;
             }
 
-            if PassiveLion.is_in_hand(node) {
-                let out = node;
+            if PassiveLion.is_in_hand(state) {
+                let out = state;
                 let out = actor.set_coords(out, starting_square);
                 let out = if should_demote.0 {
                     actor.demote(out)
@@ -760,7 +870,7 @@ impl ParentCalculator {
                     visitor(out.build());
                 }
 
-                // If the passive lion is in hand in the inverted current node,
+                // If the passive lion is in hand in the inverted current state,
                 // then it must be on the board for all parent nodes.
                 // Therefore, we should not consider parents where a non-lion is captured
                 // or where no piece is captured.
@@ -831,11 +941,11 @@ impl ParentCalculator {
         actor: Actor,
         should_demote: ShouldDemoteActorInParent,
         starting_square: Coords,
-        mut visitor: impl FnMut(SearchNode),
+        mut visitor: impl FnMut(State),
     ) {
-        let node = self.inverted_node;
+        let state = self.inverted_node;
 
-        let out = node;
+        let out = state;
         let out = actor.set_coords(out, starting_square);
         let out = if should_demote.0 {
             actor.demote(out)
@@ -856,23 +966,23 @@ impl ParentCalculator {
         starting_square: Coords,
         dest_square: Coords,
         captive: Nonlion,
-        mut visitor: impl FnMut(SearchNode),
+        mut visitor: impl FnMut(State),
     ) {
-        let node = self.inverted_node;
+        let state = self.inverted_node;
 
         // If a piece was captured, then it would be moved to the active hand.
-        if !(captive.is_active(node) && captive.is_in_hand(node)) {
+        if !(captive.is_active(state) && captive.is_in_hand(state)) {
             return;
         }
 
         // If two of the same species are in the active hand,
         // we must be careful to avoid double counting the associated parent.
-        if captive.is_piece1() && captive.is_piece0_in_active_hand(node) {
+        if captive.is_piece1() && captive.is_piece0_in_active_hand(state) {
             return;
         }
 
         if captive.is_bird() {
-            let out = node;
+            let out = state;
             let out = actor.set_coords(out, starting_square);
             let out = if should_demote.0 {
                 actor.demote(out)
@@ -888,7 +998,7 @@ impl ParentCalculator {
             }
         }
 
-        let out = node;
+        let out = state;
         let out = actor.set_coords(out, starting_square);
         let out = if should_demote.0 {
             actor.demote(out)
@@ -903,7 +1013,7 @@ impl ParentCalculator {
     }
 }
 
-impl NodeBuilder {
+impl StateBuilder {
     /// - If the destination square is empty, this returns the original state.
     /// - If the destination square is occupied by a passive piece,
     ///   this returns the state with the passive piece moved to the active player's hand.
@@ -952,7 +1062,7 @@ impl NodeBuilder {
 
 impl Actor {
     #[inline(always)]
-    const fn is_passive(self, node: NodeBuilder) -> bool {
+    const fn is_passive(self, state: StateBuilder) -> bool {
         let allegiance_bit_offset = match self {
             // The active lion is never passive.
             Actor::LION => return false,
@@ -967,11 +1077,11 @@ impl Actor {
             _ => return false,
         };
 
-        (node.0 & (1 << allegiance_bit_offset.0)) != 0
+        (state.0 & (1 << allegiance_bit_offset.0)) != 0
     }
 
     #[inline(always)]
-    const fn is_active(self, node: NodeBuilder) -> bool {
+    const fn is_active(self, state: StateBuilder) -> bool {
         let allegiance_bit_offset = match self {
             // The active lion is always active.
             Actor::LION => return true,
@@ -986,7 +1096,7 @@ impl Actor {
             _ => return false,
         };
 
-        (node.0 & (1 << allegiance_bit_offset.0)) == 0
+        (state.0 & (1 << allegiance_bit_offset.0)) == 0
     }
 
     #[inline(always)]
@@ -1010,46 +1120,46 @@ impl Actor {
     }
 
     #[inline(always)]
-    const fn coords(self, node: NodeBuilder) -> Coords {
-        Coords(((node.0 >> self.coords_offset().0) & 0b1111) as u8)
+    const fn coords(self, state: StateBuilder) -> Coords {
+        Coords(((state.0 >> self.coords_offset().0) & 0b1111) as u8)
     }
 
     #[must_use]
     #[inline(always)]
-    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+    const fn set_coords(self, state: StateBuilder, coords: Coords) -> StateBuilder {
         let coords_offset = self.coords_offset().0;
-        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+        StateBuilder((state.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
     }
 
     #[must_use]
     #[inline(always)]
     const fn set_coords_and_promote_if_in_last_row(
         self,
-        node: NodeBuilder,
+        state: StateBuilder,
         coords: Coords,
-    ) -> NodeBuilder {
-        let node = self.set_coords(node, coords);
+    ) -> StateBuilder {
+        let state = self.set_coords(state, coords);
 
         if self.is_bird() && coords.is_in_last_row() {
-            return Chick(self.0).promote(node);
+            return Chick(self.0).promote(state);
         }
 
-        node
+        state
     }
 
     #[inline(always)]
-    const fn is_in_last_row(self, node: NodeBuilder) -> bool {
-        self.coords(node).is_in_last_row()
+    const fn is_in_last_row(self, state: StateBuilder) -> bool {
+        self.coords(state).is_in_last_row()
     }
 
     #[inline(always)]
-    const fn is_on_board(self, node: NodeBuilder) -> bool {
-        node.0 & self.coords_mask() != self.coords_mask()
+    const fn is_on_board(self, state: StateBuilder) -> bool {
+        state.0 & self.coords_mask() != self.coords_mask()
     }
 
     #[inline(always)]
-    const fn is_in_hand(self, node: NodeBuilder) -> bool {
-        node.0 & self.coords_mask() == self.coords_mask()
+    const fn is_in_hand(self, state: StateBuilder) -> bool {
+        state.0 & self.coords_mask() == self.coords_mask()
     }
 
     #[inline(always)]
@@ -1058,21 +1168,21 @@ impl Actor {
     }
 
     #[inline(always)]
-    const fn is_chick(self, node: NodeBuilder) -> bool {
+    const fn is_chick(self, state: StateBuilder) -> bool {
         let promotion_status_offset = match self {
             Actor::CHICK0 => Offset::CHICK0_PROMOTION,
             Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
-        node.0 & (1 << promotion_status_offset.0) == 0
+        state.0 & (1 << promotion_status_offset.0) == 0
     }
 
     #[inline(always)]
-    const fn is_hen(self, node: NodeBuilder) -> bool {
+    const fn is_hen(self, state: StateBuilder) -> bool {
         // Since hens are the only promoted pieces, it follows that
         // a piece is a hen if and only if it is promoted.
-        self.is_promoted(node)
+        self.is_promoted(state)
     }
 
     #[inline(always)]
@@ -1086,9 +1196,9 @@ impl Actor {
     }
 
     #[inline(always)]
-    const fn is_piece0_in_active_hand(self, node: NodeBuilder) -> bool {
+    const fn is_piece0_in_active_hand(self, state: StateBuilder) -> bool {
         let piece0 = self.piece0();
-        piece0.is_active(node) && piece0.is_in_hand(node)
+        piece0.is_active(state) && piece0.is_in_hand(state)
     }
 
     #[inline(always)]
@@ -1097,32 +1207,32 @@ impl Actor {
     }
 
     #[inline(always)]
-    const fn is_promoted(self, node: NodeBuilder) -> bool {
+    const fn is_promoted(self, state: StateBuilder) -> bool {
         let promotion_status_offset = match self {
             Actor::CHICK0 => Offset::CHICK0_PROMOTION,
             Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
             _ => return false,
         };
-        node.0 & (1 << promotion_status_offset.0) != 0
+        state.0 & (1 << promotion_status_offset.0) != 0
     }
 
     #[must_use]
     #[inline(always)]
-    const fn demote(self, node: NodeBuilder) -> NodeBuilder {
+    const fn demote(self, state: StateBuilder) -> StateBuilder {
         let promotion_status_offset = match self {
             Actor::CHICK0 => Offset::CHICK0_PROMOTION,
             Actor::CHICK1 => Offset::CHICK1_PROMOTION,
 
-            _ => return node,
+            _ => return state,
         };
-        NodeBuilder(node.0 & !(1 << promotion_status_offset.0))
+        StateBuilder(state.0 & !(1 << promotion_status_offset.0))
     }
 
     #[inline(always)]
-    const fn legal_starting_squares_in_state(self, node: NodeBuilder) -> CoordVec {
-        let is_promoted = self.is_promoted(node);
-        let dest = self.coords(node);
+    const fn legal_starting_squares_in_state(self, state: StateBuilder) -> CoordVec {
+        let is_promoted = self.is_promoted(state);
+        let dest = self.coords(state);
         self.legal_starting_squares(is_promoted, dest)
     }
 }
@@ -1160,14 +1270,14 @@ impl Piece {
 
 impl Chick {
     #[inline(always)]
-    const fn promote(self, node: NodeBuilder) -> NodeBuilder {
+    const fn promote(self, state: StateBuilder) -> StateBuilder {
         let promotion_status_offset = match self {
             Chick::CHICK0 => Offset::CHICK0_PROMOTION,
             Chick::CHICK1 => Offset::CHICK1_PROMOTION,
 
-            _ => return node,
+            _ => return state,
         };
-        NodeBuilder(node.0 | (1 << promotion_status_offset.0))
+        StateBuilder(state.0 | (1 << promotion_status_offset.0))
     }
 }
 
@@ -1177,52 +1287,37 @@ impl PassiveLion {
 
     #[must_use]
     #[inline(always)]
-    const fn set_coords(self, node: NodeBuilder, coords: Coords) -> NodeBuilder {
+    const fn set_coords(self, state: StateBuilder, coords: Coords) -> StateBuilder {
         let coords_offset = Self::COORDS_OFFSET.0;
-        NodeBuilder((node.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
+        StateBuilder((state.0 & !(0b1111 << coords_offset)) | ((coords.0 as u64) << coords_offset))
     }
 
     #[inline(always)]
-    const fn is_in_hand(self, node: NodeBuilder) -> bool {
-        node.0 & Self::COORDS_MASK == Self::COORDS_MASK
+    const fn is_in_hand(self, state: StateBuilder) -> bool {
+        state.0 & Self::COORDS_MASK == Self::COORDS_MASK
     }
 }
 
-trait FromZeroPaddedI9<T> {
-    fn from_zero_padded_i9(value: T) -> Self;
-}
-
-impl FromZeroPaddedI9<u64> for i16 {
-    fn from_zero_padded_i9(value: u64) -> i16 {
-        // Handle negative values
-        if (value & (1 << 8)) != 0 {
-            const C: i16 = -(1 << 8);
-            let v8 = (value & 0b1111_1111) as i16;
-            return C + v8;
-        }
-
-        value as i16
+const fn i9_to_i16(value: u64) -> i16 {
+    // Handle negative values
+    if (value & (1 << 8)) != 0 {
+        const C: i16 = -(1 << 8);
+        let v8 = (value & 0b1111_1111) as i16;
+        return C + v8;
     }
+
+    value as i16
 }
 
-trait IntoZeroPaddedI9Unchecked<T> {
-    /// If `self` does not fit into a 9-bit
-    /// two's complement signed integer,
-    /// then the behavior is undefined.
-    fn into_zero_padded_i9_unchecked(self) -> T;
-}
-
-impl IntoZeroPaddedI9Unchecked<u64> for i16 {
-    fn into_zero_padded_i9_unchecked(self) -> u64 {
-        if self < 0 {
-            return ((1 << 9) + self) as u64;
-        }
-
-        self as u64
+const fn i16_to_i9(n: i16) -> u64 {
+    if n < 0 {
+        return ((1 << 9) + n) as u64;
     }
+
+    n as u64
 }
 
-impl NodeBuilder {
+impl StateBuilder {
     const fn board(self) -> Board {
         let mut board: u64 = 0;
 
@@ -1599,9 +1694,7 @@ mod piece_movement_directions {
 }
 
 impl Offset {
-    const BEST_KNOWN_OUTCOME: Self = Self(0);
-    const REQUIRED_CHILD_REPORT_COUNT: Self = Self(Self::BEST_KNOWN_OUTCOME.0 + 9);
-    const PASSIVE_LION: Self = Self(Self::REQUIRED_CHILD_REPORT_COUNT.0 + 7);
+    const PASSIVE_LION: Self = Self(0);
     const ACTIVE_LION: Self = Self(Self::PASSIVE_LION.0 + 4);
     const GIRAFFE1: Self = Self(Self::ACTIVE_LION.0 + 4);
     const GIRAFFE0: Self = Self(Self::GIRAFFE1.0 + 5);
@@ -1609,6 +1702,8 @@ impl Offset {
     const ELEPHANT0: Self = Self(Self::ELEPHANT1.0 + 5);
     const CHICK1: Self = Self(Self::ELEPHANT0.0 + 5);
     const CHICK0: Self = Self(Self::CHICK1.0 + 6);
+
+    const STATS: Self = Self(Self::CHICK0.0 + 6);
 
     const CHICK0_PROMOTION: Self = Self(Self::CHICK0.0);
     const CHICK0_COLUMN: Self = Self(Self::CHICK0_PROMOTION.0 + 1);
@@ -1696,11 +1791,3 @@ impl Coords {
 
     const HAND: Self = Self(0b1111);
 }
-
-/// `-200`` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const NEGATIVE_201_I9: u64 = 0b1_0011_0111;
-
-/// `200` in 9-bit two's complement, left-padded with zeros
-/// to fill the 64-bit integer.
-const POSITIVE_201_I9: u64 = 0b0_1100_1001;

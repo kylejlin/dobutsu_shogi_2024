@@ -3,58 +3,59 @@ use super::*;
 use std::collections::VecDeque;
 
 /// This function will solve the game when provided
-/// with a slice of all reachable states.
+/// with a state map of all possible states.
 ///
-/// The slice of states will be sorted.
+/// The map must be initialized such that every state `s`
+/// is mapped to `s.guess_stats()`.
 pub fn solve(
-    nodes: &mut [SearchNode],
+    map: &mut StateMap<StateStats>,
     progress: &mut Progress,
-    mut on_node_processed: impl FnMut(&Progress) -> bool,
+    mut on_state_processed: impl FnMut(&Progress) -> bool,
 ) {
-    nodes.sort_unstable();
+    let mut known_queue: VecDeque<(State, Outcome)> = VecDeque::new();
+    add_terminal_states(map, &mut known_queue);
 
-    init_required_child_report_count_and_best_known_outcome(nodes);
-
-    let mut known_queue = VecDeque::with_capacity(nodes.len());
-    add_terminal_nodes(nodes, &mut known_queue);
-
-    while let Some(child) = known_queue.pop_front() {
-        let child_outcome = child.best_known_outcome();
-
+    while let Some((child, child_outcome)) = known_queue.pop_front() {
         if child_outcome.0 < 0 {
-            visit_parents(child, nodes, progress, |parent_mut, progress| {
-                *parent_mut = parent_mut
-                    .record_child_outcome(child_outcome)
-                    .set_required_child_report_count_to_zero();
+            visit_parents(
+                child,
+                map,
+                progress,
+                |original_parent, parent_stats_mut, progress| {
+                    *parent_stats_mut = parent_stats_mut
+                        .record_child_outcome(child_outcome)
+                        .set_required_child_report_count_to_zero();
 
-                known_queue.push_back(*parent_mut);
-
-                progress.queue_pushes += 1;
-                progress.winning_parent_conclusions += 1;
-            });
-        } else {
-            visit_parents(child, nodes, progress, |parent_mut, progress| {
-                *parent_mut = parent_mut
-                    .record_child_outcome(child_outcome)
-                    .decrement_required_child_report_count();
-
-                if parent_mut.required_child_report_count() == 0 {
-                    known_queue.push_back(*parent_mut);
+                    known_queue.push_back((original_parent, parent_stats_mut.best_known_outcome()));
 
                     progress.queue_pushes += 1;
-                    progress.losing_parent_conclusions += 1;
-                } else {
-                    progress.uncertain_parent_conclusions += 1;
-                }
-            });
+                    progress.winning_parent_conclusions += 1;
+                },
+            );
+        } else {
+            visit_parents(
+                child,
+                map,
+                progress,
+                |original_parent, parent_stats_mut, progress| {
+                    *parent_stats_mut = parent_stats_mut
+                        .record_child_outcome(child_outcome)
+                        .decrement_required_child_report_count();
+
+                    if parent_stats_mut.required_child_report_count() == 0 {
+                        known_queue
+                            .push_back((original_parent, parent_stats_mut.best_known_outcome()));
+
+                        progress.queue_pushes += 1;
+                        progress.losing_parent_conclusions += 1;
+                    } else {
+                        progress.uncertain_parent_conclusions += 1;
+                    }
+                },
+            );
         }
 
-        assert!(
-            known_queue.len() <= nodes.len(),
-            "Queue is growing too large.",
-        );
-
-        if on_node_processed(&progress) {
+        if on_state_processed(&progress) {
             *progress = Progress::default();
         }
     }
@@ -62,31 +63,30 @@ pub fn solve(
 
 #[inline(always)]
 fn visit_parents(
-    node_with_incorrect_nonstate_fields: SearchNode,
-    nodes: &mut [SearchNode],
+    child: State,
+    map: &mut StateMap<StateStats>,
     progress: &mut Progress,
-    mut parent_mutator: impl FnMut(&mut SearchNode, &mut Progress),
+    mut visitor: impl FnMut(State, &mut StateStats, &mut Progress),
 ) {
-    node_with_incorrect_nonstate_fields.visit_parents(|parent_with_incorrect_nonstate_fields| {
-        let parent_state = parent_with_incorrect_nonstate_fields.state();
-        let Ok(parent_index) = nodes.binary_search_by(|other| {
-            let other_state = other.state();
-            other_state.cmp(&parent_state)
-        }) else {
+    child.visit_parents(|parent| {
+        let Some(parent_stats_mut) = map.get_mut(parent) else {
             // It's possible that a theoretical parent is actually unreachable.
             progress.unreachable_parent_visits += 1;
             return;
         };
+        let original_parent_stats = *parent_stats_mut;
 
-        let parent_mut = &mut nodes[parent_index];
+        let required_child_report_count = original_parent_stats.required_child_report_count();
 
-        let required_child_report_count = parent_mut.required_child_report_count();
-        use crate::pretty::*;
-        assert!(
-            required_child_report_count <= 8 * 12,
-            "Required_child_report_count is too large.\n\nNODE:\n\n{}",
-            parent_mut.pretty()
-        );
+        // TODO: Delete after debugging.
+        {
+            use crate::pretty::*;
+            assert!(
+                required_child_report_count <= 8 * 12,
+                "Required_child_report_count is too large.\n\nSTATE:\n\n{}",
+                parent.pretty()
+            );
+        }
 
         if required_child_report_count == 0 {
             // It's possible that the parent has already determined
@@ -98,84 +98,15 @@ fn visit_parents(
 
         progress.unsolved_parent_visits += 1;
 
-        parent_mutator(parent_mut, progress);
+        visitor(parent, parent_stats_mut, progress);
     });
 }
 
-fn init_required_child_report_count_and_best_known_outcome(nodes: &mut [SearchNode]) {
-    const DELETION_MASK: u64 = !((0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
-        | (0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0));
+fn add_terminal_states(map: &StateMap<StateStats>, known_queue: &mut VecDeque<(State, Outcome)>) {
+    map.visit_in_key_order(|state, _| match state.terminality() {
+        Terminality::Loss => known_queue.push_back((state, Outcome::loss_in(0))),
+        Terminality::Win => known_queue.push_back((state, Outcome::win_in(0))),
 
-    for node in nodes {
-        match node.terminality() {
-            Terminality::Nonterminal => {
-                node.0 = (node.0 & DELETION_MASK)
-                    | ((node.total_child_count() as u64) << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
-                    | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
-            }
-
-            Terminality::Win => {
-                node.0 = (node.0 & DELETION_MASK)
-                    | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
-                    | (POSITIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
-            }
-
-            Terminality::Loss => {
-                node.0 = (node.0 & DELETION_MASK)
-                    | (0 << Offset::REQUIRED_CHILD_REPORT_COUNT.0)
-                    | (NEGATIVE_201_I9 << Offset::BEST_KNOWN_OUTCOME.0);
-            }
-        }
-    }
-}
-
-fn add_terminal_nodes(nodes: &[SearchNode], known_queue: &mut VecDeque<SearchNode>) {
-    for node in nodes {
-        if node.is_terminal() {
-            known_queue.push_back(*node);
-        }
-    }
-}
-
-impl SearchNode {
-    fn total_child_count(self) -> u8 {
-        let mut count = 0;
-        self.visit_children(|_| count += 1);
-        count
-    }
-
-    #[must_use]
-    fn record_child_outcome(self, child_outcome: Outcome) -> Self {
-        let incumbent = self.best_known_outcome();
-        let challenger = child_outcome.invert().delay_by_one();
-        if challenger > incumbent {
-            Self(
-                (self.0 & !(0b1_1111_1111 << Offset::BEST_KNOWN_OUTCOME.0))
-                    | (challenger.0.into_zero_padded_i9_unchecked()
-                        << Offset::BEST_KNOWN_OUTCOME.0),
-            )
-        } else {
-            self
-        }
-    }
-
-    #[must_use]
-    fn decrement_required_child_report_count(self) -> Self {
-        Self(self.0 - (1 << Offset::REQUIRED_CHILD_REPORT_COUNT.0))
-    }
-
-    #[must_use]
-    fn set_required_child_report_count_to_zero(self) -> Self {
-        Self(self.0 & !(0b111_1111 << Offset::REQUIRED_CHILD_REPORT_COUNT.0))
-    }
-}
-
-impl Outcome {
-    const fn invert(self) -> Self {
-        Self(-self.0)
-    }
-
-    const fn delay_by_one(self) -> Self {
-        Self(self.0 - self.0.signum())
-    }
+        Terminality::Nonterminal => {}
+    });
 }

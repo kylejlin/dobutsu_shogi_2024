@@ -8,16 +8,18 @@ use std::collections::HashSet;
 mod i9;
 mod legal_moves;
 mod state_map;
+
+// TODO: Delete
 mod state_set;
 
 #[test]
 fn initial_search_node_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial().pretty());
+    insta::assert_snapshot!(State::initial().pretty());
 }
 
 #[test]
 fn initial_search_node_allegiance_inversion_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial()
+    insta::assert_snapshot!(State::initial()
         .into_builder()
         .invert_active_player()
         .pretty());
@@ -25,12 +27,12 @@ fn initial_search_node_allegiance_inversion_is_correct() {
 
 #[test]
 fn initial_search_node_partially_built_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial().into_builder().build().pretty());
+    insta::assert_snapshot!(State::initial().into_builder().build().pretty());
 }
 
 #[test]
 fn initial_search_node_allegiance_inverted_partially_built_is_correct() {
-    insta::assert_snapshot!(SearchNode::initial()
+    insta::assert_snapshot!(State::initial()
         .into_builder()
         .invert_active_player()
         .build()
@@ -39,12 +41,12 @@ fn initial_search_node_allegiance_inverted_partially_built_is_correct() {
 
 #[test]
 fn initial_search_node_children_are_correct() {
-    insta::assert_snapshot!(SearchNode::initial().children().pretty());
+    insta::assert_snapshot!(State::initial().children().pretty());
 }
 
 #[test]
 fn initial_search_node_child0_children_are_correct() {
-    let child0 = SearchNode::initial().children()[0].pretty();
+    let child0 = State::initial().children()[0].pretty();
     let children = child0.0.children().pretty();
     insta::assert_snapshot!(format!("parent:\n{child0}\n\nchildren:\n{children}"));
 }
@@ -150,12 +152,12 @@ fn visited_parents_are_unique() {
 /// The games are guaranteed to be the same for all invocations
 /// of `fuzz`, so you can safely use `fuzz` in your
 /// tests without introducing nondeterminism.
-pub fn fuzz<F: FnMut(SearchNode)>(game_count: usize, mut callback: F) {
+pub fn fuzz<F: FnMut(State)>(game_count: usize, mut callback: F) {
     let mut rng = deterministic_prng();
     let mut child_buffer = Vec::with_capacity(8 * 12);
 
     for _ in 0..game_count {
-        let mut state = SearchNode::initial();
+        let mut state = State::initial();
 
         callback(state);
 

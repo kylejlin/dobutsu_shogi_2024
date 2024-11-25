@@ -1,6 +1,6 @@
 ---
 source: src/tests/mod.rs
-expression: "SearchNode::initial().children().pretty()"
+expression: "State::initial().children().pretty()"
 ---
 SearchNodeSet(len = 4) [
     0:
@@ -14,8 +14,6 @@ SearchNodeSet(len = 4) [
     |*c*|                |lc*|
     |elg|                |e*g|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     1:
     |===|                |===|
@@ -28,8 +26,6 @@ SearchNodeSet(len = 4) [
     |*c*|                |*cl|
     |elg|                |e*g|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     2:
     |===|                |===|
@@ -42,8 +38,6 @@ SearchNodeSet(len = 4) [
     |*C*|                |***|
     |elg|                |elg|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
     3:
     |===|                |===|
@@ -56,7 +50,5 @@ SearchNodeSet(len = 4) [
     |*c*|                |*cg|
     |elg|                |el*|
     |---|                |---|
-    required_child_report_count: 0
-    best_known_outcome: 0 (draw)
     ==========================
 ]
