@@ -13,7 +13,7 @@ enum Command {
     Child(usize),
 }
 
-type Solution = StateMap<StateAndStats>;
+type BestChildMap = StateMap<StateAndStats>;
 
 fn main() {
     let solution_path = Path::new(file!())
@@ -55,27 +55,32 @@ fn main() {
     }
 }
 
-fn launch_tree_inspector(solution: &Solution) {
+fn launch_tree_inspector(solution: &BestChildMap) {
     let mut input_buffer = String::with_capacity(256);
 
-    let mut history = vec![State::initial().with_stats(State::initial().stats(solution))];
+    let mut history = vec![(State::initial(), State::initial().best_outcome(solution))];
 
     loop {
         clear_console();
 
-        let top = *history.last().unwrap();
+        let (top_state, top_outcome) = *history.last().unwrap();
         println!("----------------------------------------------------------------");
-        println!("Current state:\n{}", top.pretty());
-        match top.state().best_child_index(&solution) {
+        println!(
+            "Current state:\n{}",
+            top_state
+                .with_stats(StateStats::new(top_outcome, 127))
+                .pretty()
+        );
+        match top_state.best_child_index(&solution) {
             Some(i) => println!("Best child index: {i}.",),
             None => println!("Best child index: None (node is terminal)."),
         }
         println!(
             "Children: {}",
-            top.state()
+            top_state
                 .children()
                 .into_iter()
-                .map(|child| child.with_stats(child.stats(solution)))
+                .map(|child| child.with_stats(StateStats::new(child.best_outcome(solution), 127)))
                 .collect::<Vec<StateAndStats>>()
                 .pretty()
         );
@@ -105,12 +110,12 @@ fn launch_tree_inspector(solution: &Solution) {
             }
 
             Command::Child(index) => {
-                let children = history.last().unwrap().state().children();
+                let children = history.last().unwrap().0.children();
                 if index >= children.len() {
                     println!("Invalid child index.");
                 } else {
                     let child = children[index];
-                    history.push(child.with_stats(child.stats(solution)));
+                    history.push((child, child.best_outcome(solution)));
                 }
             }
         }
@@ -118,52 +123,60 @@ fn launch_tree_inspector(solution: &Solution) {
 }
 
 trait StateHelperMethods {
-    fn best_child_index(self, solution: &Solution) -> Option<usize>;
-    fn outcome(self, solution: &Solution) -> Option<Outcome>;
-    fn stats(self, solution: &Solution) -> StateStats;
-    fn with_stats(self, stats: StateStats) -> StateAndStats;
+    fn best_child_index(self, solution: &BestChildMap) -> Option<usize>;
+    fn best_outcome(self, solution: &BestChildMap) -> Outcome;
 }
 
 impl StateHelperMethods for State {
-    fn best_child_index(self, solution: &Solution) -> Option<usize> {
+    fn best_child_index(self, solution: &BestChildMap) -> Option<usize> {
+        let best_child = solution.get(self);
+        if best_child.is_null() {
+            return None;
+        }
+
+        let best_child = best_child.state();
+
+        let mut i = 0;
         let mut best_child_index = None;
-        let mut best_outcome = Outcome(i16::MAX);
-        let mut current_index = 0;
         self.visit_children(|child| {
-            let outcome = child.outcome(solution).unwrap_or(Outcome(0));
-            // We invert perspectives, since child nodes represent the opponent's turn.
-            // Therefore, lower scores are better.
-            if outcome < best_outcome {
-                best_child_index = Some(current_index);
-                best_outcome = outcome;
+            if child == best_child {
+                best_child_index = Some(i);
             }
 
-            current_index += 1;
+            i += 1;
         });
 
         best_child_index
     }
 
-    fn outcome(self, solution: &Solution) -> Option<Outcome> {
-        self.stats(solution).best_outcome()
-    }
+    fn best_outcome(self, solution: &BestChildMap) -> Outcome {
+        match self.terminality() {
+            Terminality::Loss => return Outcome::loss_in(0),
+            Terminality::Win => return Outcome::win_in(0),
+            Terminality::Nonterminal => {}
+        }
 
-    fn stats(self, solution: &Solution) -> StateStats {
-        let state = solution.get(self);
+        let child = solution.get(self);
         assert!(
-            !state.is_null(),
-            "State is not in stats map.\n\nSTATE:\n\n{}",
+            !child.is_null(),
+            "Cannot find best child of non-terminal state.\n\nSTATE:\n\n{}",
             self.pretty()
         );
-        state.stats()
-    }
 
-    fn with_stats(self, stats: StateStats) -> StateAndStats {
-        StateAndStats(((stats.0 as u64) << 40) | self.0)
+        if child.stats().required_child_report_count() > 0 {
+            return Outcome::DRAW;
+        }
+
+        child
+            .stats()
+            .best_outcome()
+            .unwrap()
+            .invert()
+            .delay_by_one()
     }
 }
 
-fn create_simple_db(solution: &Solution, simple_db_path: &Path) {
+fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
     if simple_db_path.exists() {
         println!(
             "Simple best-child database already exists at {:?}.",

@@ -24,7 +24,7 @@ pub use state_map::*;
 
 #[repr(i8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Terminality {
+pub enum Terminality {
     Loss = -1,
     Nonterminal = 0,
     Win = 1,
@@ -192,10 +192,10 @@ impl std::ops::Not for Player {
 }
 
 impl StateStats {
-    const IMMEDIATE_WIN: Self = Self::new(Outcome::win_in(0), 0);
-    const IMMEDIATE_LOSS: Self = Self::new(Outcome::loss_in(0), 0);
+    pub const IMMEDIATE_WIN: Self = Self::new(Outcome::win_in(0), 0);
+    pub const IMMEDIATE_LOSS: Self = Self::new(Outcome::loss_in(0), 0);
 
-    const fn new(outcome: Outcome, required_child_report_count: u8) -> Self {
+    pub const fn new(outcome: Outcome, required_child_report_count: u8) -> Self {
         Self((outcome.into_i9() as u16) | ((required_child_report_count as u16) << 9))
     }
 
@@ -259,12 +259,20 @@ impl StateAndStats {
 impl Outcome {
     pub const DRAW: Self = Self(0);
 
-    const fn win_in(delay: u8) -> Self {
+    pub const fn win_in(delay: u8) -> Self {
         Self(201 - (delay as i16))
     }
 
-    const fn loss_in(delay: u8) -> Self {
+    pub const fn loss_in(delay: u8) -> Self {
         Self(-201 + (delay as i16))
+    }
+
+    pub const fn invert(self) -> Self {
+        Self(-self.0)
+    }
+
+    pub const fn delay_by_one(self) -> Self {
+        Self(self.0 - self.0.signum())
     }
 
     const fn into_i9(self) -> u64 {
@@ -273,14 +281,6 @@ impl Outcome {
 
     const fn from_i9(i9: u64) -> Self {
         Self(i9_to_i16(i9))
-    }
-
-    const fn invert(self) -> Self {
-        Self(-self.0)
-    }
-
-    const fn delay_by_one(self) -> Self {
-        Self(self.0 - self.0.signum())
     }
 }
 
@@ -321,11 +321,11 @@ impl State {
         )
     }
 
-    const fn is_terminal(self) -> bool {
+    pub const fn is_terminal(self) -> bool {
         self.into_builder().is_terminal()
     }
 
-    const fn terminality(self) -> Terminality {
+    pub const fn terminality(self) -> Terminality {
         self.into_builder().terminality()
     }
 
@@ -359,6 +359,10 @@ impl State {
         let mut count = 0;
         self.visit_children(|_| count += 1);
         count
+    }
+
+    pub fn with_stats(self, stats: StateStats) -> StateAndStats {
+        StateAndStats(((stats.0 as u64) << Offset::STATS.0) | self.0)
     }
 }
 

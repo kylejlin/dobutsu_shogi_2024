@@ -50,8 +50,4 @@ impl State {
         );
         stats
     }
-
-    fn with_stats(self, stats: StateStats) -> StateAndStats {
-        StateAndStats(((stats.0 as u64) << Offset::STATS.0) | self.0)
-    }
 }
