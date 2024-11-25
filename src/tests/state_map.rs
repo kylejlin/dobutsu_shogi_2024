@@ -55,6 +55,22 @@ fn state_set_vec_is_consistent_with_hash_map() {
     }
 }
 
+#[test]
+fn state_set_vec_is_sorted() {
+    const FUZZ_TIMES: usize = 1000;
+
+    let mut prng = deterministic_prng();
+
+    for _ in 0..FUZZ_TIMES {
+        let (state_map, _) = random_state_map_pair(&mut prng);
+        let state_map_vec = state_map.to_sorted_vec();
+
+        for i in 1..state_map_vec.len() {
+            assert!(state_map_vec[i - 1].0 < state_map_vec[i].0);
+        }
+    }
+}
+
 fn random_state_map_pair(
     prng: &mut XorShiftRng,
 ) -> (
