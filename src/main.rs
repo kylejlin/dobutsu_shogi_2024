@@ -29,7 +29,7 @@ fn main() {
         .unwrap()
         .join("db");
 
-    let solution = load_or_compute_solution(&solution_path);
+    let solution = load_or_compute_solution_and_log(&solution_path);
 
     let mut input_buffer = String::with_capacity(256);
 
@@ -268,7 +268,7 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
     );
 }
 
-fn load_or_compute_solution(solution_path: &Path) -> StateMap<StateAndStats> {
+fn load_or_compute_solution_and_log(solution_path: &Path) -> StateMap<StateAndStats> {
     if solution_path.exists() {
         println!("Loading best child map from {:?}.", solution_path);
         let mut file = File::open(&solution_path).unwrap();
@@ -329,7 +329,11 @@ fn load_or_compute_solution(solution_path: &Path) -> StateMap<StateAndStats> {
 
         out
     } else {
-        let state_stats = compute_state_stats(compute_reachable_states());
+        let reachable_states = compute_reachable_states_and_log();
+        let mut stats_map = compute_initial_stats_map_and_log(&reachable_states);
+        std::mem::drop(reachable_states);
+        compute_state_stats_and_log(&mut stats_map);
+        let stats_map = stats_map;
 
         println!("Computing best child map. This will probably take a while.");
 
@@ -339,7 +343,7 @@ fn load_or_compute_solution(solution_path: &Path) -> StateMap<StateAndStats> {
         let mut checkpoints = 0;
         const CHECKPOINT_SIZE: u64 = 1_000_000;
 
-        let solution = best_child_map(&state_stats, |_| {
+        let solution = best_child_map(&stats_map, |_| {
             countup += 1;
 
             if countup >= CHECKPOINT_SIZE {
@@ -380,16 +384,15 @@ fn load_or_compute_solution(solution_path: &Path) -> StateMap<StateAndStats> {
     }
 }
 
-fn compute_state_stats(reachable_states: StateMap<StateStats>) -> StateMap<StateStats> {
+fn compute_state_stats_and_log(stats_map: &mut StateMap<StateStats>) {
     println!("Starting retrograde analysis. This will probably take several hours.");
-    let mut reachable_states = reachable_states;
     let start_time = Instant::now();
     let mut prev_time = start_time;
     let mut countup = 0;
     let mut checkpoints = 0;
     let mut progress = Progress::default();
     const CHECKPOINT_SIZE: u64 = 1_000_000;
-    compute_stats(&mut reachable_states, &mut progress, |current_progress| {
+    compute_stats(stats_map, &mut progress, |current_progress| {
         countup += 1;
 
         if countup >= CHECKPOINT_SIZE {
@@ -408,17 +411,43 @@ fn compute_state_stats(reachable_states: StateMap<StateStats>) -> StateMap<State
             false
         }
     });
-    let solution = reachable_states;
     println!(
         "Completed retrograde analysis on {} states. It took {:?}.",
         checkpoints * CHECKPOINT_SIZE + countup,
         start_time.elapsed()
     );
-
-    solution
 }
 
-fn compute_reachable_states() -> StateMap<StateStats> {
+fn compute_initial_stats_map_and_log(reachable: &StateSet) -> StateMap<StateStats> {
+    println!("Initializing stat map.");
+    let start_time = Instant::now();
+    let mut prev_time = start_time;
+    let mut countup = 0;
+    let mut checkpoints = 0;
+    const CHECKPOINT_SIZE: u64 = 1_000_000;
+    let stats_map = initial_stat_map(reachable, |_| {
+        countup += 1;
+
+        if countup >= CHECKPOINT_SIZE {
+            countup %= CHECKPOINT_SIZE;
+            checkpoints += 1;
+            println!(
+                "Processed {checkpoints} checkpoints. Duration: {:?}",
+                prev_time.elapsed()
+            );
+            prev_time = Instant::now();
+        }
+    });
+    println!(
+        "Initialized stat map with {} states. It took {:?}.",
+        checkpoints * CHECKPOINT_SIZE + countup,
+        start_time.elapsed()
+    );
+
+    stats_map
+}
+
+fn compute_reachable_states_and_log() -> StateSet {
     println!("Computing reachable states. This will probably take a while (around 45 minutes on my 2018 Macbook Pro).");
     let start_time = Instant::now();
     let mut prev_time = start_time;

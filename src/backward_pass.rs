@@ -2,6 +2,21 @@ use super::*;
 
 use std::collections::VecDeque;
 
+pub fn initial_stat_map(
+    reachable: &StateSet,
+    mut on_state_processed: impl FnMut(State),
+) -> StateMap<StateStats> {
+    let mut map = StateMap::empty();
+
+    reachable.visit(|state| {
+        map.add(state, state.guess_stats());
+
+        on_state_processed(state);
+    });
+
+    map
+}
+
 /// This function will solve the game when provided
 /// with a state map of all possible states.
 ///

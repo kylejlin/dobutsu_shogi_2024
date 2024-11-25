@@ -12,7 +12,7 @@ pub mod pretty;
 pub mod state_map;
 pub mod state_set;
 
-pub use backward_pass::compute_stats;
+pub use backward_pass::{compute_stats, initial_stat_map};
 pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
 pub use state_map::*;
