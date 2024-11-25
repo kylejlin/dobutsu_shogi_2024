@@ -10,11 +10,13 @@ pub mod best_child_map;
 pub mod forward_pass;
 pub mod pretty;
 pub mod state_map;
+pub mod state_set;
 
 pub use backward_pass::compute_stats;
 pub use best_child_map::best_child_map;
 pub use forward_pass::reachable_states;
 pub use state_map::*;
+pub use state_set::StateSet;
 
 // A note about fields with the comment "Must be non-zero":
 //
