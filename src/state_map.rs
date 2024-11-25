@@ -74,7 +74,7 @@ impl<T: Null + Copy> Null for Bucket0<T> {
     }
 }
 
-impl<T: Null> Null for Option<T> {
+impl<T: Eq> Null for Option<T> {
     fn null() -> Self {
         None
     }
@@ -158,14 +158,6 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     }
 
     pub fn to_sorted_vec(&self) -> Vec<(SearchNode, T)> {
-        let mut v = self.to_unsorted_vec();
-
-        v.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-
-        v
-    }
-
-    pub fn to_unsorted_vec(&self) -> Vec<(SearchNode, T)> {
         let mut raw = Vec::new();
 
         self.visit(|node, value| raw.push((node, value)));
@@ -173,6 +165,8 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         raw
     }
 
+    /// This will visit the entries in the order of their keys
+    /// (defined by `<SearchNode as Ord>::cmp`).
     pub fn visit(&self, mut visitor: impl FnMut(SearchNode, T)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {

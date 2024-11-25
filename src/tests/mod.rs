@@ -7,6 +7,7 @@ use std::collections::HashSet;
 
 mod i9;
 mod legal_moves;
+mod state_map;
 mod state_set;
 
 #[test]
