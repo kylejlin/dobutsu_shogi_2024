@@ -360,27 +360,6 @@ impl State {
         self.visit_children(|_| count += 1);
         count
     }
-
-    // TODO: Delete
-    // pub const fn required_child_report_count(self) -> u8 {
-    //     ((self.0 >> Offset::REQUIRED_CHILD_REPORT_COUNT.0) & 0b111_1111) as u8
-    // }
-
-    // pub fn best_known_outcome(self) -> Outcome {
-    //     Outcome(i16::from_zero_padded_i9(
-    //         (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-    //     ))
-    // }
-
-    // pub fn best_outcome(self) -> Option<Outcome> {
-    //     if self.required_child_report_count() > 0 {
-    //         return None;
-    //     }
-
-    //     Some(Outcome(i16::from_zero_padded_i9(
-    //         (self.0 >> Offset::BEST_KNOWN_OUTCOME.0) & 0b1_1111_1111,
-    //     )))
-    // }
 }
 
 impl StateBuilder {
