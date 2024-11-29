@@ -1,19 +1,3 @@
-[package]
-name = "dobutsu_shogi_2024"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-
-[dev-dependencies]
-insta = "1.41.1"
-
-# For fuzz testing:
-rand = "0.8.5"
-rand_xorshift = "0.3.0"
-
-[profile.dev.package]
-insta.opt-level = 3
-similar.opt-level = 3
+members = ["dobutsu_shogi_core"]
