@@ -4,6 +4,8 @@ const _256_POW_2 = 256 * 256;
 const _256_POW_3 = 256 * 256 * 256;
 const _256_POW_4 = 256 * 256 * 256 * 256;
 
+const PACKETS_PER_DIRECTORY = 1000;
+
 enum Species {
   Bird = "Bird",
   Elephant = "Elephant",
@@ -59,15 +61,15 @@ interface Drop {
 }
 
 interface MutCache {
-  packetMaximums: null | readonly number[];
+  paddedPacketMaximums: null | readonly number[];
   readonly packetMap: { [key: number]: Uint8Array };
 }
 
 export class App extends React.Component<Props, State> {
   private readonly cache: MutCache;
-  private readonly packetMaximumsPromise: Promise<readonly number[]>;
-  private readonly resolvePacketMaximumsPromise: (
-    value: readonly number[]
+  private readonly paddedPacketMaximumsPromise: Promise<readonly number[]>;
+  private readonly resolvePaddedPacketMaximumsPromise: (
+    paddedPacketMaximums: readonly number[]
   ) => void;
 
   constructor(props: Props) {
@@ -80,15 +82,15 @@ export class App extends React.Component<Props, State> {
     };
 
     this.cache = {
-      packetMaximums: null,
+      paddedPacketMaximums: null,
       packetMap: {},
     };
 
-    this.resolvePacketMaximumsPromise = (): void => {
+    this.resolvePaddedPacketMaximumsPromise = (): void => {
       throw new Error("resolvePacketMaximumsPromise not initialized");
     };
 
-    this.packetMaximumsPromise = new Promise((resolve) => {
+    this.paddedPacketMaximumsPromise = new Promise((resolve) => {
       (this as any).resolvePacketMaximumsPromise = resolve;
     });
   }
@@ -111,15 +113,16 @@ export class App extends React.Component<Props, State> {
           throw new Error(`Received empty ArrayBuffer from ${maximumsUrl}`);
         }
 
-        if (this.cache.packetMaximums !== null) {
+        if (this.cache.paddedPacketMaximums !== null) {
           // If the cache was already initialized, do nothing.
           return;
         }
 
-        this.cache.packetMaximums = decodePacketMaximumBuffer(
-          new Uint8Array(buffer)
+        this.cache.paddedPacketMaximums =
+          decodePacketMaximumBufferAndPadWithInfinities(new Uint8Array(buffer));
+        this.resolvePaddedPacketMaximumsPromise(
+          this.cache.paddedPacketMaximums
         );
-        this.resolvePacketMaximumsPromise(this.cache.packetMaximums);
 
         this.incrementCacheGeneration();
 
@@ -144,8 +147,8 @@ export class App extends React.Component<Props, State> {
       return;
     }
 
-    this.packetMaximumsPromise.then((packetMaximums) => {
-      const url = getPacketUrl(compressedState, packetMaximums);
+    this.paddedPacketMaximumsPromise.then((paddedPacketMaximums) => {
+      const url = getPacketUrl(compressedState, paddedPacketMaximums);
       fetch(url)
         .then((response) => {
           if (!response.ok) {
@@ -252,20 +255,56 @@ function getPacketMaximumsUrl(): string {
 
 function getPacketUrl(
   compressedState: number,
-  packetMaximums: readonly number[]
+  paddedPacketMaximums: readonly number[]
 ): string {
-  // TODO
-  return "";
+  const i = findPaddedPacketIndex(compressedState, paddedPacketMaximums);
+  if (i === -1 || i === 0 || i === paddedPacketMaximums.length - 1) {
+    throw new Error(
+      `Failed to find padded packet index for compressed state ${compressedState}.`
+    );
+  }
+
+  const j = i - 1;
+  return `https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/${String(
+    Math.floor(j / PACKETS_PER_DIRECTORY)
+  )}/${String(j % PACKETS_PER_DIRECTORY)}.dat`;
 }
 
-function decodePacketMaximumBuffer(leBuffer: Uint8Array): readonly number[] {
+/**
+ * @param paddedPacketMaximums This must be sorted in ascending order,
+ * and must start and end with -Infinity and Infinity, respectively.
+ */
+function findPaddedPacketIndex(
+  compressedState: number,
+  paddedPacketMaximums: readonly number[]
+): number {
+  let inclusiveLow = 1;
+  let inclusiveHigh = paddedPacketMaximums.length - 1;
+
+  while (inclusiveLow <= inclusiveHigh) {
+    const mid = Math.floor((inclusiveLow + inclusiveHigh) / 2);
+    if (compressedState <= paddedPacketMaximums[mid - 1]) {
+      inclusiveHigh = mid - 1;
+    } else if (compressedState > paddedPacketMaximums[mid]) {
+      inclusiveLow = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+
+  return -1;
+}
+
+function decodePacketMaximumBufferAndPadWithInfinities(
+  leBuffer: Uint8Array
+): readonly number[] {
   if (leBuffer.length % 5 !== 0) {
     throw new Error(
       `Expected buffer length to be a multiple of 5, but got a length of ${leBuffer.length}.`
     );
   }
 
-  const maximums = [];
+  const maximums = [-Infinity];
 
   for (let i = 0; i < leBuffer.length; i += 5) {
     maximums.push(
@@ -276,6 +315,8 @@ function decodePacketMaximumBuffer(leBuffer: Uint8Array): readonly number[] {
         leBuffer[i + 4] * _256_POW_4
     );
   }
+
+  maximums.push(Infinity);
 
   return maximums;
 }
