@@ -16,6 +16,8 @@ interface Props {}
 
 interface State {
   readonly game: GameState;
+  readonly selectedSquareIndex: number | null;
+  readonly cacheGeneration: number;
 }
 
 interface GameState {
@@ -52,16 +54,116 @@ interface Drop {
   readonly to: number;
 }
 
+interface MutCache {
+  packetMaximums: Uint8Array;
+  readonly packetMap: { [key: number]: Uint8Array };
+}
+
 export class App extends React.Component<Props, State> {
+  private readonly cache: MutCache;
+  private readonly packetMaximumsPromise: Promise<Uint8Array>;
+  private readonly resolvePacketMaximumsPromise: (value: Uint8Array) => void;
+
   constructor(props: Props) {
     super(props);
+
     this.state = {
       game: getInitialGameState(),
+      selectedSquareIndex: null,
+      cacheGeneration: 0,
     };
+
+    this.cache = {
+      packetMaximums: new Uint8Array(0),
+      packetMap: {},
+    };
+
+    this.resolvePacketMaximumsPromise = (): void => {
+      throw new Error("resolvePacketMaximumsPromise not initialized");
+    };
+
+    this.packetMaximumsPromise = new Promise((resolve) => {
+      (this as any).resolvePacketMaximumsPromise = resolve;
+    });
+  }
+
+  componentDidMount(): void {
+    this.initializeCache();
+  }
+
+  initializeCache(): void {
+    const maximumsUrl = getPacketMaximumsUrl();
+    fetch(maximumsUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${maximumsUrl}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (buffer.byteLength === 0) {
+          throw new Error(`Received empty ArrayBuffer from ${maximumsUrl}`);
+        }
+
+        if (this.cache.packetMaximums.length !== 0) {
+          // If the cache was already initialized, do nothing.
+          return;
+        }
+
+        this.cache.packetMaximums = new Uint8Array(buffer);
+        this.resolvePacketMaximumsPromise(this.cache.packetMaximums);
+
+        this.incrementCacheGeneration();
+
+        this.fetchPacketForCurrentGameStateIfNeeded();
+      });
+  }
+
+  incrementCacheGeneration(): void {
+    this.setState((prevState) => ({
+      ...prevState,
+      cacheGeneration: prevState.cacheGeneration + 1,
+    }));
+  }
+
+  fetchPacketForCurrentGameStateIfNeeded(): void {
+    this.fetchPacketForGameStateIfNeeded(this.state.game);
+  }
+
+  fetchPacketForGameStateIfNeeded(state: GameState): void {
+    const compressedState = compressGameState(state);
+    if (compressedState in this.cache.packetMap) {
+      return;
+    }
+
+    this.packetMaximumsPromise.then((packetMaximums) => {
+      const url = getPacketUrl(compressedState, packetMaximums);
+      fetch(url)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${url}`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((buffer) => {
+          if (buffer.byteLength === 0) {
+            throw new Error(`Received empty ArrayBuffer from ${url}`);
+          }
+
+          this.cache.packetMap[compressedState] = new Uint8Array(buffer);
+          this.incrementCacheGeneration();
+        });
+    });
   }
 
   render(): React.ReactElement {
-    return <div className="App">Hello world</div>;
+    return (
+      <div id="App">
+        <div id="Board">
+          <div className="Square Square--i0"></div>
+        </div>
+      </div>
+    );
   }
 }
 
@@ -129,4 +231,21 @@ function getInitialGameState(): GameState {
     ],
     activePlayer: Player.Forest,
   };
+}
+
+function compressGameState(state: GameState): number {
+  // TODO
+  return 0;
+}
+
+function getPacketMaximumsUrl(): string {
+  return "https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/maximums.dat";
+}
+
+function getPacketUrl(
+  compressedState: number,
+  packetMaximums: Uint8Array
+): string {
+  // TODO
+  return "";
 }
