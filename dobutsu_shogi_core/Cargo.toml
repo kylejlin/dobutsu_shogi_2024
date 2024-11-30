@@ -1,5 +1,5 @@
 [package]
-name = "dobutsu_shogi_2024"
+name = "dobutsu_shogi_core"
 version = "0.1.0"
 edition = "2021"
 
