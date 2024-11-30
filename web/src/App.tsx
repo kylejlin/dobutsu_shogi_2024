@@ -168,13 +168,36 @@ export class App extends React.Component<Props, State> {
   }
 
   render(): React.ReactElement {
+    const { selectedSquareIndex, game } = this.state;
     return (
       <div id="App">
         <div id="Board">
-          <div className="Square Square--i0"></div>
+          {game.board.map((_, i) => this.renderBoardSquare(i))}
         </div>
       </div>
     );
+  }
+
+  renderBoardSquare(squareIndex: number): React.ReactElement {
+    const { selectedSquareIndex, game } = this.state;
+    return (
+      <div
+        className={`Square Square--i${squareIndex}${
+          selectedSquareIndex === squareIndex ? " Square--selected" : ""
+        }`}
+        key={squareIndex}
+      >
+        <img
+          alt={getSquareAltText(game.board[squareIndex])}
+          src={getSquareImageSrc(game.board[squareIndex])}
+          onClick={(): void => this.onBoardPieceClick(squareIndex)}
+        />
+      </div>
+    );
+  }
+
+  onBoardPieceClick(squareIndex: number): void {
+    // TODO
   }
 }
 
@@ -319,4 +342,19 @@ function decodePacketMaximumBufferAndPadWithInfinities(
   maximums.push(Infinity);
 
   return maximums;
+}
+
+function getSquareAltText(square: Square): string {
+  if (square.isEmpty) {
+    return "Empty Square";
+  }
+
+  return `${square.allegiance} ${square.species}${
+    square.isPromoted ? " (Promoted)" : ""
+  }`;
+}
+
+function getSquareImageSrc(square: Square): string {
+  // TODO
+  return "";
 }
