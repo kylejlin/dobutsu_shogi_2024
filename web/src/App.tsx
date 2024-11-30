@@ -1,5 +1,9 @@
 import React from "react";
 
+const _256_POW_2 = 256 * 256;
+const _256_POW_3 = 256 * 256 * 256;
+const _256_POW_4 = 256 * 256 * 256 * 256;
+
 enum Species {
   Bird = "Bird",
   Elephant = "Elephant",
@@ -55,14 +59,16 @@ interface Drop {
 }
 
 interface MutCache {
-  packetMaximums: Uint8Array;
+  packetMaximums: null | readonly number[];
   readonly packetMap: { [key: number]: Uint8Array };
 }
 
 export class App extends React.Component<Props, State> {
   private readonly cache: MutCache;
-  private readonly packetMaximumsPromise: Promise<Uint8Array>;
-  private readonly resolvePacketMaximumsPromise: (value: Uint8Array) => void;
+  private readonly packetMaximumsPromise: Promise<readonly number[]>;
+  private readonly resolvePacketMaximumsPromise: (
+    value: readonly number[]
+  ) => void;
 
   constructor(props: Props) {
     super(props);
@@ -74,7 +80,7 @@ export class App extends React.Component<Props, State> {
     };
 
     this.cache = {
-      packetMaximums: new Uint8Array(0),
+      packetMaximums: null,
       packetMap: {},
     };
 
@@ -105,12 +111,14 @@ export class App extends React.Component<Props, State> {
           throw new Error(`Received empty ArrayBuffer from ${maximumsUrl}`);
         }
 
-        if (this.cache.packetMaximums.length !== 0) {
+        if (this.cache.packetMaximums !== null) {
           // If the cache was already initialized, do nothing.
           return;
         }
 
-        this.cache.packetMaximums = new Uint8Array(buffer);
+        this.cache.packetMaximums = decodePacketMaximumBuffer(
+          new Uint8Array(buffer)
+        );
         this.resolvePacketMaximumsPromise(this.cache.packetMaximums);
 
         this.incrementCacheGeneration();
@@ -244,8 +252,30 @@ function getPacketMaximumsUrl(): string {
 
 function getPacketUrl(
   compressedState: number,
-  packetMaximums: Uint8Array
+  packetMaximums: readonly number[]
 ): string {
   // TODO
   return "";
+}
+
+function decodePacketMaximumBuffer(leBuffer: Uint8Array): readonly number[] {
+  if (leBuffer.length % 5 !== 0) {
+    throw new Error(
+      `Expected buffer length to be a multiple of 5, but got a length of ${leBuffer.length}.`
+    );
+  }
+
+  const maximums = [];
+
+  for (let i = 0; i < leBuffer.length; i += 5) {
+    maximums.push(
+      leBuffer[i] +
+        leBuffer[i + 1] * 256 +
+        leBuffer[i + 2] * _256_POW_2 +
+        leBuffer[i + 3] * _256_POW_3 +
+        leBuffer[i + 4] * _256_POW_4
+    );
+  }
+
+  return maximums;
 }
