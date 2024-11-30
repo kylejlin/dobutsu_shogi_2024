@@ -26,7 +26,25 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "object-shorthand": [
+        "warn",
+        "always"
+      ],
+      "@typescript-eslint/strict-boolean-expressions": [
+        "warn",
+        {
+          "allowString": false,
+          "allowNumber": false,
+          "allowNullableObject": false
+        }
+      ]
+    },
+    "parserOptions": {
+      "project": "./tsconfig.json"
+    }
   },
   "browserslist": {
     "production": [
