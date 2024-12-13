@@ -63,5 +63,5 @@
   "devDependencies": {
     "gh-pages": "^6.2.0"
   },
-  "homepage": "https://kylejlin.github.io/dobutsu_shogi_2024"
+  "homepage": "."
 }
