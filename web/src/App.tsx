@@ -1243,6 +1243,101 @@ function cloneGameState(game: GameState): Writable<GameState> {
 }
 
 function getBestAction(game: GameState, cache: MutCache): null | Action {
-  // TODO
-  return null;
+  const { paddedPacketMaximums, packetMap } = cache;
+
+  if (paddedPacketMaximums === null) {
+    return null;
+  }
+
+  const compressedState = compressGameState(game);
+  const packetIndex = getNonpaddedPacketIndex(
+    compressedState,
+    paddedPacketMaximums
+  );
+
+  const packet = packetMap[packetIndex];
+  if (packet === undefined) {
+    return null;
+  }
+
+  return getBestActionUsingPacket(game, packet);
+}
+
+function getBestActionUsingPacket(game: GameState, packet: Uint8Array): Action {
+  const actionChildMap = getCompressedChildActionMap(game);
+
+  let bestAction: Action | null = null;
+  let lowestScore = Infinity;
+
+  for (let i = 0; i < packet.length; i += 8) {
+    const compressedCandidate = getUnsigned40BitIntFromLeBytes(
+      packet.subarray(i + 2, i + 7)
+    );
+
+    if (!(compressedCandidate in actionChildMap)) {
+      continue;
+    }
+
+    const uncheckedCandidateNondecodedScore =
+      packet[i] | ((packet[i + 1] & 1) << 8);
+    const uncheckedCandidateScore =
+      getRegularJsNumberFromSignedTwosComplement9BitInteger(
+        uncheckedCandidateNondecodedScore
+      );
+
+    const requiredChildReportCount = packet[i + 1] >>> 1;
+    const candidateScore =
+      requiredChildReportCount === 0 ? uncheckedCandidateScore : 0;
+
+    if (candidateScore < lowestScore) {
+      lowestScore = candidateScore;
+      bestAction = actionChildMap[compressedCandidate];
+    }
+  }
+
+  if (bestAction === null) {
+    throw new Error("Failed to find best action in packet.");
+  }
+
+  return bestAction;
+}
+
+function getUnsigned40BitIntFromLeBytes(leBytes: Uint8Array): number {
+  return (
+    leBytes[0] +
+    leBytes[1] * 256 +
+    leBytes[2] * _256_POW_2 +
+    leBytes[3] * _256_POW_3 +
+    leBytes[4] * _256_POW_4
+  );
+}
+
+function getRegularJsNumberFromSignedTwosComplement9BitInteger(
+  i9: number
+): number {
+  // Handle negative values
+  if ((i9 & (1 << 8)) !== 0) {
+    const C = -(1 << 8);
+    let v8 = i9 & 0b1111_1111;
+    return C + v8;
+  }
+
+  return i9;
+}
+
+function getCompressedChildActionMap(game: GameState): {
+  readonly [compressedChild: number]: Action;
+} {
+  const out: {
+    [compressedChild: number]: Action;
+  } = {};
+
+  const actions = getActions(game);
+  for (const action of actions) {
+    const child = unsafeApplyAction(game, action);
+    const compressedChild = compressGameState(child);
+    out[compressedChild] = action;
+  }
+
+  return out;
 }
