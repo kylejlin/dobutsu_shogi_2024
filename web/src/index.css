@@ -44,6 +44,10 @@ body {
   height: calc(var(--square-size) - 2 * var(--border-thickness));
 }
 
+.Square--selected {
+  background-color: #8800ff;
+}
+
 .Square--i0 {
   top: calc(3 * var(--square-size));
   left: calc(0 * var(--square-size));

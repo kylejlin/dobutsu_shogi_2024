@@ -19,19 +19,32 @@ enum Player {
   Sky = "Sky",
 }
 
+enum SquareSelectionKind {
+  None = "None",
+  Board = "Board",
+  ForestHand = "ForestHand",
+}
+
 interface Props {}
 
 interface State {
   readonly game: GameState;
-  readonly selectedSquareIndex: number | null;
+  readonly squareSelection: SquareSelection;
   readonly cacheGeneration: number;
 }
 
 interface GameState {
-  readonly forestHand: readonly Species[];
-  readonly skyHand: readonly Species[];
+  readonly forestHand: Hand;
+  readonly skyHand: Hand;
   readonly board: readonly Square[];
   readonly activePlayer: Player;
+}
+
+interface Hand {
+  readonly [Species.Bird]: number;
+  readonly [Species.Elephant]: number;
+  readonly [Species.Giraffe]: number;
+  readonly [Species.Lion]: number;
 }
 
 type Square = EmptySquare | OccupiedSquare;
@@ -45,6 +58,22 @@ interface OccupiedSquare {
   readonly allegiance: Player;
   readonly species: Species;
   readonly isPromoted: boolean;
+}
+
+type SquareSelection = NoSelection | BoardSelection | ForestHandSelection;
+
+interface NoSelection {
+  readonly kind: SquareSelectionKind.None;
+}
+
+interface BoardSelection {
+  readonly kind: SquareSelectionKind.Board;
+  readonly squareIndex: number;
+}
+
+interface ForestHandSelection {
+  readonly kind: SquareSelectionKind.ForestHand;
+  readonly species: Species;
 }
 
 type Action = Move | Drop;
@@ -78,7 +107,7 @@ export class App extends React.Component<Props, State> {
 
     this.state = {
       game: getInitialGameState(),
-      selectedSquareIndex: null,
+      squareSelection: { kind: SquareSelectionKind.None },
       cacheGeneration: 0,
     };
 
@@ -169,7 +198,7 @@ export class App extends React.Component<Props, State> {
   }
 
   render(): React.ReactElement {
-    const { selectedSquareIndex, game } = this.state;
+    const { game } = this.state;
     return (
       <div id="App">
         <div id="Board">
@@ -180,11 +209,15 @@ export class App extends React.Component<Props, State> {
   }
 
   renderBoardSquare(squareIndex: number): React.ReactElement {
-    const { selectedSquareIndex, game } = this.state;
+    const { game, squareSelection } = this.state;
+    const selectedBoardSquareIndex =
+      squareSelection.kind === SquareSelectionKind.Board
+        ? squareSelection.squareIndex
+        : null;
     return (
       <div
         className={`Square Square--i${squareIndex}${
-          selectedSquareIndex === squareIndex ? " Square--selected" : ""
+          selectedBoardSquareIndex === squareIndex ? " Square--selected" : ""
         }`}
         key={squareIndex}
       >
@@ -197,15 +230,53 @@ export class App extends React.Component<Props, State> {
     );
   }
 
-  onBoardPieceClick(squareIndex: number): void {
+  onBoardPieceClick(clickedSquareIndex: number): void {
+    const prevSelection = this.state.squareSelection;
+    const { game } = this.state;
+
+    // Handle piece selection.
+    if (
+      prevSelection.kind === SquareSelectionKind.None &&
+      clickedSquareIndex < game.board.length &&
+      isSquareForest(game.board[clickedSquareIndex])
+    ) {
+      this.setState({
+        squareSelection: {
+          kind: SquareSelectionKind.Board,
+          squareIndex: clickedSquareIndex,
+        },
+      });
+      return;
+    }
+
+    // Handle piece deselection.
+    if (
+      prevSelection.kind === SquareSelectionKind.Board &&
+      prevSelection.squareIndex === clickedSquareIndex
+    ) {
+      this.setState({ squareSelection: { kind: SquareSelectionKind.None } });
+      return;
+    }
+
+    // Handle action.
     // TODO
   }
 }
 
 function getInitialGameState(): GameState {
   return {
-    forestHand: [],
-    skyHand: [],
+    forestHand: {
+      [Species.Bird]: 0,
+      [Species.Elephant]: 0,
+      [Species.Giraffe]: 0,
+      [Species.Lion]: 0,
+    },
+    skyHand: {
+      [Species.Bird]: 0,
+      [Species.Elephant]: 0,
+      [Species.Giraffe]: 0,
+      [Species.Lion]: 0,
+    },
     board: [
       // row0
       {
@@ -362,20 +433,21 @@ function getSquareImageSrc(square: Square): string {
 
   switch (square.allegiance) {
     case Player.Sky:
-      return getSkyImageSrc(square.species);
+      return getSkyImageSrc(square);
 
     case Player.Forest:
-      return getForestImageSrc(square.species);
+      return getForestImageSrc(square);
 
     default:
       return typesafeUnreachable(square.allegiance);
   }
 }
 
-function getSkyImageSrc(species: Species): string {
+function getSkyImageSrc(square: OccupiedSquare): string {
+  const { species } = square;
   switch (species) {
     case Species.Bird:
-      return imageUrls.skyChick;
+      return square.isPromoted ? imageUrls.skyHen : imageUrls.skyChick;
 
     case Species.Elephant:
       return imageUrls.skyElephant;
@@ -391,10 +463,11 @@ function getSkyImageSrc(species: Species): string {
   }
 }
 
-function getForestImageSrc(species: Species): string {
+function getForestImageSrc(square: OccupiedSquare): string {
+  const { species } = square;
   switch (species) {
     case Species.Bird:
-      return imageUrls.forestChick;
+      return square.isPromoted ? imageUrls.forestHen : imageUrls.forestChick;
 
     case Species.Elephant:
       return imageUrls.forestElephant;
@@ -412,4 +485,8 @@ function getForestImageSrc(species: Species): string {
 
 function typesafeUnreachable(impossible: never): never {
   return impossible;
+}
+
+function isSquareForest(square: Square): boolean {
+  return !square.isEmpty && square.allegiance === Player.Forest;
 }
