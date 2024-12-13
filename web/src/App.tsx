@@ -112,7 +112,9 @@ interface MoveSet {
 
 interface MutCache {
   paddedPacketMaximums: null | readonly number[];
-  readonly packetMap: { [key: number]: Uint8Array };
+
+  /** Maps non-padded packet indices to packet buffers. */
+  readonly packetMap: (undefined | Uint8Array)[];
 }
 
 type Writable<T> = T extends object
@@ -171,7 +173,7 @@ export class App extends React.Component<Props, State> {
 
     this.cache = {
       paddedPacketMaximums: null,
-      packetMap: {},
+      packetMap: [],
     };
 
     this.resolvePaddedPacketMaximumsPromise = (): void => {
@@ -251,7 +253,10 @@ export class App extends React.Component<Props, State> {
             throw new Error(`Received empty ArrayBuffer from ${url}`);
           }
 
-          this.cache.packetMap[compressedState] = new Uint8Array(buffer);
+          this.cache.packetMap[
+            getNonpaddedPacketIndex(compressedState, paddedPacketMaximums)
+          ] = new Uint8Array(buffer);
+
           this.incrementCacheGeneration();
         });
     });
@@ -548,17 +553,25 @@ function getPacketUrl(
   compressedState: number,
   paddedPacketMaximums: readonly number[]
 ): string {
+  const i = getNonpaddedPacketIndex(compressedState, paddedPacketMaximums);
+  return `https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/${String(
+    Math.floor(i / PACKETS_PER_DIRECTORY)
+  )}/${String(i % PACKETS_PER_DIRECTORY)}.dat`;
+}
+
+function getNonpaddedPacketIndex(
+  compressedState: number,
+  paddedPacketMaximums: readonly number[]
+): number {
   const i = findPaddedPacketIndex(compressedState, paddedPacketMaximums);
+
   if (i === -1 || i === 0 || i === paddedPacketMaximums.length - 1) {
     throw new Error(
       `Failed to find padded packet index for compressed state ${compressedState}.`
     );
   }
 
-  const j = i - 1;
-  return `https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/${String(
-    Math.floor(j / PACKETS_PER_DIRECTORY)
-  )}/${String(j % PACKETS_PER_DIRECTORY)}.dat`;
+  return i - 1;
 }
 
 /**
