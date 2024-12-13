@@ -87,11 +87,11 @@ export class App extends React.Component<Props, State> {
     };
 
     this.resolvePaddedPacketMaximumsPromise = (): void => {
-      throw new Error("resolvePacketMaximumsPromise not initialized");
+      throw new Error("resolvePaddedPacketMaximumsPromise not initialized");
     };
 
     this.paddedPacketMaximumsPromise = new Promise((resolve) => {
-      (this as any).resolvePacketMaximumsPromise = resolve;
+      (this as any).resolvePaddedPacketMaximumsPromise = resolve;
     });
   }
 
