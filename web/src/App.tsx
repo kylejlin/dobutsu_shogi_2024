@@ -88,15 +88,38 @@ type Action = Move | Drop;
 
 interface Move {
   readonly isDrop: false;
-  readonly from: number;
-  readonly to: number;
+  readonly startIndex: number;
+  readonly destIndex: number;
 }
 
 interface Drop {
   readonly isDrop: true;
   readonly species: Species;
-  readonly to: number;
+  readonly destIndex: number;
 }
+
+interface MoveSet {
+  readonly n: boolean;
+  readonly ne: boolean;
+  readonly e: boolean;
+  readonly se: boolean;
+  readonly s: boolean;
+  readonly sw: boolean;
+  readonly w: boolean;
+  readonly nw: boolean;
+}
+
+const FOREST_CHICK_MOVE_SET = getMoveSetOf(["n"]);
+const FOREST_HEN_MOVE_SET = getMoveSetUnion(
+  getOrthogonalMoveSet(),
+  getMoveSetOf(["ne", "nw"])
+);
+const FOREST_ELEPHANT_MOVE_SET = getDiagonalMoveSet();
+const FOREST_GIRAFFE_MOVE_SET = getOrthogonalMoveSet();
+const FOREST_LION_MOVE_SET = getMoveSetUnion(
+  getOrthogonalMoveSet(),
+  getDiagonalMoveSet()
+);
 
 interface MutCache {
   paddedPacketMaximums: null | readonly number[];
@@ -328,8 +351,8 @@ export class App extends React.Component<Props, State> {
     if (prevSelection.kind === SquareSelectionKind.Board) {
       const action: Action = {
         isDrop: false,
-        from: prevSelection.squareIndex,
-        to: clickedSquareIndex,
+        startIndex: prevSelection.squareIndex,
+        destIndex: clickedSquareIndex,
       };
       const newGameState = tryApplyAction(game, action);
       if (newGameState !== null) {
@@ -350,7 +373,7 @@ export class App extends React.Component<Props, State> {
       const action: Action = {
         isDrop: true,
         species: prevSelection.species,
-        to: clickedSquareIndex,
+        destIndex: clickedSquareIndex,
       };
       const newGameState = tryApplyAction(game, action);
       if (newGameState !== null) {
@@ -655,8 +678,144 @@ function getForestActions(game: GameState): readonly Action[] {
     return [];
   }
 
-  // TODO
-  return [];
+  // If the active lion is in the passive hand,
+  // the passive player has won.
+  if (game.skyHand[Species.Lion] > 0) {
+    return [];
+  }
+
+  const { board, forestHand } = game;
+
+  // If the active lion is in the passive home row,
+  // the active player has won by the Try Rule.
+  if (
+    isForestLion(board[9]) ||
+    isForestLion(board[10]) ||
+    isForestLion(board[11])
+  ) {
+    return [];
+  }
+
+  const out: Action[] = [];
+
+  if (forestHand[Species.Bird] > 0) {
+    writeForestDropForEachDest(game, Species.Bird, out);
+  }
+
+  if (forestHand[Species.Elephant] > 0) {
+    writeForestDropForEachDest(game, Species.Elephant, out);
+  }
+
+  if (forestHand[Species.Giraffe] > 0) {
+    writeForestDropForEachDest(game, Species.Giraffe, out);
+  }
+
+  for (let startIndex = 0; startIndex < 12; ++startIndex) {
+    const actor = board[startIndex];
+    if (!actor.isEmpty && actor.allegiance === Player.Forest) {
+      writeForestMoveForEachDest(
+        game,
+        startIndex,
+        actor.species,
+        actor.isPromoted,
+        out
+      );
+    }
+  }
+
+  return out;
+}
+
+function writeForestDropForEachDest(
+  game: GameState,
+  species: Species,
+  out: Action[]
+): void {
+  for (let destIndex = 0; destIndex < 12; ++destIndex) {
+    if (game.board[destIndex].isEmpty) {
+      out.push({ isDrop: true, species, destIndex: destIndex });
+    }
+  }
+}
+
+function writeForestMoveForEachDest(
+  game: GameState,
+  startIndex: number,
+  species: Species,
+  isPromoted: boolean,
+  out: Action[]
+): void {
+  for (let destIndex = 0; destIndex < 12; ++destIndex) {
+    const dest = game.board[destIndex];
+    const isDestForest = !dest.isEmpty && dest.allegiance === Player.Forest;
+    if (
+      !isDestForest &&
+      canForestSpeciesMove(species, isPromoted, startIndex, destIndex)
+    ) {
+      out.push({ isDrop: false, startIndex: startIndex, destIndex: destIndex });
+    }
+  }
+}
+
+function canForestSpeciesMove(
+  species: Species,
+  isPromoted: boolean,
+  startIndex: number,
+  destIndex: number
+) {
+  const moveSet = getForestMoveSet(species, isPromoted);
+  return doesMoveSetPermit(moveSet, startIndex, destIndex);
+}
+
+function getForestMoveSet(species: Species, isPromoted: boolean): MoveSet {
+  switch (species) {
+    case Species.Bird:
+      return isPromoted ? FOREST_HEN_MOVE_SET : FOREST_CHICK_MOVE_SET;
+
+    case Species.Elephant:
+      return FOREST_ELEPHANT_MOVE_SET;
+
+    case Species.Giraffe:
+      return FOREST_GIRAFFE_MOVE_SET;
+
+    case Species.Lion:
+      return FOREST_LION_MOVE_SET;
+
+    default:
+      return typesafeUnreachable(species);
+  }
+}
+
+function doesMoveSetPermit(
+  moveSet: MoveSet,
+  startIndex: number,
+  destIndex: number
+): boolean {
+  const startRow = Math.floor(startIndex / 3);
+  const startCol = startIndex % 3;
+  const destRow = Math.floor(destIndex / 3);
+  const destCol = destIndex % 3;
+  const dx = destCol - startCol;
+  const dy = destRow - startRow;
+
+  return (
+    (moveSet.n && dx === 0 && dy === 1) ||
+    (moveSet.ne && dx === 1 && dy === 1) ||
+    (moveSet.e && dx === 1 && dy === 0) ||
+    (moveSet.se && dx === 1 && dy === -1) ||
+    (moveSet.s && dx === 0 && dy === -1) ||
+    (moveSet.sw && dx === -1 && dy === -1) ||
+    (moveSet.w && dx === -1 && dy === 0) ||
+    (moveSet.nw && dx === -1 && dy === 1)
+  );
+}
+
+function isForestLion(square: Square): boolean {
+  return (
+    !square.isEmpty &&
+    square.allegiance === Player.Forest &&
+    square.species === Species.Lion
+  );
 }
 
 function areActionsEqual(action1: Action, action2: Action): boolean {
@@ -664,14 +823,14 @@ function areActionsEqual(action1: Action, action2: Action): boolean {
     return (
       action2.isDrop &&
       action1.species === action2.species &&
-      action1.to === action2.to
+      action1.destIndex === action2.destIndex
     );
   }
 
   return (
     !action2.isDrop &&
-    action1.from === action2.from &&
-    action1.to === action2.to
+    action1.startIndex === action2.startIndex &&
+    action1.destIndex === action2.destIndex
   );
 }
 
@@ -733,13 +892,53 @@ function invertAction(action: Action): Action {
     return {
       isDrop: action.isDrop,
       species: action.species,
-      to: invertBoardIndex(action.to),
+      destIndex: invertBoardIndex(action.destIndex),
     };
   }
 
   return {
     isDrop: action.isDrop,
-    from: invertBoardIndex(action.from),
-    to: invertBoardIndex(action.to),
+    startIndex: invertBoardIndex(action.startIndex),
+    destIndex: invertBoardIndex(action.destIndex),
+  };
+}
+
+function getMoveSetOf(directions: readonly (keyof MoveSet)[]): MoveSet {
+  const out = {
+    n: false,
+    ne: false,
+    e: false,
+    se: false,
+    s: false,
+    sw: false,
+    w: false,
+    nw: false,
+  };
+
+  for (const direction of directions) {
+    out[direction] = true;
+  }
+
+  return out;
+}
+
+function getOrthogonalMoveSet(): MoveSet {
+  return getMoveSetOf(["n", "e", "s", "w"]);
+}
+
+function getDiagonalMoveSet(): MoveSet {
+  return getMoveSetOf(["ne", "se", "sw", "nw"]);
+}
+
+function getMoveSetUnion(a: MoveSet, b: MoveSet): MoveSet {
+  return {
+    n: a.n || b.n,
+    ne: a.ne || b.ne,
+    e: a.e || b.e,
+    se: a.se || b.se,
+    s: a.s || b.s,
+    sw: a.sw || b.sw,
+    w: a.w || b.w,
+    nw: a.nw || b.nw,
   };
 }
