@@ -259,6 +259,7 @@ export class App extends React.Component<Props, State> {
 
   render(): React.ReactElement {
     const { game } = this.state;
+    const bestAction = getBestAction(game, this.cache);
     return (
       <div id="App">
         <div id="SkyHand">
@@ -279,6 +280,13 @@ export class App extends React.Component<Props, State> {
               game.forestHand[species]
             )
           )}
+        </div>
+
+        <div id="AnalysisBox">
+          <p>
+            Best action:{" "}
+            {bestAction === null ? "<loading...>" : stringifyAction(bestAction)}
+          </p>
         </div>
       </div>
     );
@@ -612,6 +620,22 @@ function getSquareAltText(square: Square): string {
   return `${square.allegiance} ${square.species}${
     square.isPromoted ? " (Promoted)" : ""
   }`;
+}
+
+function stringifyAction(action: Action): string {
+  if (action.isDrop) {
+    const destRow = Math.floor(action.destIndex / 3);
+    const destCol = action.destIndex % 3;
+    return `Drop ${action.species} at r${destRow}_c${destCol}`;
+  }
+
+  const startRow = Math.floor(action.startIndex / 3);
+  const startCol = action.startIndex % 3;
+
+  const destRow = Math.floor(action.destIndex / 3);
+  const destCol = action.destIndex % 3;
+
+  return `Move from r${startRow}_c${startCol} to r${destRow}_c${destCol}`;
 }
 
 function getSquareImageSrc(square: Square): string {
@@ -1203,4 +1227,9 @@ function cloneGameState(game: GameState): Writable<GameState> {
     board: game.board.map((square) => ({ ...square })),
     activePlayer: game.activePlayer,
   };
+}
+
+function getBestAction(game: GameState, cache: MutCache): null | Action {
+  // TODO
+  return null;
 }

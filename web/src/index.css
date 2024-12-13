@@ -56,6 +56,15 @@ body {
   top: var(--border-thickness);
 }
 
+#AnalysisBox {
+  position: absolute;
+  left: calc(2 * var(--border-thickness));
+  top: calc(
+    2 * var(--border-thickness) + 4 * var(--square-size) +
+      var(--hand-separator-thickness)
+  );
+}
+
 .Square {
   position: absolute;
   width: var(--square-size);
