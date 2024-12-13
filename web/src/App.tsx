@@ -1045,7 +1045,7 @@ function writeDropForEachDest(
 ): void {
   for (let destIndex = 0; destIndex < 12; ++destIndex) {
     if (game.board[destIndex].isEmpty) {
-      out.push({ isDrop: true, species, destIndex: destIndex });
+      out.push({ isDrop: true, species, destIndex });
     }
   }
 }
@@ -1071,7 +1071,7 @@ function writeMoveForEachDest(
         destIndex
       )
     ) {
-      out.push({ isDrop: false, startIndex: startIndex, destIndex: destIndex });
+      out.push({ isDrop: false, startIndex, destIndex });
     }
   }
 }
