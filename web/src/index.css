@@ -79,6 +79,16 @@ body {
   opacity: 0.8;
 }
 
+.Square--bestActionSpecies .SquareOverlay--illegalDest,
+.Square--bestActionStart .SquareOverlay--illegalDest,
+.Square--bestActionDest .SquareOverlay--illegalDest {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--square-size);
+  height: var(--square-size);
+}
+
 .Square img {
   position: absolute;
   top: var(--border-thickness);
