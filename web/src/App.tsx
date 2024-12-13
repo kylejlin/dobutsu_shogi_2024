@@ -379,23 +379,24 @@ export class App extends React.Component<Props, State> {
     bestActionAndChildScore: null | readonly [Action, number]
   ): React.ReactElement {
     const { game, squareSelection, hoverSquareSelection } = this.state;
-    const selectedBoardSquareIndex =
-      squareSelection.kind === SquareSelectionKind.Board
-        ? squareSelection.squareIndex
-        : null;
-    const bestActionStartIndex =
-      bestActionAndChildScore === null
-        ? null
-        : bestActionAndChildScore[0].isDrop
-        ? null
-        : bestActionAndChildScore[0].startIndex;
-    const bestActionDestIndex =
-      bestActionAndChildScore === null
-        ? null
-        : bestActionAndChildScore[0].destIndex;
+
+    const isSelected =
+      squareSelection.kind === SquareSelectionKind.Board &&
+      squareSelection.squareIndex === squareIndex;
+
+    const isBestActionStartIndex =
+      bestActionAndChildScore !== null &&
+      !bestActionAndChildScore[0].isDrop &&
+      bestActionAndChildScore[0].startIndex === squareIndex;
+
+    const isBestActionDestIndex =
+      bestActionAndChildScore !== null &&
+      bestActionAndChildScore[0].destIndex === squareIndex;
+
     const isHoveredOver =
       hoverSquareSelection.kind === SquareSelectionKind.Board &&
       hoverSquareSelection.squareIndex === squareIndex;
+
     const wouldBeLegalIfHoveredOver =
       (squareSelection.kind === SquareSelectionKind.None &&
         getSquareAllegianceOrNull(game.board[squareIndex]) ===
@@ -412,14 +413,18 @@ export class App extends React.Component<Props, State> {
           species: squareSelection.species,
           destIndex: squareIndex,
         }) !== null);
+
+    const hasIllegalOverlay =
+      !wouldBeLegalIfHoveredOver &&
+      !isSelected &&
+      squareSelection.kind !== SquareSelectionKind.None;
+
     return (
       <div
         className={`Square Square--board${squareIndex}${
-          selectedBoardSquareIndex === squareIndex ? " Square--selected" : ""
-        }${
-          bestActionStartIndex === squareIndex ? " Square--bestActionStart" : ""
-        }${
-          bestActionDestIndex === squareIndex ? " Square--bestActionDest" : ""
+          isSelected ? " Square--selected" : ""
+        }${isBestActionStartIndex ? " Square--bestActionStart" : ""}${
+          isBestActionDestIndex ? " Square--bestActionDest" : ""
         }${
           isHoveredOver && wouldBeLegalIfHoveredOver
             ? " Square--legalHover"
@@ -438,6 +443,16 @@ export class App extends React.Component<Props, State> {
           onMouseEnter={(): void => this.onBoardSquareMouseEnter(squareIndex)}
           onMouseLeave={(): void => this.onBoardSquareMouseLeave(squareIndex)}
         />
+        {hasIllegalOverlay ? (
+          <img
+            className="SquareOverlay SquareOverlay--illegalDest"
+            alt="Illegal move"
+            src={imageUrls.illegalDestSquare}
+            onClick={(): void => this.onBoardSquareClick(squareIndex)}
+            onMouseEnter={(): void => this.onBoardSquareMouseEnter(squareIndex)}
+            onMouseLeave={(): void => this.onBoardSquareMouseLeave(squareIndex)}
+          />
+        ) : null}
       </div>
     );
   }
@@ -449,29 +464,38 @@ export class App extends React.Component<Props, State> {
     bestActionAndChildScore: null | readonly [Action, number]
   ): React.ReactElement {
     const speciesIndex = HAND_SPECIES.indexOf(species);
+
     if (speciesIndex === -1) {
       throw new Error(`Invalid species: ${species}`);
     }
 
     const { game, squareSelection, hoverSquareSelection } = this.state;
-    const selectedFriendlyHandSpecies =
+
+    const isSelected =
       squareSelection.kind === SquareSelectionKind.Hand &&
-      squareSelection.player === player
-        ? squareSelection.species
-        : null;
+      squareSelection.player === player &&
+      squareSelection.species === species;
+
     const isBestActionSpecies =
       bestActionAndChildScore !== null &&
       bestActionAndChildScore[0].isDrop &&
       game.activePlayer === player &&
       bestActionAndChildScore[0].species === species;
+
     const isHoveredOver =
       hoverSquareSelection.kind === SquareSelectionKind.Hand &&
       hoverSquareSelection.player === player &&
       hoverSquareSelection.species === species;
+
     const wouldBeLegalIfHoveredOver =
       player === game.activePlayer &&
       squareSelection.kind === SquareSelectionKind.None &&
       count > 0;
+
+    const hasIllegalOverlay =
+      !wouldBeLegalIfHoveredOver &&
+      !isSelected &&
+      squareSelection.kind !== SquareSelectionKind.None;
 
     const handSquare: Square =
       count === 0
@@ -482,10 +506,11 @@ export class App extends React.Component<Props, State> {
             species,
             isPromoted: false,
           };
+
     return (
       <div
         className={`Square Square--hand${speciesIndex}${
-          selectedFriendlyHandSpecies === species ? " Square--selected" : ""
+          isSelected ? " Square--selected" : ""
         }${isBestActionSpecies ? " Square--bestActionSpecies" : ""}${
           isHoveredOver && wouldBeLegalIfHoveredOver
             ? " Square--legalHover"
@@ -517,6 +542,18 @@ export class App extends React.Component<Props, State> {
             onMouseEnter={(): void =>
               this.onHandSquareMouseEnter(player, species)
             }
+            onMouseLeave={(): void =>
+              this.onHandSquareMouseLeave(player, species)
+            }
+          />
+        ) : null}
+        {hasIllegalOverlay ? (
+          <img
+            className="SquareOverlay SquareOverlay--illegalDest"
+            alt="Illegal move"
+            src={imageUrls.illegalDestSquare}
+            onClick={(): void => this.onHandSquareClick(player, species)}
+            onMouseEnter={(): void => this.onHandSquareClick(player, species)}
             onMouseLeave={(): void =>
               this.onHandSquareMouseLeave(player, species)
             }

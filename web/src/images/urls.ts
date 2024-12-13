@@ -13,6 +13,7 @@ import skyLion from "./sky_lion.svg";
 import emptySquare from "./empty_square.svg";
 
 import two from "./two.svg";
+import illegalDestSquare from "./illegal_destination_square.svg";
 
 export {
   forestChick,
@@ -27,4 +28,5 @@ export {
   skyLion,
   emptySquare,
   two,
+  illegalDestSquare,
 };

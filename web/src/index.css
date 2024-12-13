@@ -75,6 +75,10 @@ body {
   pointer-events: none;
 }
 
+.SquareOverlay--illegalDest {
+  opacity: 0.8;
+}
+
 .Square img {
   position: absolute;
   top: var(--border-thickness);
