@@ -762,7 +762,7 @@ function getInitialGameState(): GameState {
 }
 
 function getPacketMaximumsUrl(): string {
-  return "https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/maximums.dat";
+  return "https://kylejlin.github.io/dobutsu_shogi_database_2024/maximums.dat";
 }
 
 function getPacketUrl(
@@ -770,7 +770,7 @@ function getPacketUrl(
   paddedPacketMaximums: readonly number[]
 ): string {
   const i = getNonpaddedPacketIndex(compressedState, paddedPacketMaximums);
-  return `https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/${String(
+  return `https://kylejlin.github.io/dobutsu_shogi_database_2024/${String(
     Math.floor(i / PACKETS_PER_DIRECTORY)
   )}/${String(i % PACKETS_PER_DIRECTORY)}.dat`;
 }
