@@ -22,7 +22,7 @@ enum Player {
 enum SquareSelectionKind {
   None = "None",
   Board = "Board",
-  ForestHand = "ForestHand",
+  Hand = "Hand",
 }
 
 interface Props {}
@@ -72,7 +72,7 @@ interface BoardSelection {
 }
 
 interface ForestHandSelection {
-  readonly kind: SquareSelectionKind.ForestHand;
+  readonly kind: SquareSelectionKind.Hand;
   readonly species: Species;
 }
 
@@ -224,13 +224,13 @@ export class App extends React.Component<Props, State> {
         <img
           alt={getSquareAltText(game.board[squareIndex])}
           src={getSquareImageSrc(game.board[squareIndex])}
-          onClick={(): void => this.onBoardPieceClick(squareIndex)}
+          onClick={(): void => this.onBoardSquareClick(squareIndex)}
         />
       </div>
     );
   }
 
-  onBoardPieceClick(clickedSquareIndex: number): void {
+  onBoardSquareClick(clickedSquareIndex: number): void {
     const prevSelection = this.state.squareSelection;
     const { game } = this.state;
 
@@ -260,8 +260,41 @@ export class App extends React.Component<Props, State> {
       return;
     }
 
-    // Handle action.
-    // TODO
+    // Handle move.
+    if (prevSelection.kind === SquareSelectionKind.Board) {
+      const action: Action = {
+        isDrop: false,
+        from: prevSelection.squareIndex,
+        to: clickedSquareIndex,
+      };
+      const newGameState = tryApplyAction(game, action);
+      if (newGameState !== null) {
+        this.setState({
+          game: newGameState,
+          squareSelection: { kind: SquareSelectionKind.None },
+        });
+        this.fetchPacketForGameStateIfNeeded(newGameState);
+      }
+      return;
+    }
+
+    // Handle drop.
+    if (prevSelection.kind === SquareSelectionKind.Hand) {
+      const action: Action = {
+        isDrop: true,
+        species: prevSelection.species,
+        to: clickedSquareIndex,
+      };
+      const newGameState = tryApplyAction(game, action);
+      if (newGameState !== null) {
+        this.setState({
+          game: newGameState,
+          squareSelection: { kind: SquareSelectionKind.None },
+        });
+        this.fetchPacketForGameStateIfNeeded(newGameState);
+      }
+      return;
+    }
   }
 }
 
@@ -495,4 +528,9 @@ function isSquareForest(square: Square): boolean {
 
 function isSquareSky(square: Square): boolean {
   return !square.isEmpty && square.allegiance === Player.Sky;
+}
+
+function tryApplyAction(game: GameState, action: Action): null | GameState {
+  // TODO
+  return null;
 }
