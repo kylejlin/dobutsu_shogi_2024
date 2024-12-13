@@ -264,7 +264,10 @@ export class App extends React.Component<Props, State> {
 
   render(): React.ReactElement {
     const { game } = this.state;
-    const bestAction = getBestAction(game, this.cache);
+    const bestActionAndChildScore = getBestActionAndChildScore(
+      game,
+      this.cache
+    );
     return (
       <div id="App">
         <div id="SkyHand">
@@ -290,7 +293,13 @@ export class App extends React.Component<Props, State> {
         <div id="AnalysisBox">
           <p>
             Best action:{" "}
-            {bestAction === null ? "<loading...>" : stringifyAction(bestAction)}
+            {bestActionAndChildScore === null
+              ? "<loading...>"
+              : `${stringifyAction(
+                  bestActionAndChildScore[0]
+                )} (resulting child score: ${stringifyScore(
+                  bestActionAndChildScore[1]
+                )})`}
           </p>
         </div>
       </div>
@@ -649,6 +658,18 @@ function stringifyAction(action: Action): string {
   const destCol = action.destIndex % 3;
 
   return `Move from r${startRow}_c${startCol} to r${destRow}_c${destCol}`;
+}
+
+function stringifyScore(score: number): string {
+  if (score > 0) {
+    return "Win in " + String(201 - score);
+  }
+
+  if (score < 0) {
+    return "Loss in " + String(201 + score);
+  }
+
+  return "Draw";
 }
 
 function getSquareImageSrc(square: Square): string {
@@ -1242,7 +1263,10 @@ function cloneGameState(game: GameState): Writable<GameState> {
   };
 }
 
-function getBestAction(game: GameState, cache: MutCache): null | Action {
+function getBestActionAndChildScore(
+  game: GameState,
+  cache: MutCache
+): null | [Action, number] {
   const { paddedPacketMaximums, packetMap } = cache;
 
   if (paddedPacketMaximums === null) {
@@ -1260,10 +1284,13 @@ function getBestAction(game: GameState, cache: MutCache): null | Action {
     return null;
   }
 
-  return getBestActionUsingPacket(game, packet);
+  return getBestActionAndChildScoreUsingPacket(game, packet);
 }
 
-function getBestActionUsingPacket(game: GameState, packet: Uint8Array): Action {
+function getBestActionAndChildScoreUsingPacket(
+  game: GameState,
+  packet: Uint8Array
+): [Action, number] {
   const actionChildMap = getCompressedChildActionMap(game);
 
   let bestAction: Action | null = null;
@@ -1271,7 +1298,7 @@ function getBestActionUsingPacket(game: GameState, packet: Uint8Array): Action {
 
   for (let i = 0; i < packet.length; i += 8) {
     const compressedCandidate = getUnsigned40BitIntFromLeBytes(
-      packet.subarray(i + 2, i + 7)
+      packet.subarray(i, i + 5)
     );
 
     if (!(compressedCandidate in actionChildMap)) {
@@ -1279,13 +1306,13 @@ function getBestActionUsingPacket(game: GameState, packet: Uint8Array): Action {
     }
 
     const uncheckedCandidateNondecodedScore =
-      packet[i] | ((packet[i + 1] & 1) << 8);
+      packet[i + 5] | ((packet[i + 6] & 1) << 8);
     const uncheckedCandidateScore =
       getRegularJsNumberFromSignedTwosComplement9BitInteger(
         uncheckedCandidateNondecodedScore
       );
 
-    const requiredChildReportCount = packet[i + 1] >>> 1;
+    const requiredChildReportCount = packet[i + 6] >>> 1;
     const candidateScore =
       requiredChildReportCount === 0 ? uncheckedCandidateScore : 0;
 
@@ -1299,7 +1326,7 @@ function getBestActionUsingPacket(game: GameState, packet: Uint8Array): Action {
     throw new Error("Failed to find best action in packet.");
   }
 
-  return bestAction;
+  return [bestAction, lowestScore];
 }
 
 function getUnsigned40BitIntFromLeBytes(leBytes: Uint8Array): number {
