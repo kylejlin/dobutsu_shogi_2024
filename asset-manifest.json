@@ -1,0 +1,27 @@
+{
+  "files": {
+    "main.css": "/static/css/main.2c583ca8.css",
+    "main.js": "/static/js/main.76924f35.js",
+    "static/js/453.c5eaf93b.chunk.js": "/static/js/453.c5eaf93b.chunk.js",
+    "static/media/forest_giraffe.svg": "/static/media/forest_giraffe.832152ac4e09dfdb3a29f1b45b2e704c.svg",
+    "static/media/sky_giraffe.svg": "/static/media/sky_giraffe.52dba6f99c4ddb90f4244353b2497f12.svg",
+    "static/media/sky_lion.svg": "/static/media/sky_lion.4c80ff03f807cfde5aa467f80245d831.svg",
+    "static/media/forest_lion.svg": "/static/media/forest_lion.c3781aa7294ec84af6d09cf8a3e52022.svg",
+    "static/media/two.svg": "/static/media/two.4d661c1919dbf9ec8f5cc4ec0b73dd18.svg",
+    "static/media/sky_chick.svg": "/static/media/sky_chick.8c2b43783b4f23dbe7799b73d99d3492.svg",
+    "static/media/forest_chick.svg": "/static/media/forest_chick.081a9b810b81fe47e2a7109597b63b59.svg",
+    "static/media/forest_elephant.svg": "/static/media/forest_elephant.b680ab52d9426b46b5df5d489dc57da3.svg",
+    "static/media/sky_elephant.svg": "/static/media/sky_elephant.f10b920ddc22cd8ea96c9cd36218abb6.svg",
+    "static/media/forest_hen.svg": "/static/media/forest_hen.1666643117d719c7aa1022bced7d2f23.svg",
+    "static/media/sky_hen.svg": "/static/media/sky_hen.ccb94cf640027161f3628ef318bb5285.svg",
+    "index.html": "/index.html",
+    "static/media/empty_square.svg": "/static/media/empty_square.d3792a65b58e48655493cbfe17eaca6a.svg",
+    "main.2c583ca8.css.map": "/static/css/main.2c583ca8.css.map",
+    "main.76924f35.js.map": "/static/js/main.76924f35.js.map",
+    "453.c5eaf93b.chunk.js.map": "/static/js/453.c5eaf93b.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.2c583ca8.css",
+    "static/js/main.76924f35.js"
+  ]
+}
