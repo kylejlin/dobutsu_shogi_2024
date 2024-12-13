@@ -185,12 +185,57 @@ export class App extends React.Component<Props, State> {
     this.paddedPacketMaximumsPromise = new Promise((resolve) => {
       (this as any).resolvePaddedPacketMaximumsPromise = resolve;
     });
+
+    this.bindMethods();
+  }
+
+  bindMethods(): void {
+    this.onWindowKeyup = this.onWindowKeyup.bind(this);
   }
 
   componentDidMount(): void {
     (window as any).app = this;
 
     this.initializeCache();
+
+    this.addListeners();
+  }
+
+  addListeners(): void {
+    window.addEventListener("keyup", this.onWindowKeyup);
+  }
+
+  componentWillUnmount(): void {
+    this.removeListeners();
+  }
+
+  removeListeners(): void {
+    window.removeEventListener("keyup", this.onWindowKeyup);
+  }
+
+  onWindowKeyup(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === "d") {
+      this.tryPopHistory();
+      return;
+    }
+  }
+
+  tryPopHistory(): void {
+    const { actionHistory } = this.state;
+    if (actionHistory.length === 0) {
+      return;
+    }
+
+    const newHistory = actionHistory.slice(0, -1);
+    let newGameState = getInitialGameState();
+    for (const action of newHistory) {
+      newGameState = unsafeApplyAction(newGameState, action);
+    }
+    this.setState({
+      game: newGameState,
+      actionHistory: newHistory,
+    });
+    this.fetchPacketForGameStateIfNeeded(newGameState);
   }
 
   initializeCache(): void {
