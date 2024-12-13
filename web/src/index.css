@@ -89,8 +89,16 @@ body {
   background-color: #8800ff;
 }
 
-.Square--mouseOver {
+.Square--legalHover {
   background-color: #666666;
+}
+
+.Square--legalHover.Square--noSquareSelected {
+  background-color: #ce7eff;
+}
+
+.Square--illegalHover {
+  background-color: #c35454;
 }
 
 .Square--selected {

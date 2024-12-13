@@ -341,10 +341,25 @@ export class App extends React.Component<Props, State> {
       bestActionAndChildScore === null
         ? null
         : bestActionAndChildScore[0].destIndex;
-    const hoverIndex =
-      hoverSquareSelection.kind === SquareSelectionKind.Board
-        ? hoverSquareSelection.squareIndex
-        : null;
+    const isHoveredOver =
+      hoverSquareSelection.kind === SquareSelectionKind.Board &&
+      hoverSquareSelection.squareIndex === squareIndex;
+    const wouldBeLegalIfHoveredOver =
+      (squareSelection.kind === SquareSelectionKind.None &&
+        getSquareAllegianceOrNull(game.board[squareIndex]) ===
+          game.activePlayer) ||
+      (squareSelection.kind === SquareSelectionKind.Board &&
+        tryApplyAction(game, {
+          isDrop: false,
+          startIndex: squareSelection.squareIndex,
+          destIndex: squareIndex,
+        }) !== null) ||
+      (squareSelection.kind === SquareSelectionKind.Hand &&
+        tryApplyAction(game, {
+          isDrop: true,
+          species: squareSelection.species,
+          destIndex: squareIndex,
+        }));
     return (
       <div
         className={`Square Square--board${squareIndex}${
@@ -353,7 +368,19 @@ export class App extends React.Component<Props, State> {
           bestActionStartIndex === squareIndex ? " Square--bestActionStart" : ""
         }${
           bestActionDestIndex === squareIndex ? " Square--bestActionDest" : ""
-        }${hoverIndex === squareIndex ? " Square--mouseOver" : ""}`}
+        }${
+          isHoveredOver && wouldBeLegalIfHoveredOver
+            ? " Square--legalHover"
+            : ""
+        }${
+          isHoveredOver && !wouldBeLegalIfHoveredOver
+            ? " Square--illegalHover"
+            : ""
+        }${
+          squareSelection.kind === SquareSelectionKind.None
+            ? " Square--noSquareSelected"
+            : ""
+        }`}
         key={squareIndex}
       >
         <img
@@ -389,11 +416,15 @@ export class App extends React.Component<Props, State> {
       bestActionAndChildScore[0].isDrop &&
       game.activePlayer === player &&
       bestActionAndChildScore[0].species === species;
-    const hoverFriendlyHandSpecies =
+    const isHoveredOver =
       hoverSquareSelection.kind === SquareSelectionKind.Hand &&
-      hoverSquareSelection.player === player
-        ? hoverSquareSelection.species
-        : null;
+      hoverSquareSelection.player === player &&
+      hoverSquareSelection.species === species;
+    const wouldBeLegalIfHoveredOver =
+      player === game.activePlayer &&
+      squareSelection.kind === SquareSelectionKind.None &&
+      count > 0;
+
     const handSquare: Square =
       count === 0
         ? { isEmpty: true }
@@ -408,7 +439,17 @@ export class App extends React.Component<Props, State> {
         className={`Square Square--hand${speciesIndex}${
           selectedFriendlyHandSpecies === species ? " Square--selected" : ""
         }${isBestActionSpecies ? " Square--bestActionSpecies" : ""}${
-          hoverFriendlyHandSpecies === species ? " Square--mouseOver" : ""
+          isHoveredOver && wouldBeLegalIfHoveredOver
+            ? " Square--legalHover"
+            : ""
+        }${
+          isHoveredOver && !wouldBeLegalIfHoveredOver
+            ? " Square--illegalHover"
+            : ""
+        }${
+          squareSelection.kind === SquareSelectionKind.None
+            ? " Square--noSquareSelected"
+            : ""
         }`}
         key={speciesIndex}
       >
@@ -853,6 +894,14 @@ function getForestImageSrc(square: OccupiedSquare): string {
 
 function typesafeUnreachable(impossible: never): never {
   return impossible;
+}
+
+function getSquareAllegianceOrNull(square: Square): null | Player {
+  if (square.isEmpty) {
+    return null;
+  }
+
+  return square.allegiance;
 }
 
 function isSquareForest(square: Square): boolean {
