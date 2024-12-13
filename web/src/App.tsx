@@ -766,7 +766,7 @@ function canForestSpeciesMove(
   isPromoted: boolean,
   startIndex: number,
   destIndex: number
-) {
+): boolean {
   const moveSet = getForestMoveSet(species, isPromoted);
   return doesMoveSetPermit(moveSet, startIndex, destIndex);
 }
