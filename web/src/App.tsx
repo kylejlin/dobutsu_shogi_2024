@@ -691,6 +691,17 @@ function invertPlayer(player: Player): Player {
 }
 
 function invertAction(action: Action): Action {
-  // TODO
-  throw new Error("Not implemented");
+  if (action.isDrop) {
+    return {
+      isDrop: action.isDrop,
+      species: action.species,
+      to: invertBoardIndex(action.to),
+    };
+  }
+
+  return {
+    isDrop: action.isDrop,
+    from: invertBoardIndex(action.from),
+    to: invertBoardIndex(action.to),
+  };
 }
