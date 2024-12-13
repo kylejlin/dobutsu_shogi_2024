@@ -411,7 +411,7 @@ export class App extends React.Component<Props, State> {
           isDrop: true,
           species: squareSelection.species,
           destIndex: squareIndex,
-        }));
+        }) !== null);
     return (
       <div
         className={`Square Square--board${squareIndex}${
