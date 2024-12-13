@@ -272,12 +272,19 @@ export class App extends React.Component<Props, State> {
       <div id="App">
         <div id="SkyHand">
           {HAND_SPECIES.map((species) =>
-            this.renderHandSquare(Player.Sky, species, game.skyHand[species])
+            this.renderHandSquare(
+              Player.Sky,
+              species,
+              game.skyHand[species],
+              bestActionAndChildScore
+            )
           )}
         </div>
 
         <div id="Board">
-          {game.board.map((_, i) => this.renderBoardSquare(i))}
+          {game.board.map((_, i) =>
+            this.renderBoardSquare(i, bestActionAndChildScore)
+          )}
         </div>
 
         <div id="ForestHand">
@@ -285,7 +292,8 @@ export class App extends React.Component<Props, State> {
             this.renderHandSquare(
               Player.Forest,
               species,
-              game.forestHand[species]
+              game.forestHand[species],
+              bestActionAndChildScore
             )
           )}
         </div>
@@ -310,16 +318,33 @@ export class App extends React.Component<Props, State> {
     );
   }
 
-  renderBoardSquare(squareIndex: number): React.ReactElement {
+  renderBoardSquare(
+    squareIndex: number,
+    bestActionAndChildScore: null | readonly [Action, number]
+  ): React.ReactElement {
     const { game, squareSelection } = this.state;
     const selectedBoardSquareIndex =
       squareSelection.kind === SquareSelectionKind.Board
         ? squareSelection.squareIndex
         : null;
+    const bestActionStartIndex =
+      bestActionAndChildScore === null
+        ? null
+        : bestActionAndChildScore[0].isDrop
+        ? null
+        : bestActionAndChildScore[0].startIndex;
+    const bestActionDestIndex =
+      bestActionAndChildScore === null
+        ? null
+        : bestActionAndChildScore[0].destIndex;
     return (
       <div
         className={`Square Square--board${squareIndex}${
           selectedBoardSquareIndex === squareIndex ? " Square--selected" : ""
+        }${
+          bestActionStartIndex === squareIndex ? " Square--bestActionStart" : ""
+        }${
+          bestActionDestIndex === squareIndex ? " Square--bestActionDest" : ""
         }`}
         key={squareIndex}
       >
@@ -335,7 +360,8 @@ export class App extends React.Component<Props, State> {
   renderHandSquare(
     player: Player,
     species: Species,
-    count: number
+    count: number,
+    bestActionAndChildScore: null | readonly [Action, number]
   ): React.ReactElement {
     const speciesIndex = HAND_SPECIES.indexOf(species);
     if (speciesIndex === -1) {
@@ -348,6 +374,11 @@ export class App extends React.Component<Props, State> {
       squareSelection.player === player
         ? squareSelection.species
         : null;
+    const isBestActionSpecies =
+      bestActionAndChildScore !== null &&
+      bestActionAndChildScore[0].isDrop &&
+      game.activePlayer === player &&
+      bestActionAndChildScore[0].species === species;
     const handSquare: Square =
       count === 0
         ? { isEmpty: true }
@@ -361,7 +392,7 @@ export class App extends React.Component<Props, State> {
       <div
         className={`Square Square--hand${speciesIndex}${
           selectedFriendlyHandSpecies === species ? " Square--selected" : ""
-        }`}
+        }${isBestActionSpecies ? " Square--bestActionSpecies" : ""}`}
         key={speciesIndex}
       >
         <img

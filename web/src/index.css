@@ -79,6 +79,12 @@ body {
   height: calc(var(--square-size) - 2 * var(--border-thickness));
 }
 
+.Square--bestActionSpecies,
+.Square--bestActionStart,
+.Square--bestActionDest {
+  background-color: #ce7eff;
+}
+
 .Square--selected {
   background-color: #8800ff;
 }
