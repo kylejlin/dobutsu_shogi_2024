@@ -647,8 +647,47 @@ function tryApplyActionForest(
 }
 
 function invertGameState(game: GameState): GameState {
-  // TODO
-  throw new Error("Not implemented");
+  return {
+    forestHand: game.skyHand,
+    skyHand: game.forestHand,
+    board: game.board.map((_, i) => {
+      const invertedIndex = invertBoardIndex(i);
+      return invertSquareAllegiance(game.board[invertedIndex]);
+    }),
+    activePlayer: invertPlayer(game.activePlayer),
+  };
+}
+
+function invertBoardIndex(index: number): number {
+  const row = Math.floor(index / 3);
+  const col = index % 3;
+  const invertedRow = 3 - row;
+  const invertedCol = 2 - col;
+  return invertedRow * 3 + invertedCol;
+}
+
+function invertSquareAllegiance(square: Square): Square {
+  if (square.isEmpty) {
+    return square;
+  }
+
+  return {
+    ...square,
+    allegiance: invertPlayer(square.allegiance),
+  };
+}
+
+function invertPlayer(player: Player): Player {
+  switch (player) {
+    case Player.Forest:
+      return Player.Sky;
+
+    case Player.Sky:
+      return Player.Forest;
+
+    default:
+      return typesafeUnreachable(player);
+  }
 }
 
 function invertAction(action: Action): Action {
