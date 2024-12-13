@@ -48,62 +48,62 @@ body {
   background-color: #8800ff;
 }
 
-.Square--i0 {
+.Square--board0 {
   top: calc(3 * var(--square-size));
   left: calc(0 * var(--square-size));
 }
 
-.Square--i1 {
+.Square--board1 {
   top: calc(3 * var(--square-size));
   left: calc(1 * var(--square-size));
 }
 
-.Square--i2 {
+.Square--board2 {
   top: calc(3 * var(--square-size));
   left: calc(2 * var(--square-size));
 }
 
-.Square--i3 {
+.Square--board3 {
   top: calc(2 * var(--square-size));
   left: calc(0 * var(--square-size));
 }
 
-.Square--i4 {
+.Square--board4 {
   top: calc(2 * var(--square-size));
   left: calc(1 * var(--square-size));
 }
 
-.Square--i5 {
+.Square--board5 {
   top: calc(2 * var(--square-size));
   left: calc(2 * var(--square-size));
 }
 
-.Square--i6 {
+.Square--board6 {
   top: calc(1 * var(--square-size));
   left: calc(0 * var(--square-size));
 }
 
-.Square--i7 {
+.Square--board7 {
   top: calc(1 * var(--square-size));
   left: calc(1 * var(--square-size));
 }
 
-.Square--i8 {
+.Square--board8 {
   top: calc(1 * var(--square-size));
   left: calc(2 * var(--square-size));
 }
 
-.Square--i9 {
+.Square--board9 {
   top: calc(0 * var(--square-size));
   left: calc(0 * var(--square-size));
 }
 
-.Square--i10 {
+.Square--board10 {
   top: calc(0 * var(--square-size));
   left: calc(1 * var(--square-size));
 }
 
-.Square--i11 {
+.Square--board11 {
   top: calc(0 * var(--square-size));
   left: calc(2 * var(--square-size));
 }

@@ -14,6 +14,13 @@ enum Species {
   Lion = "Lion",
 }
 
+const HAND_SPECIES = [
+  Species.Bird,
+  Species.Elephant,
+  Species.Giraffe,
+  Species.Lion,
+] as const;
+
 enum Player {
   Forest = "Forest",
   Sky = "Sky",
@@ -60,7 +67,7 @@ interface OccupiedSquare {
   readonly isPromoted: boolean;
 }
 
-type SquareSelection = NoSelection | BoardSelection | ForestHandSelection;
+type SquareSelection = NoSelection | BoardSelection | HandSelection;
 
 interface NoSelection {
   readonly kind: SquareSelectionKind.None;
@@ -71,8 +78,9 @@ interface BoardSelection {
   readonly squareIndex: number;
 }
 
-interface ForestHandSelection {
+interface HandSelection {
   readonly kind: SquareSelectionKind.Hand;
+  readonly player: Player;
   readonly species: Species;
 }
 
@@ -201,8 +209,24 @@ export class App extends React.Component<Props, State> {
     const { game } = this.state;
     return (
       <div id="App">
+        <div id="SkyHand">
+          {HAND_SPECIES.map((species) =>
+            this.renderHandSquare(Player.Sky, species, game.skyHand[species])
+          )}
+        </div>
+
         <div id="Board">
           {game.board.map((_, i) => this.renderBoardSquare(i))}
+        </div>
+
+        <div id="ForestHand">
+          {HAND_SPECIES.map((species) =>
+            this.renderHandSquare(
+              Player.Forest,
+              species,
+              game.forestHand[species]
+            )
+          )}
         </div>
       </div>
     );
@@ -216,7 +240,7 @@ export class App extends React.Component<Props, State> {
         : null;
     return (
       <div
-        className={`Square Square--i${squareIndex}${
+        className={`Square Square--board${squareIndex}${
           selectedBoardSquareIndex === squareIndex ? " Square--selected" : ""
         }`}
         key={squareIndex}
@@ -225,6 +249,47 @@ export class App extends React.Component<Props, State> {
           alt={getSquareAltText(game.board[squareIndex])}
           src={getSquareImageSrc(game.board[squareIndex])}
           onClick={(): void => this.onBoardSquareClick(squareIndex)}
+        />
+      </div>
+    );
+  }
+
+  renderHandSquare(
+    player: Player,
+    species: Species,
+    count: number
+  ): React.ReactElement {
+    const speciesIndex = HAND_SPECIES.indexOf(species);
+    if (speciesIndex === -1) {
+      throw new Error(`Invalid species: ${species}`);
+    }
+
+    const { game, squareSelection } = this.state;
+    const selectedFriendlyHandSpecies =
+      squareSelection.kind === SquareSelectionKind.Hand &&
+      squareSelection.player === player
+        ? squareSelection.species
+        : null;
+    const handSquare: Square =
+      count === 0
+        ? { isEmpty: true }
+        : {
+            isEmpty: false,
+            allegiance: player,
+            species,
+            isPromoted: false,
+          };
+    return (
+      <div
+        className={`Square Square--hand${speciesIndex}${
+          selectedFriendlyHandSpecies === species ? " Square--selected" : ""
+        }`}
+        key={speciesIndex}
+      >
+        <img
+          alt={getSquareAltText(handSquare)}
+          src={getSquareImageSrc(handSquare)}
+          onClick={(): void => this.onHandSquareClick(player, species)}
         />
       </div>
     );
@@ -295,6 +360,10 @@ export class App extends React.Component<Props, State> {
       }
       return;
     }
+  }
+
+  onHandSquareClick(player: Player, species: Species): void {
+    // TODO
   }
 }
 
