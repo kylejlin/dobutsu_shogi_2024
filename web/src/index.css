@@ -20,10 +20,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --max-square-size: 200px;
+  --max-square-size: 250px;
   --square-size: round(
     down,
-    min(calc(var(--minor-axis) / 8), var(--max-square-size)),
+    min(calc(100vw / 7), calc(100vh / 6), var(--max-square-size)),
     1px
   );
 
