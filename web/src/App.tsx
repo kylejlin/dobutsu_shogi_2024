@@ -238,7 +238,9 @@ export class App extends React.Component<Props, State> {
     if (
       prevSelection.kind === SquareSelectionKind.None &&
       clickedSquareIndex < game.board.length &&
-      isSquareForest(game.board[clickedSquareIndex])
+      (game.activePlayer === Player.Forest
+        ? isSquareForest(game.board[clickedSquareIndex])
+        : isSquareSky(game.board[clickedSquareIndex]))
     ) {
       this.setState({
         squareSelection: {
@@ -489,4 +491,8 @@ function typesafeUnreachable(impossible: never): never {
 
 function isSquareForest(square: Square): boolean {
   return !square.isEmpty && square.allegiance === Player.Forest;
+}
+
+function isSquareSky(square: Square): boolean {
+  return !square.isEmpty && square.allegiance === Player.Sky;
 }
