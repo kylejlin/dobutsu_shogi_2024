@@ -71,6 +71,10 @@ body {
   height: var(--square-size);
 }
 
+.SquareOverlay {
+  pointer-events: none;
+}
+
 .Square img {
   position: absolute;
   top: var(--border-thickness);
