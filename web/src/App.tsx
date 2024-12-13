@@ -642,8 +642,46 @@ function tryApplyActionForest(
   game: GameState,
   action: Action
 ): null | GameState {
+  const actions = getForestActions(game);
+  if (!actions.some((other) => areActionsEqual(action, other))) {
+    return null;
+  }
+
+  return unsafeApplyForestAction(game, action);
+}
+
+function getForestActions(game: GameState): readonly Action[] {
+  if (game.activePlayer !== Player.Forest) {
+    return [];
+  }
+
   // TODO
-  return null;
+  return [];
+}
+
+function areActionsEqual(action1: Action, action2: Action): boolean {
+  if (action1.isDrop) {
+    return (
+      action2.isDrop &&
+      action1.species === action2.species &&
+      action1.to === action2.to
+    );
+  }
+
+  return (
+    !action2.isDrop &&
+    action1.from === action2.from &&
+    action1.to === action2.to
+  );
+}
+
+function unsafeApplyForestAction(game: GameState, action: Action): GameState {
+  if (game.activePlayer !== Player.Forest) {
+    throw new Error("Cannot apply a Forest action when it is Sky's turn.");
+  }
+
+  // TODO
+  return game;
 }
 
 function invertGameState(game: GameState): GameState {
