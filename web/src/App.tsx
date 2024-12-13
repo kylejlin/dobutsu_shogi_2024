@@ -23,6 +23,7 @@ interface Props {}
 
 interface State {
   readonly game: GameState;
+  readonly actionHistory: readonly Action[];
   readonly squareSelection: SquareSelection;
   readonly cacheGeneration: number;
 }
@@ -163,6 +164,7 @@ export class App extends React.Component<Props, State> {
 
     this.state = {
       game: getInitialGameState(),
+      actionHistory: [],
       squareSelection: { kind: SquareSelectionKind.None },
       cacheGeneration: 0,
     };
@@ -182,6 +184,8 @@ export class App extends React.Component<Props, State> {
   }
 
   componentDidMount(): void {
+    (window as any).app = this;
+
     this.initializeCache();
   }
 
@@ -387,6 +391,7 @@ export class App extends React.Component<Props, State> {
       if (newGameState !== null) {
         this.setState({
           game: newGameState,
+          actionHistory: [...this.state.actionHistory, action],
           squareSelection: { kind: SquareSelectionKind.None },
         });
         this.fetchPacketForGameStateIfNeeded(newGameState);
@@ -408,6 +413,7 @@ export class App extends React.Component<Props, State> {
       if (newGameState !== null) {
         this.setState({
           game: newGameState,
+          actionHistory: [...this.state.actionHistory, action],
           squareSelection: { kind: SquareSelectionKind.None },
         });
         this.fetchPacketForGameStateIfNeeded(newGameState);
