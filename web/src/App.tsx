@@ -343,7 +343,10 @@ export class App extends React.Component<Props, State> {
     }
 
     // Handle drop.
-    if (prevSelection.kind === SquareSelectionKind.Hand) {
+    if (
+      prevSelection.kind === SquareSelectionKind.Hand &&
+      prevSelection.player === game.activePlayer
+    ) {
       const action: Action = {
         isDrop: true,
         species: prevSelection.species,
