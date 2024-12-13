@@ -1,25 +1,12 @@
 import React from "react";
 import * as imageUrls from "./images/urls";
 
-const _256_POW_2 = 256 * 256;
-const _256_POW_3 = 256 * 256 * 256;
-const _256_POW_4 = 256 * 256 * 256 * 256;
-
-const PACKETS_PER_DIRECTORY = 1000;
-
 enum Species {
   Bird = "Bird",
   Elephant = "Elephant",
   Giraffe = "Giraffe",
   Lion = "Lion",
 }
-
-const HAND_SPECIES = [
-  Species.Bird,
-  Species.Elephant,
-  Species.Giraffe,
-  Species.Lion,
-] as const;
 
 enum Player {
   Forest = "Forest",
@@ -109,6 +96,21 @@ interface MoveSet {
   readonly nw: boolean;
 }
 
+interface MutCache {
+  paddedPacketMaximums: null | readonly number[];
+  readonly packetMap: { [key: number]: Uint8Array };
+}
+
+type Writable<T> = T extends object
+  ? { -readonly [P in keyof T]: Writable<T[P]> }
+  : T;
+
+const _256_POW_2 = 256 * 256;
+const _256_POW_3 = 256 * 256 * 256;
+const _256_POW_4 = 256 * 256 * 256 * 256;
+
+const PACKETS_PER_DIRECTORY = 1000;
+
 const FOREST_CHICK_MOVE_SET = getMoveSetOf(["n"]);
 const FOREST_HEN_MOVE_SET = getMoveSetUnion(
   getOrthogonalMoveSet(),
@@ -121,10 +123,12 @@ const FOREST_LION_MOVE_SET = getMoveSetUnion(
   getDiagonalMoveSet()
 );
 
-interface MutCache {
-  paddedPacketMaximums: null | readonly number[];
-  readonly packetMap: { [key: number]: Uint8Array };
-}
+const HAND_SPECIES = [
+  Species.Bird,
+  Species.Elephant,
+  Species.Giraffe,
+  Species.Lion,
+] as const;
 
 export class App extends React.Component<Props, State> {
   private readonly cache: MutCache;
@@ -839,6 +843,10 @@ function unsafeApplyForestAction(game: GameState, action: Action): GameState {
     throw new Error("Cannot apply a Forest action when it is Sky's turn.");
   }
 
+  const out = cloneGameState(game);
+  const { board, forestHand } = out;
+  const captive = board[action.destIndex];
+
   // TODO
   return game;
 }
@@ -940,5 +948,14 @@ function getMoveSetUnion(a: MoveSet, b: MoveSet): MoveSet {
     sw: a.sw || b.sw,
     w: a.w || b.w,
     nw: a.nw || b.nw,
+  };
+}
+
+function cloneGameState(game: GameState): Writable<GameState> {
+  return {
+    forestHand: { ...game.forestHand },
+    skyHand: { ...game.skyHand },
+    board: game.board.map((square) => ({ ...square })),
+    activePlayer: game.activePlayer,
   };
 }
