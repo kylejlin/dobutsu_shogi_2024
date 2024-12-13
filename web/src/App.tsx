@@ -627,6 +627,31 @@ function compressGameState(state: GameState): number {
 }
 
 function tryApplyAction(game: GameState, action: Action): null | GameState {
+  if (game.activePlayer === Player.Forest) {
+    return tryApplyActionForest(game, action);
+  }
+
+  const invertedResult = tryApplyActionForest(
+    invertGameState(game),
+    invertAction(action)
+  );
+  return invertedResult === null ? null : invertGameState(invertedResult);
+}
+
+function tryApplyActionForest(
+  game: GameState,
+  action: Action
+): null | GameState {
   // TODO
   return null;
+}
+
+function invertGameState(game: GameState): GameState {
+  // TODO
+  throw new Error("Not implemented");
+}
+
+function invertAction(action: Action): Action {
+  // TODO
+  throw new Error("Not implemented");
 }
