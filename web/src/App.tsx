@@ -1307,6 +1307,14 @@ function getBestActionAndChildScoreUsingPacket(
 
   const actionChildMap = getCompressedChildActionMap(game);
 
+  for (const candidateAction of actionChildMap.values()) {
+    const noncompressedChild = unsafeApplyAction(game, candidateAction);
+
+    if (didPassivePlayerWin(noncompressedChild)) {
+      return [candidateAction, -201];
+    }
+  }
+
   let bestAction: Action | null = null;
   let lowestScore = Infinity;
 
