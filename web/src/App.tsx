@@ -302,7 +302,6 @@ export class App extends React.Component<Props, State> {
     // Handle piece selection.
     if (
       prevSelection.kind === SquareSelectionKind.None &&
-      clickedSquareIndex < game.board.length &&
       (game.activePlayer === Player.Forest
         ? isSquareForest(game.board[clickedSquareIndex])
         : isSquareSky(game.board[clickedSquareIndex]))
@@ -363,7 +362,32 @@ export class App extends React.Component<Props, State> {
   }
 
   onHandSquareClick(player: Player, species: Species): void {
-    // TODO
+    const prevSelection = this.state.squareSelection;
+
+    // Handle piece selection.
+    if (
+      prevSelection.kind === SquareSelectionKind.None &&
+      player === this.state.game.activePlayer
+    ) {
+      this.setState({
+        squareSelection: {
+          kind: SquareSelectionKind.Hand,
+          player,
+          species,
+        },
+      });
+      return;
+    }
+
+    // Handle piece deselection.
+    if (
+      prevSelection.kind === SquareSelectionKind.Hand &&
+      prevSelection.player === player &&
+      prevSelection.species === species
+    ) {
+      this.setState({ squareSelection: { kind: SquareSelectionKind.None } });
+      return;
+    }
   }
 }
 
