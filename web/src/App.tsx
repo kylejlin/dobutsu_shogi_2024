@@ -1315,7 +1315,9 @@ function getBestActionAndChildScoreUsingPacket(
       packet.subarray(i, i + 5)
     );
 
-    if (!(compressedCandidate in actionChildMap)) {
+    const candidateAction = actionChildMap.get(compressedCandidate);
+
+    if (candidateAction === undefined) {
       continue;
     }
 
@@ -1332,7 +1334,7 @@ function getBestActionAndChildScoreUsingPacket(
 
     if (candidateScore < lowestScore) {
       lowestScore = candidateScore;
-      bestAction = actionChildMap[compressedCandidate];
+      bestAction = candidateAction;
     }
   }
 
@@ -1366,18 +1368,14 @@ function getRegularJsNumberFromSignedTwosComplement9BitInteger(
   return i9;
 }
 
-function getCompressedChildActionMap(game: GameState): {
-  readonly [compressedChild: number]: Action;
-} {
-  const out: {
-    [compressedChild: number]: Action;
-  } = {};
+function getCompressedChildActionMap(game: GameState): Map<number, Action> {
+  const out: Map<number, Action> = new Map();
 
   const actions = getActions(game);
   for (const action of actions) {
     const child = unsafeApplyAction(game, action);
     const compressedChild = compressGameState(child);
-    out[compressedChild] = action;
+    out.set(compressedChild, action);
   }
 
   return out;
