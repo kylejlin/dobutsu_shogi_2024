@@ -118,9 +118,17 @@ type Writable<T> = T extends object
   ? { -readonly [P in keyof T]: Writable<T[P]> }
   : T;
 
-const _256_POW_2 = 256 * 256;
-const _256_POW_3 = 256 * 256 * 256;
-const _256_POW_4 = 256 * 256 * 256 * 256;
+const _2_POW_4 = 2 ** 4;
+const _2_POW_8 = 2 ** 8;
+const _2_POW_13 = 2 ** 13;
+const _2_POW_18 = 2 ** 18;
+const _2_POW_23 = 2 ** 23;
+const _2_POW_28 = 2 ** 28;
+const _2_POW_34 = 2 ** 34;
+
+const _256_POW_2 = 256 ** 2;
+const _256_POW_3 = 256 ** 3;
+const _256_POW_4 = 256 ** 4;
 
 const PACKETS_PER_DIRECTORY = 1000;
 
@@ -726,12 +734,139 @@ function invertActiveSquare(square: ActiveSquare): ActiveSquare {
 }
 
 function compressActiveGameState(
-  activeBoard: ActiveBoard,
+  board: ActiveBoard,
   activeHand: Hand,
   passiveHand: Hand
 ): number {
-  // TODO
-  return 0;
+  const birds = [];
+  const elephants = [];
+  const giraffes = [];
+  let activeLion = 0;
+  let passiveLion = 0;
+
+  for (let i = 0; i < 12; ++i) {
+    const square = board[i];
+    if (square.isEmpty) {
+      continue;
+    }
+
+    const coords = getCoordsFromSquareIndex(i);
+
+    switch (square.species) {
+      case Species.Bird:
+        birds.push(
+          (Number(!square.isActive) << 5) |
+            (coords << 1) |
+            Number(square.isPromoted)
+        );
+        break;
+
+      case Species.Elephant:
+        elephants.push((Number(!square.isActive) << 4) | coords);
+        break;
+
+      case Species.Giraffe:
+        giraffes.push((Number(!square.isActive) << 4) | coords);
+        break;
+
+      case Species.Lion:
+        if (square.isActive) {
+          activeLion = coords;
+        } else {
+          passiveLion = coords;
+        }
+        break;
+
+      default:
+        return typesafeUnreachable(square.species);
+    }
+  }
+
+  for (const species of HAND_SPECIES) {
+    for (let j = 0; j < activeHand[species]; ++j) {
+      switch (species) {
+        case Species.Bird:
+          birds.push(0b011110);
+          break;
+
+        case Species.Elephant:
+          elephants.push(0b01111);
+          break;
+
+        case Species.Giraffe:
+          giraffes.push(0b01111);
+          break;
+
+        case Species.Lion:
+          activeLion = 0b1111;
+          break;
+
+        default:
+          return typesafeUnreachable(species);
+      }
+    }
+
+    for (let j = 0; j < passiveHand[species]; ++j) {
+      switch (species) {
+        case Species.Bird:
+          birds.push(0b111110);
+          break;
+
+        case Species.Elephant:
+          elephants.push(0b11111);
+          break;
+
+        case Species.Giraffe:
+          giraffes.push(0b11111);
+          break;
+
+        case Species.Lion:
+          passiveLion = 0b1111;
+          break;
+
+        default:
+          return typesafeUnreachable(species);
+      }
+    }
+  }
+
+  return buildCompressedGameState(
+    birds,
+    elephants,
+    giraffes,
+    activeLion,
+    passiveLion
+  );
+}
+
+function buildCompressedGameState(
+  unsortedBirds: readonly number[],
+  unsortedElephants: readonly number[],
+  unsortedGiraffes: readonly number[],
+  activeLion: number,
+  passiveLion: number
+): number {
+  const [bird0, bird1] = unsortedBirds.slice().sort((a, b) => a - b);
+  const [elephant0, elephant1] = unsortedElephants
+    .slice()
+    .sort((a, b) => a - b);
+  const [giraffe0, giraffe1] = unsortedGiraffes.slice().sort((a, b) => a - b);
+  return (
+    passiveLion +
+    _2_POW_4 * activeLion +
+    _2_POW_8 * giraffe1 +
+    _2_POW_13 * giraffe0 +
+    _2_POW_18 * elephant1 +
+    _2_POW_23 * elephant0 +
+    _2_POW_28 * bird1 +
+    _2_POW_34 * bird0
+  );
+}
+
+function getCoordsFromSquareIndex(squareIndex: number): number {
+  const row = Math.floor(squareIndex / 3);
+  const col = squareIndex % 3;
+  return (row << 2) | col;
 }
 
 function tryApplyAction(game: GameState, action: Action): null | GameState {
