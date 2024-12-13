@@ -10,7 +10,7 @@ import skyGiraffe from "./sky_giraffe.svg";
 import skyHen from "./sky_hen.svg";
 import skyLion from "./sky_lion.svg";
 
-import empty from "./empty.svg";
+import emptySquare from "./empty_square.svg";
 
 export {
   forestChick,
@@ -23,5 +23,5 @@ export {
   skyGiraffe,
   skyHen,
   skyLion,
-  empty,
+  emptySquare,
 };

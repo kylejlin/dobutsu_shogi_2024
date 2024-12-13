@@ -1,13 +1,105 @@
+@media (min-aspect-ratio: 1/1) {
+  html {
+    --major-axis: 100vw;
+    --minor-axis: 100vh;
+  }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  html {
+    --major-axis: 100vh;
+    --minor-axis: 100vw;
+  }
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --max-square-size: 200px;
+  --square-size: round(
+    down,
+    min(calc(var(--minor-axis) / 8), var(--max-square-size)),
+    1px
+  );
+
+  --border-thickness: round(down, calc(var(--square-size) / 16), 1px);
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.Square {
+  position: absolute;
+  width: var(--square-size);
+  height: var(--square-size);
+}
+
+.Square img {
+  position: absolute;
+  top: var(--border-thickness);
+  left: var(--border-thickness);
+  width: calc(var(--square-size) - 2 * var(--border-thickness));
+  height: calc(var(--square-size) - 2 * var(--border-thickness));
+}
+
+.Square--i0 {
+  top: calc(3 * var(--square-size));
+  left: calc(0 * var(--square-size));
+}
+
+.Square--i1 {
+  top: calc(3 * var(--square-size));
+  left: calc(1 * var(--square-size));
+}
+
+.Square--i2 {
+  top: calc(3 * var(--square-size));
+  left: calc(2 * var(--square-size));
+}
+
+.Square--i3 {
+  top: calc(2 * var(--square-size));
+  left: calc(0 * var(--square-size));
+}
+
+.Square--i4 {
+  top: calc(2 * var(--square-size));
+  left: calc(1 * var(--square-size));
+}
+
+.Square--i5 {
+  top: calc(2 * var(--square-size));
+  left: calc(2 * var(--square-size));
+}
+
+.Square--i6 {
+  top: calc(1 * var(--square-size));
+  left: calc(0 * var(--square-size));
+}
+
+.Square--i7 {
+  top: calc(1 * var(--square-size));
+  left: calc(1 * var(--square-size));
+}
+
+.Square--i8 {
+  top: calc(1 * var(--square-size));
+  left: calc(2 * var(--square-size));
+}
+
+.Square--i9 {
+  top: calc(0 * var(--square-size));
+  left: calc(0 * var(--square-size));
+}
+
+.Square--i10 {
+  top: calc(0 * var(--square-size));
+  left: calc(1 * var(--square-size));
+}
+
+.Square--i11 {
+  top: calc(0 * var(--square-size));
+  left: calc(2 * var(--square-size));
 }

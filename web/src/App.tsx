@@ -357,7 +357,7 @@ function getSquareAltText(square: Square): string {
 
 function getSquareImageSrc(square: Square): string {
   if (square.isEmpty) {
-    return imageUrls.empty;
+    return imageUrls.emptySquare;
   }
 
   switch (square.allegiance) {
