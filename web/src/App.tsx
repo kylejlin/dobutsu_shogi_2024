@@ -362,6 +362,13 @@ export class App extends React.Component<Props, State> {
                   )})`}
             </p>
           )}
+
+          {this.state.actionHistory.length > 0 ? (
+            <p>
+              You can press the <span className="KeyboardSymbol">D</span> key to
+              undo a move.
+            </p>
+          ) : null}
         </div>
       </div>
     );
