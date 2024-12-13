@@ -847,8 +847,25 @@ function unsafeApplyForestAction(game: GameState, action: Action): GameState {
   const { board, forestHand } = out;
   const captive = board[action.destIndex];
 
-  // TODO
-  return game;
+  if (action.isDrop) {
+    board[action.destIndex] = {
+      isEmpty: false,
+      allegiance: Player.Forest,
+      species: action.species,
+      isPromoted: false,
+    };
+    return invertGameState(out);
+  }
+
+  if (!captive.isEmpty) {
+    forestHand[captive.species] += 1;
+  }
+
+  const actor = board[action.startIndex];
+  board[action.destIndex] = actor;
+  board[action.startIndex] = { isEmpty: true };
+
+  return invertGameState(out);
 }
 
 function invertGameState(game: GameState): GameState {
