@@ -654,70 +654,58 @@ function compressGameState(state: GameState): number {
 }
 
 function tryApplyAction(game: GameState, action: Action): null | GameState {
-  if (game.activePlayer === Player.Forest) {
-    return tryApplyActionForest(game, action);
-  }
-
-  const invertedResult = tryApplyActionForest(
-    invertGameState(game),
-    invertAction(action)
-  );
-  return invertedResult === null ? null : invertGameState(invertedResult);
-}
-
-function tryApplyActionForest(
-  game: GameState,
-  action: Action
-): null | GameState {
-  const actions = getForestActions(game);
+  const actions = getActions(game);
   if (!actions.some((other) => areActionsEqual(action, other))) {
     return null;
   }
 
-  return unsafeApplyForestAction(game, action);
+  return unsafeApplyAction(game, action);
 }
 
-function getForestActions(game: GameState): readonly Action[] {
-  if (game.activePlayer !== Player.Forest) {
-    return [];
-  }
+function getActions(game: GameState): readonly Action[] {
+  const [activeHand, passiveHand] =
+    game.activePlayer === Player.Forest
+      ? [game.forestHand, game.skyHand]
+      : [game.skyHand, game.forestHand];
 
   // If the active lion is in the passive hand,
   // the passive player has won.
-  if (game.skyHand[Species.Lion] > 0) {
+  if (passiveHand[Species.Lion] > 0) {
     return [];
   }
 
-  const { board, forestHand } = game;
+  const { board, activePlayer } = game;
 
   // If the active lion is in the passive home row,
   // the active player has won by the Try Rule.
-  if (
-    isForestLion(board[9]) ||
-    isForestLion(board[10]) ||
-    isForestLion(board[11])
-  ) {
+  const scoredTry =
+    activePlayer === Player.Forest
+      ? isForestLion(board[9]) ||
+        isForestLion(board[10]) ||
+        isForestLion(board[11])
+      : isSkyLion(board[0]) || isSkyLion(board[1]) || isSkyLion(board[2]);
+  if (scoredTry) {
     return [];
   }
 
   const out: Action[] = [];
 
-  if (forestHand[Species.Bird] > 0) {
-    writeForestDropForEachDest(game, Species.Bird, out);
+  if (activeHand[Species.Bird] > 0) {
+    writeDropForEachDest(game, Species.Bird, out);
   }
 
-  if (forestHand[Species.Elephant] > 0) {
-    writeForestDropForEachDest(game, Species.Elephant, out);
+  if (activeHand[Species.Elephant] > 0) {
+    writeDropForEachDest(game, Species.Elephant, out);
   }
 
-  if (forestHand[Species.Giraffe] > 0) {
-    writeForestDropForEachDest(game, Species.Giraffe, out);
+  if (activeHand[Species.Giraffe] > 0) {
+    writeDropForEachDest(game, Species.Giraffe, out);
   }
 
   for (let startIndex = 0; startIndex < 12; ++startIndex) {
     const actor = board[startIndex];
-    if (!actor.isEmpty && actor.allegiance === Player.Forest) {
-      writeForestMoveForEachDest(
+    if (!actor.isEmpty && actor.allegiance === activePlayer) {
+      writeMoveForEachDest(
         game,
         startIndex,
         actor.species,
@@ -730,7 +718,7 @@ function getForestActions(game: GameState): readonly Action[] {
   return out;
 }
 
-function writeForestDropForEachDest(
+function writeDropForEachDest(
   game: GameState,
   species: Species,
   out: Action[]
@@ -742,33 +730,53 @@ function writeForestDropForEachDest(
   }
 }
 
-function writeForestMoveForEachDest(
+function writeMoveForEachDest(
   game: GameState,
   startIndex: number,
   species: Species,
   isPromoted: boolean,
   out: Action[]
 ): void {
+  const { activePlayer } = game;
   for (let destIndex = 0; destIndex < 12; ++destIndex) {
     const dest = game.board[destIndex];
-    const isDestForest = !dest.isEmpty && dest.allegiance === Player.Forest;
+    const isDestActive = !dest.isEmpty && dest.allegiance === activePlayer;
     if (
-      !isDestForest &&
-      canForestSpeciesMove(species, isPromoted, startIndex, destIndex)
+      !isDestActive &&
+      canSpeciesMove(
+        game.activePlayer,
+        species,
+        isPromoted,
+        startIndex,
+        destIndex
+      )
     ) {
       out.push({ isDrop: false, startIndex: startIndex, destIndex: destIndex });
     }
   }
 }
 
-function canForestSpeciesMove(
+function canSpeciesMove(
+  activePlayer: Player,
   species: Species,
   isPromoted: boolean,
   startIndex: number,
   destIndex: number
 ): boolean {
-  const moveSet = getForestMoveSet(species, isPromoted);
+  const moveSet = getMoveSet(activePlayer, species, isPromoted);
   return doesMoveSetPermit(moveSet, startIndex, destIndex);
+}
+
+function getMoveSet(
+  activePlayer: Player,
+  species: Species,
+  isPromoted: boolean
+): MoveSet {
+  const forestMoveSet = getForestMoveSet(species, isPromoted);
+
+  return activePlayer === Player.Forest
+    ? forestMoveSet
+    : invertMoveSet(forestMoveSet);
 }
 
 function getForestMoveSet(species: Species, isPromoted: boolean): MoveSet {
@@ -822,6 +830,14 @@ function isForestLion(square: Square): boolean {
   );
 }
 
+function isSkyLion(square: Square): boolean {
+  return (
+    !square.isEmpty &&
+    square.allegiance === Player.Sky &&
+    square.species === Species.Lion
+  );
+}
+
 function areActionsEqual(action1: Action, action2: Action): boolean {
   if (action1.isDrop) {
     return (
@@ -838,13 +854,11 @@ function areActionsEqual(action1: Action, action2: Action): boolean {
   );
 }
 
-function unsafeApplyForestAction(game: GameState, action: Action): GameState {
-  if (game.activePlayer !== Player.Forest) {
-    throw new Error("Cannot apply a Forest action when it is Sky's turn.");
-  }
-
+function unsafeApplyAction(game: GameState, action: Action): GameState {
   const out = cloneGameState(game);
-  const { board, forestHand } = out;
+  const { board } = out;
+  const activeHand =
+    game.activePlayer === Player.Forest ? out.forestHand : out.skyHand;
   const captive = board[action.destIndex];
 
   if (action.isDrop) {
@@ -854,48 +868,34 @@ function unsafeApplyForestAction(game: GameState, action: Action): GameState {
       species: action.species,
       isPromoted: false,
     };
-    return invertGameState(out);
+    return invertActivePlayer(out);
   }
 
   if (!captive.isEmpty) {
-    forestHand[captive.species] += 1;
+    activeHand[captive.species] += 1;
   }
 
   const actor = board[action.startIndex];
-  board[action.destIndex] = actor;
+
+  const inPromotionZone =
+    game.activePlayer === Player.Forest
+      ? action.destIndex > 8
+      : action.destIndex < 3;
+
+  const isActorBird = !actor.isEmpty && actor.species === Species.Bird;
+
+  board[action.destIndex] =
+    inPromotionZone && isActorBird ? { ...actor, isPromoted: true } : actor;
+
   board[action.startIndex] = { isEmpty: true };
 
-  return invertGameState(out);
+  return invertActivePlayer(out);
 }
 
-function invertGameState(game: GameState): GameState {
+function invertActivePlayer(game: GameState): GameState {
   return {
-    forestHand: game.skyHand,
-    skyHand: game.forestHand,
-    board: game.board.map((_, i) => {
-      const invertedIndex = invertBoardIndex(i);
-      return invertSquareAllegiance(game.board[invertedIndex]);
-    }),
+    ...game,
     activePlayer: invertPlayer(game.activePlayer),
-  };
-}
-
-function invertBoardIndex(index: number): number {
-  const row = Math.floor(index / 3);
-  const col = index % 3;
-  const invertedRow = 3 - row;
-  const invertedCol = 2 - col;
-  return invertedRow * 3 + invertedCol;
-}
-
-function invertSquareAllegiance(square: Square): Square {
-  if (square.isEmpty) {
-    return square;
-  }
-
-  return {
-    ...square,
-    allegiance: invertPlayer(square.allegiance),
   };
 }
 
@@ -910,22 +910,6 @@ function invertPlayer(player: Player): Player {
     default:
       return typesafeUnreachable(player);
   }
-}
-
-function invertAction(action: Action): Action {
-  if (action.isDrop) {
-    return {
-      isDrop: action.isDrop,
-      species: action.species,
-      destIndex: invertBoardIndex(action.destIndex),
-    };
-  }
-
-  return {
-    isDrop: action.isDrop,
-    startIndex: invertBoardIndex(action.startIndex),
-    destIndex: invertBoardIndex(action.destIndex),
-  };
 }
 
 function getMoveSetOf(directions: readonly (keyof MoveSet)[]): MoveSet {
@@ -965,6 +949,19 @@ function getMoveSetUnion(a: MoveSet, b: MoveSet): MoveSet {
     sw: a.sw || b.sw,
     w: a.w || b.w,
     nw: a.nw || b.nw,
+  };
+}
+
+function invertMoveSet(moveSet: MoveSet): MoveSet {
+  return {
+    n: moveSet.s,
+    ne: moveSet.sw,
+    e: moveSet.w,
+    se: moveSet.nw,
+    s: moveSet.n,
+    sw: moveSet.ne,
+    w: moveSet.e,
+    nw: moveSet.se,
   };
 }
 
