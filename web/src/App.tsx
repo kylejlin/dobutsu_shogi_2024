@@ -467,11 +467,6 @@ function getInitialGameState(): GameState {
   };
 }
 
-function compressGameState(state: GameState): number {
-  // TODO
-  return 0;
-}
-
 function getPacketMaximumsUrl(): string {
   return "https://github.com/kylejlin/dobutsu_shogi_database_2024/raw/refs/heads/main/maximums.dat";
 }
@@ -621,6 +616,11 @@ function isSquareForest(square: Square): boolean {
 
 function isSquareSky(square: Square): boolean {
   return !square.isEmpty && square.allegiance === Player.Sky;
+}
+
+function compressGameState(state: GameState): number {
+  // TODO
+  return 0;
 }
 
 function tryApplyAction(game: GameState, action: Action): null | GameState {
