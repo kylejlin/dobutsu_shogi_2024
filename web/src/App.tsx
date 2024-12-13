@@ -400,6 +400,14 @@ export class App extends React.Component<Props, State> {
           src={getSquareImageSrc(handSquare)}
           onClick={(): void => this.onHandSquareClick(player, species)}
         />
+        {count === 2 ? (
+          <img
+            className="SquareOverlay"
+            alt="Two"
+            src={imageUrls.two}
+            onClick={(): void => this.onHandSquareClick(player, species)}
+          />
+        ) : null}
       </div>
     );
   }

@@ -12,6 +12,8 @@ import skyLion from "./sky_lion.svg";
 
 import emptySquare from "./empty_square.svg";
 
+import two from "./two.svg";
+
 export {
   forestChick,
   forestElephant,
@@ -24,4 +26,5 @@ export {
   skyHen,
   skyLion,
   emptySquare,
+  two,
 };
