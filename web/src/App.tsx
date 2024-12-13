@@ -293,7 +293,11 @@ export class App extends React.Component<Props, State> {
         <div id="AnalysisBox">
           <p>
             Best action:{" "}
-            {bestActionAndChildScore === null
+            {didActivePlayerWin(game)
+              ? `${game.activePlayer} won.`
+              : didPassivePlayerWin(game)
+              ? `${invertPlayer(game.activePlayer)} won.`
+              : bestActionAndChildScore === null
               ? "<loading...>"
               : `${stringifyAction(
                   bestActionAndChildScore[0]
