@@ -1,4 +1,5 @@
 import React from "react";
+import * as imageUrls from "./images/urls";
 
 const _256_POW_2 = 256 * 256;
 const _256_POW_3 = 256 * 256 * 256;
@@ -355,6 +356,60 @@ function getSquareAltText(square: Square): string {
 }
 
 function getSquareImageSrc(square: Square): string {
-  // TODO
-  return "";
+  if (square.isEmpty) {
+    return imageUrls.empty;
+  }
+
+  switch (square.allegiance) {
+    case Player.Sky:
+      return getSkyImageSrc(square.species);
+
+    case Player.Forest:
+      return getForestImageSrc(square.species);
+
+    default:
+      return typesafeUnreachable(square.allegiance);
+  }
+}
+
+function getSkyImageSrc(species: Species): string {
+  switch (species) {
+    case Species.Bird:
+      return imageUrls.skyChick;
+
+    case Species.Elephant:
+      return imageUrls.skyElephant;
+
+    case Species.Giraffe:
+      return imageUrls.skyGiraffe;
+
+    case Species.Lion:
+      return imageUrls.skyLion;
+
+    default:
+      return typesafeUnreachable(species);
+  }
+}
+
+function getForestImageSrc(species: Species): string {
+  switch (species) {
+    case Species.Bird:
+      return imageUrls.forestChick;
+
+    case Species.Elephant:
+      return imageUrls.forestElephant;
+
+    case Species.Giraffe:
+      return imageUrls.forestGiraffe;
+
+    case Species.Lion:
+      return imageUrls.forestLion;
+
+    default:
+      return typesafeUnreachable(species);
+  }
+}
+
+function typesafeUnreachable(impossible: never): never {
+  return impossible;
 }
