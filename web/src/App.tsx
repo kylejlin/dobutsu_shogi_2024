@@ -326,6 +326,10 @@ export class App extends React.Component<Props, State> {
     const prevSelection = this.state.squareSelection;
     const { game } = this.state;
 
+    if (isGameOver(game)) {
+      return;
+    }
+
     // Handle piece selection.
     if (
       prevSelection.kind === SquareSelectionKind.None &&
@@ -392,6 +396,10 @@ export class App extends React.Component<Props, State> {
   }
 
   onHandSquareClick(player: Player, species: Species): void {
+    if (isGameOver(this.state.game)) {
+      return;
+    }
+
     const prevSelection = this.state.squareSelection;
 
     // Handle piece selection.
@@ -663,30 +671,14 @@ function tryApplyAction(game: GameState, action: Action): null | GameState {
 }
 
 function getActions(game: GameState): readonly Action[] {
-  const [activeHand, passiveHand] =
-    game.activePlayer === Player.Forest
-      ? [game.forestHand, game.skyHand]
-      : [game.skyHand, game.forestHand];
+  const activeHand =
+    game.activePlayer === Player.Forest ? game.forestHand : game.skyHand;
 
-  // If the active lion is in the passive hand,
-  // the passive player has won.
-  if (passiveHand[Species.Lion] > 0) {
+  if (isGameOver(game)) {
     return [];
   }
 
   const { board, activePlayer } = game;
-
-  // If the active lion is in the passive home row,
-  // the active player has won by the Try Rule.
-  const scoredTry =
-    activePlayer === Player.Forest
-      ? isForestLion(board[9]) ||
-        isForestLion(board[10]) ||
-        isForestLion(board[11])
-      : isSkyLion(board[0]) || isSkyLion(board[1]) || isSkyLion(board[2]);
-  if (scoredTry) {
-    return [];
-  }
 
   const out: Action[] = [];
 
@@ -716,6 +708,27 @@ function getActions(game: GameState): readonly Action[] {
   }
 
   return out;
+}
+
+function isGameOver(game: GameState): boolean {
+  return didPassivePlayerWin(game) || didActivePlayerWin(game);
+}
+
+function didPassivePlayerWin(game: GameState): boolean {
+  const passiveHand =
+    game.activePlayer === Player.Forest ? game.skyHand : game.forestHand;
+
+  return passiveHand[Species.Lion] > 0;
+}
+
+function didActivePlayerWin(game: GameState): boolean {
+  const { board, activePlayer } = game;
+  // Check whether the active player won by the Try Rule.
+  return activePlayer === Player.Forest
+    ? isForestLion(board[9]) ||
+        isForestLion(board[10]) ||
+        isForestLion(board[11])
+    : isSkyLion(board[0]) || isSkyLion(board[1]) || isSkyLion(board[2]);
 }
 
 function writeDropForEachDest(
