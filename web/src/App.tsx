@@ -30,9 +30,13 @@ interface State {
 interface GameState {
   readonly forestHand: Hand;
   readonly skyHand: Hand;
-  readonly board: readonly Square[];
+  readonly board: Board;
   readonly activePlayer: Player;
 }
+
+type Board = readonly Square[];
+
+type ActiveBoard = readonly ActiveSquare[];
 
 interface Hand {
   readonly [Species.Bird]: number;
@@ -43,6 +47,8 @@ interface Hand {
 
 type Square = EmptySquare | OccupiedSquare;
 
+type ActiveSquare = EmptySquare | ActiveOccupiedSquare;
+
 interface EmptySquare {
   readonly isEmpty: true;
 }
@@ -50,6 +56,13 @@ interface EmptySquare {
 interface OccupiedSquare {
   readonly isEmpty: false;
   readonly allegiance: Player;
+  readonly species: Species;
+  readonly isPromoted: boolean;
+}
+
+interface ActiveOccupiedSquare {
+  readonly isEmpty: false;
+  readonly isActive: boolean;
   readonly species: Species;
   readonly isPromoted: boolean;
 }
@@ -656,7 +669,67 @@ function isSquareSky(square: Square): boolean {
   return !square.isEmpty && square.allegiance === Player.Sky;
 }
 
-function compressGameState(state: GameState): number {
+function compressGameState(game: GameState): number {
+  const [activeHand, passiveHand] =
+    game.activePlayer === Player.Forest
+      ? [game.forestHand, game.skyHand]
+      : [game.skyHand, game.forestHand];
+
+  return compressActiveGameState(getActiveBoard(game), activeHand, passiveHand);
+}
+
+function getActiveBoard(game: GameState): ActiveBoard {
+  if (game.activePlayer === Player.Forest) {
+    return getActiveBoardAssumingForestIsActive(game.board);
+  }
+
+  return invertActiveBoard(getActiveBoardAssumingForestIsActive(game.board));
+}
+
+function getActiveBoardAssumingForestIsActive(board: Board): ActiveBoard {
+  return board.map((square) => {
+    if (square.isEmpty) {
+      return { isEmpty: true };
+    }
+
+    return {
+      isEmpty: false,
+      isActive: square.allegiance === Player.Forest,
+      species: square.species,
+      isPromoted: square.isPromoted,
+    };
+  });
+}
+
+function invertActiveBoard(board: ActiveBoard): ActiveBoard {
+  return board.map((_, squareIndex) => {
+    const invertedIndex = invertSquareIndex(squareIndex);
+    return invertActiveSquare(board[invertedIndex]);
+  });
+}
+
+function invertSquareIndex(squareIndex: number): number {
+  return 11 - squareIndex;
+}
+
+function invertActiveSquare(square: ActiveSquare): ActiveSquare {
+  if (square.isEmpty) {
+    return { isEmpty: true };
+  }
+
+  return {
+    isEmpty: false,
+    isActive: !square.isActive,
+    species: square.species,
+    isPromoted: square.isPromoted,
+  };
+}
+
+function compressActiveGameState(
+  activeBoard: ActiveBoard,
+  activeHand: Hand,
+  passiveHand: Hand
+): number {
   // TODO
   return 0;
 }
