@@ -1271,6 +1271,10 @@ function getBestActionAndChildScore(
   game: GameState,
   cache: MutCache
 ): null | [Action, number] {
+  if (isGameOver(game)) {
+    return null;
+  }
+
   const { paddedPacketMaximums, packetMap } = cache;
 
   if (paddedPacketMaximums === null) {
@@ -1295,6 +1299,12 @@ function getBestActionAndChildScoreUsingPacket(
   game: GameState,
   packet: Uint8Array
 ): [Action, number] {
+  if (isGameOver(game)) {
+    throw new Error(
+      "Called getBestActionAndChildScoreUsingPacket on a terminal state."
+    );
+  }
+
   const actionChildMap = getCompressedChildActionMap(game);
 
   let bestAction: Action | null = null;
