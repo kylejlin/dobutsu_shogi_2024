@@ -943,17 +943,21 @@ function areActionsEqual(action1: Action, action2: Action): boolean {
 function unsafeApplyAction(game: GameState, action: Action): GameState {
   const out = cloneGameState(game);
   const { board } = out;
+  const { activePlayer } = game;
   const activeHand =
-    game.activePlayer === Player.Forest ? out.forestHand : out.skyHand;
+    activePlayer === Player.Forest ? out.forestHand : out.skyHand;
   const captive = board[action.destIndex];
 
   if (action.isDrop) {
     board[action.destIndex] = {
       isEmpty: false,
-      allegiance: Player.Forest,
+      allegiance: activePlayer,
       species: action.species,
       isPromoted: false,
     };
+
+    activeHand[action.species] -= 1;
+
     return invertActivePlayer(out);
   }
 

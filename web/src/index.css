@@ -28,6 +28,32 @@ body {
   );
 
   --border-thickness: round(down, calc(var(--square-size) / 16), 1px);
+
+  --hand-separator-thickness: round(down, calc(var(--square-size) / 4), 1px);
+}
+
+#SkyHand {
+  position: absolute;
+  left: var(--border-thickness);
+  top: var(--border-thickness);
+}
+
+#Board {
+  position: absolute;
+  left: calc(
+    var(--border-thickness) + var(--square-size) +
+      var(--hand-separator-thickness)
+  );
+  top: var(--border-thickness);
+}
+
+#ForestHand {
+  position: absolute;
+  left: calc(
+    var(--border-thickness) + 4 * var(--square-size) + 2 *
+      var(--hand-separator-thickness)
+  );
+  top: var(--border-thickness);
 }
 
 .Square {
@@ -106,4 +132,24 @@ body {
 .Square--board11 {
   top: calc(0 * var(--square-size));
   left: calc(2 * var(--square-size));
+}
+
+.Square--hand0 {
+  top: calc(3 * var(--square-size));
+  left: 0;
+}
+
+.Square--hand1 {
+  top: calc(2 * var(--square-size));
+  left: 0;
+}
+
+.Square--hand2 {
+  top: calc(1 * var(--square-size));
+  left: 0;
+}
+
+.Square--hand3 {
+  top: calc(0 * var(--square-size));
+  left: 0;
 }
