@@ -376,10 +376,6 @@ export class App extends React.Component<Props, State> {
           isHoveredOver && !wouldBeLegalIfHoveredOver
             ? " Square--illegalHover"
             : ""
-        }${
-          squareSelection.kind === SquareSelectionKind.None
-            ? " Square--noSquareSelected"
-            : ""
         }`}
         key={squareIndex}
       >
@@ -445,10 +441,6 @@ export class App extends React.Component<Props, State> {
         }${
           isHoveredOver && !wouldBeLegalIfHoveredOver
             ? " Square--illegalHover"
-            : ""
-        }${
-          squareSelection.kind === SquareSelectionKind.None
-            ? " Square--noSquareSelected"
             : ""
         }`}
         key={speciesIndex}
