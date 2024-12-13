@@ -683,7 +683,7 @@ function stringifyAction(action: Action): string {
   if (action.isDrop) {
     const destRow = Math.floor(action.destIndex / 3);
     const destCol = action.destIndex % 3;
-    return `Drop ${action.species} at r${destRow}_c${destCol}`;
+    return `Drop ${action.species} at R${destRow}C${destCol}`;
   }
 
   const startRow = Math.floor(action.startIndex / 3);
@@ -692,7 +692,7 @@ function stringifyAction(action: Action): string {
   const destRow = Math.floor(action.destIndex / 3);
   const destCol = action.destIndex % 3;
 
-  return `Move from r${startRow}_c${startCol} to r${destRow}_c${destCol}`;
+  return `Move from R${startRow}C${startCol} to R${destRow}C${destCol}`;
 }
 
 function stringifyScore(score: number): string {
