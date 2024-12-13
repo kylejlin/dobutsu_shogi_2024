@@ -86,11 +86,15 @@ body {
 .Square--bestActionSpecies,
 .Square--bestActionStart,
 .Square--bestActionDest {
-  background-color: #ce7eff;
+  background-color: #8800ff;
+}
+
+.Square--mouseOver {
+  background-color: #666666;
 }
 
 .Square--selected {
-  background-color: #8800ff;
+  background-color: #ce7eff;
 }
 
 .Square--board0 {

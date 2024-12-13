@@ -25,6 +25,7 @@ interface State {
   readonly game: GameState;
   readonly actionHistory: readonly Action[];
   readonly squareSelection: SquareSelection;
+  readonly hoverSquareSelection: SquareSelection;
   readonly cacheGeneration: number;
 }
 
@@ -168,6 +169,7 @@ export class App extends React.Component<Props, State> {
       game: getInitialGameState(),
       actionHistory: [],
       squareSelection: { kind: SquareSelectionKind.None },
+      hoverSquareSelection: { kind: SquareSelectionKind.None },
       cacheGeneration: 0,
     };
 
@@ -324,7 +326,7 @@ export class App extends React.Component<Props, State> {
     squareIndex: number,
     bestActionAndChildScore: null | readonly [Action, number]
   ): React.ReactElement {
-    const { game, squareSelection } = this.state;
+    const { game, squareSelection, hoverSquareSelection } = this.state;
     const selectedBoardSquareIndex =
       squareSelection.kind === SquareSelectionKind.Board
         ? squareSelection.squareIndex
@@ -339,6 +341,10 @@ export class App extends React.Component<Props, State> {
       bestActionAndChildScore === null
         ? null
         : bestActionAndChildScore[0].destIndex;
+    const hoverIndex =
+      hoverSquareSelection.kind === SquareSelectionKind.Board
+        ? hoverSquareSelection.squareIndex
+        : null;
     return (
       <div
         className={`Square Square--board${squareIndex}${
@@ -347,13 +353,15 @@ export class App extends React.Component<Props, State> {
           bestActionStartIndex === squareIndex ? " Square--bestActionStart" : ""
         }${
           bestActionDestIndex === squareIndex ? " Square--bestActionDest" : ""
-        }`}
+        }${hoverIndex === squareIndex ? " Square--mouseOver" : ""}`}
         key={squareIndex}
       >
         <img
           alt={getSquareAltText(game.board[squareIndex])}
           src={getSquareImageSrc(game.board[squareIndex])}
           onClick={(): void => this.onBoardSquareClick(squareIndex)}
+          onMouseEnter={(): void => this.onBoardSquareMouseEnter(squareIndex)}
+          onMouseLeave={(): void => this.onBoardSquareMouseLeave(squareIndex)}
         />
       </div>
     );
@@ -370,7 +378,7 @@ export class App extends React.Component<Props, State> {
       throw new Error(`Invalid species: ${species}`);
     }
 
-    const { game, squareSelection } = this.state;
+    const { game, squareSelection, hoverSquareSelection } = this.state;
     const selectedFriendlyHandSpecies =
       squareSelection.kind === SquareSelectionKind.Hand &&
       squareSelection.player === player
@@ -381,6 +389,11 @@ export class App extends React.Component<Props, State> {
       bestActionAndChildScore[0].isDrop &&
       game.activePlayer === player &&
       bestActionAndChildScore[0].species === species;
+    const hoverFriendlyHandSpecies =
+      hoverSquareSelection.kind === SquareSelectionKind.Hand &&
+      hoverSquareSelection.player === player
+        ? hoverSquareSelection.species
+        : null;
     const handSquare: Square =
       count === 0
         ? { isEmpty: true }
@@ -394,13 +407,21 @@ export class App extends React.Component<Props, State> {
       <div
         className={`Square Square--hand${speciesIndex}${
           selectedFriendlyHandSpecies === species ? " Square--selected" : ""
-        }${isBestActionSpecies ? " Square--bestActionSpecies" : ""}`}
+        }${isBestActionSpecies ? " Square--bestActionSpecies" : ""}${
+          hoverFriendlyHandSpecies === species ? " Square--mouseOver" : ""
+        }`}
         key={speciesIndex}
       >
         <img
           alt={getSquareAltText(handSquare)}
           src={getSquareImageSrc(handSquare)}
           onClick={(): void => this.onHandSquareClick(player, species)}
+          onMouseEnter={(): void =>
+            this.onHandSquareMouseEnter(player, species)
+          }
+          onMouseLeave={(): void =>
+            this.onHandSquareMouseLeave(player, species)
+          }
         />
         {count === 2 ? (
           <img
@@ -408,6 +429,12 @@ export class App extends React.Component<Props, State> {
             alt="Two"
             src={imageUrls.two}
             onClick={(): void => this.onHandSquareClick(player, species)}
+            onMouseEnter={(): void =>
+              this.onHandSquareMouseEnter(player, species)
+            }
+            onMouseLeave={(): void =>
+              this.onHandSquareMouseLeave(player, species)
+            }
           />
         ) : null}
       </div>
@@ -520,6 +547,56 @@ export class App extends React.Component<Props, State> {
       this.setState({ squareSelection: { kind: SquareSelectionKind.None } });
       return;
     }
+  }
+
+  onBoardSquareMouseEnter(squareIndex: number): void {
+    this.setState({
+      hoverSquareSelection: {
+        kind: SquareSelectionKind.Board,
+        squareIndex,
+      },
+    });
+  }
+
+  onBoardSquareMouseLeave(squareIndex: number): void {
+    this.setState((prevState) => {
+      if (
+        prevState.hoverSquareSelection.kind === SquareSelectionKind.Board &&
+        prevState.hoverSquareSelection.squareIndex === squareIndex
+      ) {
+        return {
+          ...prevState,
+          hoverSquareSelection: { kind: SquareSelectionKind.None },
+        };
+      }
+      return prevState;
+    });
+  }
+
+  onHandSquareMouseEnter(player: Player, species: Species): void {
+    this.setState({
+      hoverSquareSelection: {
+        kind: SquareSelectionKind.Hand,
+        player,
+        species,
+      },
+    });
+  }
+
+  onHandSquareMouseLeave(player: Player, species: Species): void {
+    this.setState((prevState) => {
+      if (
+        prevState.hoverSquareSelection.kind === SquareSelectionKind.Hand &&
+        prevState.hoverSquareSelection.player === player &&
+        prevState.hoverSquareSelection.species === species
+      ) {
+        return {
+          ...prevState,
+          hoverSquareSelection: { kind: SquareSelectionKind.None },
+        };
+      }
+      return prevState;
+    });
   }
 }
 
