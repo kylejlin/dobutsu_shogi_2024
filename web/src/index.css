@@ -104,11 +104,11 @@ body {
 }
 
 .Square--legalHover {
-  background-color: #666666;
+  background-color: #ce7eff;
 }
 
 .Square--illegalHover {
-  background-color: #c35454;
+  background-color: #666666;
 }
 
 .Square--selected {
