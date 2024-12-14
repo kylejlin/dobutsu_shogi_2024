@@ -1571,6 +1571,15 @@ function getBestActionAndChildScoreUsingPacket(
 
   const actionChildMap = getCompressedChildActionMap(game);
 
+  // This for-loop should not be necessary,
+  // since the packet should contain the optimal child
+  // even if the optimal child is terminal.
+  // However, in practice, this seems to not be the case.
+  // I still haven't figured out where the bug is.
+  //
+  // In any case, to work around this,
+  // we add this for-loop to handle the case where
+  // the optimal child is terminal.
   for (const candidateAction of actionChildMap.values()) {
     const noncompressedChild = unsafeApplyAction(game, candidateAction);
 
