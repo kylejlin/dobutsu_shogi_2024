@@ -37,19 +37,20 @@ impl StateSet {
         }
     }
 
-    pub fn add(&mut self, node: State) -> DidAddendAlreadyExist {
-        let bucket0 = self.raw[(node.0 >> (40 - 16)) as usize].get_or_insert_with(Default::default);
-        let bucket1 = bucket0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize]
+    pub fn add(&mut self, state: State) -> DidAddendAlreadyExist {
+        let bucket0 =
+            self.raw[(state.0 >> (40 - 16)) as usize].get_or_insert_with(Default::default);
+        let bucket1 = bucket0[((state.0 >> (40 - 16 - 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bucket2 = bucket1[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize]
+        let bucket2 = bucket1[((state.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bucket3 = bucket2[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize]
+        let bucket3 = bucket2[((state.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bucket4 = bucket3[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize]
+        let bucket4 = bucket3[((state.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Default::default);
-        let bucket5 = &mut bucket4[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize];
+        let bucket5 = &mut bucket4[((state.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize];
 
-        let i6 = (node.0 >> (40 - 16 - 6 * 4)) & 0b1111;
+        let i6 = (state.0 >> (40 - 16 - 6 * 4)) & 0b1111;
         let mask = 1 << i6;
 
         let did_addend_already_exist = bucket5.0 & mask != 0;
@@ -62,8 +63,8 @@ impl StateSet {
     }
 
     pub fn union(mut self, other: &Self) -> Self {
-        other.visit_in_order(|node| {
-            self.add(node);
+        other.visit_in_order(|state| {
+            self.add(state);
         });
 
         self
@@ -72,7 +73,7 @@ impl StateSet {
     pub fn to_sorted_vec(&self) -> Vec<State> {
         let mut raw = Vec::new();
 
-        self.visit_in_order(|node| raw.push(node));
+        self.visit_in_order(|state| raw.push(state));
 
         raw
     }

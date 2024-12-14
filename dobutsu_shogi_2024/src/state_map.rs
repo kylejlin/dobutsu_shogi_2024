@@ -117,19 +117,19 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         }
     }
 
-    pub fn add(&mut self, node: State, value: T) -> DidAddendAlreadyExist {
-        let bucket0 = self.raw[(node.0 >> (40 - 16)) as usize].get_or_insert_with(Null::null);
-        let bucket1 =
-            bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].get_or_insert_with(Null::null);
-        let bucket2 = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize]
+    pub fn add(&mut self, state: State, value: T) -> DidAddendAlreadyExist {
+        let bucket0 = self.raw[(state.0 >> (40 - 16)) as usize].get_or_insert_with(Null::null);
+        let bucket1 = bucket0.0[((state.0 >> (40 - 16 - 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket3 = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize]
+        let bucket2 = bucket1.0[((state.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket4 = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize]
+        let bucket3 = bucket2.0[((state.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let bucket5 = &mut bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize]
+        let bucket4 = bucket3.0[((state.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize]
             .get_or_insert_with(Null::null);
-        let item = &mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
+        let bucket5 = &mut bucket4.0[((state.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize]
+            .get_or_insert_with(Null::null);
+        let item = &mut bucket5.0[((state.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
 
         let did_addend_already_exist = !item.is_null();
 
@@ -140,70 +140,70 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
         }
     }
 
-    pub fn get(&self, node: State) -> T {
-        let Some(bucket0) = self.raw[(node.0 >> (40 - 16)) as usize].as_ref() else {
+    pub fn get(&self, state: State) -> T {
+        let Some(bucket0) = self.raw[(state.0 >> (40 - 16)) as usize].as_ref() else {
             return Null::null();
         };
 
-        let Some(bucket1) = bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket1) = bucket0.0[((state.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket2) = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket2) = bucket1.0[((state.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket3) = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket3) = bucket2.0[((state.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket4) = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket4) = bucket3.0[((state.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        let Some(bucket5) = bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_ref()
+        let Some(bucket5) = bucket4.0[((state.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_ref()
         else {
             return Null::null();
         };
 
-        bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize]
+        bucket5.0[((state.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize]
     }
 
-    pub fn get_mut(&mut self, node: State) -> Option<&mut T> {
-        let Some(bucket0) = self.raw[(node.0 >> (40 - 16)) as usize].as_mut() else {
+    pub fn get_mut(&mut self, state: State) -> Option<&mut T> {
+        let Some(bucket0) = self.raw[(state.0 >> (40 - 16)) as usize].as_mut() else {
             return None;
         };
 
-        let Some(bucket1) = bucket0.0[((node.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_mut()
+        let Some(bucket1) = bucket0.0[((state.0 >> (40 - 16 - 4)) & 0b1111) as usize].as_mut()
         else {
             return None;
         };
 
-        let Some(bucket2) = bucket1.0[((node.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_mut()
+        let Some(bucket2) = bucket1.0[((state.0 >> (40 - 16 - 2 * 4)) & 0b1111) as usize].as_mut()
         else {
             return None;
         };
 
-        let Some(bucket3) = bucket2.0[((node.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_mut()
+        let Some(bucket3) = bucket2.0[((state.0 >> (40 - 16 - 3 * 4)) & 0b1111) as usize].as_mut()
         else {
             return None;
         };
 
-        let Some(bucket4) = bucket3.0[((node.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_mut()
+        let Some(bucket4) = bucket3.0[((state.0 >> (40 - 16 - 4 * 4)) & 0b1111) as usize].as_mut()
         else {
             return None;
         };
 
-        let Some(bucket5) = bucket4.0[((node.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_mut()
+        let Some(bucket5) = bucket4.0[((state.0 >> (40 - 16 - 5 * 4)) & 0b1111) as usize].as_mut()
         else {
             return None;
         };
 
-        let out = &mut bucket5.0[((node.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
+        let out = &mut bucket5.0[((state.0 >> (40 - 16 - 6 * 4)) & 0b1111) as usize];
 
         if out.is_null() {
             return None;
@@ -213,8 +213,8 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     }
 
     pub fn union(mut self, other: &Self) -> Self {
-        other.visit_in_key_order(|node, value| {
-            self.add(node, value);
+        other.visit_in_key_order(|state, value| {
+            self.add(state, value);
         });
 
         self
@@ -223,13 +223,13 @@ impl<T: Copy + Null + std::fmt::Debug> StateMap<T> {
     pub fn to_sorted_vec(&self) -> Vec<(State, T)> {
         let mut raw = Vec::new();
 
-        self.visit_in_key_order(|node, value| raw.push((node, value)));
+        self.visit_in_key_order(|state, value| raw.push((state, value)));
 
         raw
     }
 
     /// This will visit the entries in the order of their keys
-    /// (defined by `<SearchNode as Ord>::cmp`).
+    /// (defined by `<State as Ord>::cmp`).
     pub fn visit_in_key_order(&self, mut visitor: impl FnMut(State, T)) {
         for (i0, bucket0) in self.raw.iter().enumerate() {
             let Some(bucket0) = bucket0 else {

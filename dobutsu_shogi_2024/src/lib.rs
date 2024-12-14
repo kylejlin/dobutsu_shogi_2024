@@ -68,13 +68,13 @@ pub struct StateAndStats(
     pub u64,
 );
 
-/// This is like a `SearchNode`,
+/// This is like a `State`,
 /// but with the `chick0 <= chick1` invariant
 /// (and all similar invariants) removed.
-/// In other words, `NodeBuilder` represents a
-/// possibly "corrupted" forward state,
-/// and `SearchNode` is the subset of `NodeBuilder`
-/// representing "valid" forward nodes.
+/// In other words, `StateBuilder` represents a
+/// possibly "corrupted" state,
+/// and `State` is the subset of `StateBuilder`
+/// representing "valid" states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct StateBuilder(
     /// This must be non-zero.
@@ -83,14 +83,7 @@ struct StateBuilder(
 
 /// An optional state builder `o` represents None if and only if `o.0 == 0`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct OptionalNodeBuilder(u64);
-
-#[derive(Clone, Copy, Debug)]
-pub struct OptionalSearchNode(
-    // This is zero if and only if
-    // the option is `NONE`.
-    u64,
-);
+struct OptionalStateBuilder(u64);
 
 /// The **least** significant 48 bits are used.
 #[derive(Clone, Copy, Debug)]
@@ -137,7 +130,7 @@ struct ChildCalculator {
 
 #[derive(Clone, Copy, Debug)]
 struct ParentCalculator {
-    inverted_node: StateBuilder,
+    inverted_state: StateBuilder,
     inverted_board: Board,
 }
 
@@ -170,7 +163,7 @@ impl Terminality {
     }
 }
 
-impl OptionalNodeBuilder {
+impl OptionalStateBuilder {
     const NONE: Self = Self(0);
 
     const fn is_none(self) -> bool {
@@ -735,11 +728,11 @@ impl ChildCalculator {
         let dest_candidates = actor.legal_dest_squares(is_promoted, start);
 
         for dest in dest_candidates {
-            let optional_node = state.vacate_passive(dest, self.board);
-            if optional_node.is_none() {
+            let optional_state = state.vacate_passive(dest, self.board);
+            if optional_state.is_none() {
                 continue;
             }
-            let state = optional_node.unchecked_unwrap();
+            let state = optional_state.unchecked_unwrap();
             let state = actor.set_coords_and_promote_if_in_last_row(state, dest);
             visitor(state.invert_active_player().build());
         }
@@ -754,10 +747,10 @@ impl State {
 
 impl ParentCalculator {
     fn new(state: State) -> Self {
-        let inverted_node = state.into_builder().invert_active_player();
+        let inverted_state = state.into_builder().invert_active_player();
         Self {
-            inverted_node,
-            inverted_board: inverted_node.board(),
+            inverted_state,
+            inverted_board: inverted_state.board(),
         }
     }
 
@@ -773,7 +766,7 @@ impl ParentCalculator {
 
     #[inline(always)]
     fn visit_parents_with_actor(self, actor: Actor, mut visitor: impl FnMut(State)) {
-        let state = self.inverted_node;
+        let state = self.inverted_state;
         if !(actor.is_active(state) && actor.is_on_board(state)) {
             return;
         }
@@ -807,7 +800,7 @@ impl ParentCalculator {
 
     #[inline(always)]
     fn visit_dropping_parent(self, actor: Actor, mut visitor: impl FnMut(State)) {
-        let state = self.inverted_node;
+        let state = self.inverted_state;
         let coords = Coords::HAND;
 
         let out = state;
@@ -825,7 +818,7 @@ impl ParentCalculator {
         starting_squares: CoordVec,
         mut visitor: impl FnMut(State),
     ) {
-        let state = self.inverted_node;
+        let state = self.inverted_state;
         let board = self.inverted_board;
 
         let dest_square = actor.coords(state);
@@ -850,7 +843,7 @@ impl ParentCalculator {
                 }
 
                 // If the passive lion is in hand in the inverted current state,
-                // then it must be on the board for all parent nodes.
+                // then it must be on the board for all parent states.
                 // Therefore, we should not consider parents where a non-lion is captured
                 // or where no piece is captured.
                 continue;
@@ -922,7 +915,7 @@ impl ParentCalculator {
         starting_square: Coords,
         mut visitor: impl FnMut(State),
     ) {
-        let state = self.inverted_node;
+        let state = self.inverted_state;
 
         let out = state;
         let out = actor.set_coords(out, starting_square);
@@ -947,7 +940,7 @@ impl ParentCalculator {
         captive: Nonlion,
         mut visitor: impl FnMut(State),
     ) {
-        let state = self.inverted_node;
+        let state = self.inverted_state;
 
         // If a piece was captured, then it would be moved to the active hand.
         if !(captive.is_active(state) && captive.is_in_hand(state)) {
@@ -997,9 +990,9 @@ impl StateBuilder {
     /// - If the destination square is occupied by a passive piece,
     ///   this returns the state with the passive piece moved to the active player's hand.
     /// - If the destination square is occupied by an active piece,
-    ///   this returns `OptionalNodeBuilder::NONE`.
+    ///   this returns `OptionalStateBuilder::NONE`.
     #[inline(always)]
-    const fn vacate_passive(self, dest: Coords, board: Board) -> OptionalNodeBuilder {
+    const fn vacate_passive(self, dest: Coords, board: Board) -> OptionalStateBuilder {
         let board_offset = dest.board_offset();
 
         let dest_square = (board.0 >> board_offset) & 0b1111;
@@ -1009,7 +1002,7 @@ impl StateBuilder {
 
         // We cannot vacate an active piece.
         if dest_square & 0b1000 == 0 {
-            return OptionalNodeBuilder::NONE;
+            return OptionalStateBuilder::NONE;
         }
 
         let occupant = dest_square & 0b111;
@@ -1365,8 +1358,8 @@ impl StateBuilder {
     }
 
     #[inline(always)]
-    const fn into_optional(self) -> OptionalNodeBuilder {
-        OptionalNodeBuilder(self.0)
+    const fn into_optional(self) -> OptionalStateBuilder {
+        OptionalStateBuilder(self.0)
     }
 }
 

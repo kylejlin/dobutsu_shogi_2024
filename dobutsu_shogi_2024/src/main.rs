@@ -73,7 +73,7 @@ fn launch_tree_inspector(solution: &BestChildMap) {
         );
         match top_state.best_child_index(&solution) {
             Some(i) => println!("Best child index: {i}.",),
-            None => println!("Best child index: None (node is terminal)."),
+            None => println!("Best child index: None (state is terminal)."),
         }
         println!(
             "Children: {}",
@@ -198,9 +198,9 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
     const CHECKPOINT_SIZE: u64 = 1_000_000;
 
     const U64_BYTES: usize = std::mem::size_of::<u64>();
-    const NODES_PER_PACKET: usize = 1000;
+    const STATES_PER_PACKET: usize = 1000;
     const PACKETS_PER_DIRECTORY: usize = 1000;
-    let mut packet_buffer: Vec<u8> = Vec::with_capacity(U64_BYTES * NODES_PER_PACKET);
+    let mut packet_buffer: Vec<u8> = Vec::with_capacity(U64_BYTES * STATES_PER_PACKET);
     let mut parent_of_most_recent_packet_addition: Option<State> = None;
     let mut byte_quintuplets_representing_packet_parent_shifted_state_maximums: Vec<u8> = vec![];
 
@@ -209,7 +209,7 @@ fn create_simple_db(solution: &BestChildMap, simple_db_path: &Path) {
         packet_buffer.extend_from_slice(&child.0.to_le_bytes());
         parent_of_most_recent_packet_addition = Some(parent);
 
-        if packet_buffer.len() == U64_BYTES * NODES_PER_PACKET {
+        if packet_buffer.len() == U64_BYTES * STATES_PER_PACKET {
             let packet_index =
                 byte_quintuplets_representing_packet_parent_shifted_state_maximums.len() / 5;
             let prefix = simple_db_path.join(format!("{}", packet_index / PACKETS_PER_DIRECTORY));
@@ -357,7 +357,7 @@ fn load_or_compute_solution_and_log(solution_path: &Path) -> StateMap<StateAndSt
             }
         });
         println!(
-            "Computed best child map for {} nodes. It took {:?}.",
+            "Computed best child map for {} states. It took {:?}.",
             checkpoints * CHECKPOINT_SIZE + countup,
             start_time.elapsed()
         );

@@ -25,7 +25,7 @@ impl State {
         let mut best_outcome = Outcome(i16::MAX);
         self.visit_children(|child| {
             let outcome = child.outcome(map).unwrap_or(Outcome(0));
-            // We invert perspectives, since child nodes represent the opponent's turn.
+            // We invert perspectives, since child states represent the opponent's turn.
             // Therefore, lower scores are better.
             if outcome < best_outcome {
                 best_child = Some(child);

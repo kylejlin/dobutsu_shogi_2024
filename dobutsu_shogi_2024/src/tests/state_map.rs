@@ -81,7 +81,7 @@ fn state_map_visitable_in_key_order() {
         let (state_map, _) = random_state_map_pair(&mut prng);
         let visited = {
             let mut out = vec![];
-            state_map.visit_in_key_order(|node, _| out.push(node));
+            state_map.visit_in_key_order(|state, _| out.push(state));
             out
         };
 
