@@ -357,7 +357,8 @@ export class App extends React.Component<Props, State> {
               {bestActionAndChildScore === null
                 ? "<loading...>"
                 : `${stringifyAction(
-                    bestActionAndChildScore[0]
+                    bestActionAndChildScore[0],
+                    game
                   )} (resulting child score: ${stringifyScore(
                     bestActionAndChildScore[1]
                   )})`}
@@ -889,11 +890,13 @@ function getSquareAltText(square: Square): string {
   }`;
 }
 
-function stringifyAction(action: Action): string {
+function stringifyAction(action: Action, game: GameState): string {
   if (action.isDrop) {
     const destRow = Math.floor(action.destIndex / 3);
     const destCol = action.destIndex % 3;
-    return `Drop ${action.species} at R${destRow}C${destCol}`;
+    return `Drop ${
+      action.species === Species.Bird ? "Chick" : action.species
+    } at R${destRow}C${destCol}`;
   }
 
   const startRow = Math.floor(action.startIndex / 3);
@@ -902,7 +905,19 @@ function stringifyAction(action: Action): string {
   const destRow = Math.floor(action.destIndex / 3);
   const destCol = action.destIndex % 3;
 
-  return `Move from R${startRow}C${startCol} to R${destRow}C${destCol}`;
+  const startSquare = game.board[action.startIndex];
+  if (startSquare.isEmpty) {
+    // The action is invalid.
+    return `Move from R${startRow}C${startCol} to R${destRow}C${destCol}`;
+  }
+
+  return `Move ${
+    startSquare.species === Species.Bird
+      ? startSquare.isPromoted
+        ? "Hen"
+        : "Chick"
+      : startSquare.species
+  } from R${startRow}C${startCol} to R${destRow}C${destCol}`;
 }
 
 function stringifyScore(score: number): string {
