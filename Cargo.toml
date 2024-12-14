@@ -1,3 +1,0 @@
-[workspace]
-
-members = ["dobutsu_shogi_core", "dobutsu_shogi_web_interface"]

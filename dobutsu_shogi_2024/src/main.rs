@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
-use dobutsu_shogi_core::*;
+use dobutsu_shogi_2024::*;
 use pretty::IntoPretty;
 
 #[derive(Clone, Copy, Debug)]
