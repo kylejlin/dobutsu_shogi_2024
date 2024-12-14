@@ -361,7 +361,7 @@ export class App extends React.Component<Props, State> {
                     game
                   )} (resulting child score: ${stringifyScore(
                     bestActionAndChildScore[1]
-                  )})`}
+                  )}).`}
             </p>
           )}
 
