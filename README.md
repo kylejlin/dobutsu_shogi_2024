@@ -1,14 +1,18 @@
 # Dobutsu Shogi Analyzer (2024)
 
-This program solves Dobutsu Shogi.
-The name is qualified with "2024" to distinguish it from
-a similar solver I wrote in 2021.
-I'm creating a new solver because I want to try a different approach.
+The solver perfectly solves the game of Dobutsu Shogi.
+You can use it to find the best move in any reachable position.
+You can try it out [here](https://kylejlin.github.io/dobutsu_shogi_2024).
+
+> Note: The name of this repository is qualified with "2024" to distinguish it from
+> a similar solver I wrote in 2021.
 
 ## Tip for developers: Run in release mode.
 
 I recommend using `cargo run --release` and `cargo test --release`,
 since the program (as well as the tests) can be quite computationally intensive.
+Sometimes, you will get a stack overflow error in debug mode.
+The tests should all pass in release mode, however.
 
 ## Table of contents
 
@@ -17,7 +21,7 @@ since the program (as well as the tests) can be quite computationally intensive.
 3. [Threefold repetition rule](#threefold-repetition-rule)
 4. [Definition of optimal play](#definition-of-optimal-play)
 5. [Algorithm](#algorithm)
-6. [Search node representation](#search-node-representation-56-bits-total)
+6. [State with state stats representation](#state-with-state-stats-representation-56-bits-total)
 7. [State representation](#state-representation)
 8. [Action representation](#action-representation)
 9. [Board representation](#board-representation)
@@ -125,7 +129,7 @@ We solve the game in two steps:
    (since there are no more children to explore).
    Thus, we add the parent to the set of states with known outcomes.
 
-## State with stats (56 bits total)
+## State with state stats representation (56 bits total)
 
 | stateStats | state   |
 | ---------- | ------- |
@@ -151,12 +155,12 @@ We solve the game in two steps:
   we immediately record the parent as a win and set `requiredChildReportCount` to zero.
   There is no need to wait for the other children to report their outcomes
   because there can be no better outcome than a win in the least number of plies.
-  Assuming that we use a queue instead of a stack to explore nodes
-  and that we enqueue all the terminal nodes first,
-  the first-in-first-out nature guarantees that by the time we dequeue a node
-  with an outcome in `n` plies, all the nodes with outcomes in `m` plies where `m < n`
+  Assuming that we use a queue instead of a stack to explore states,
+  and that we enqueue all the terminal states first,
+  the first-in-first-out nature guarantees that by the time we dequeue a states
+  with an outcome in `n` plies, all the states with outcomes in `m` plies where `m < n`
   have already been dequeued.
-  Thus, if we dequeue such a node, and the node is a loss in `n` plies,
+  Thus, if we dequeue such a states, and the states is a loss in `n` plies,
   we can safely record all non-finalized parents (i.e., every parent with a non-zero `requiredChildReportCount`) as a win in `n + 1` plies,
   since there cannot be a faster win for that parent.
 
@@ -229,7 +233,7 @@ Note that action representation is **not** unique.
 For example, if the active player has two chicks in hand, then dropping `chick0` in square `(0, 0)` and dropping `chick1` in the same square would have to distinct representations, even though they are the same action.
 However, we have deemed this inefficiency to be acceptable.
 
-The value `0b000_0000` represents a "null action". We use this when a node has no remaining actions to explore.
+The value `0b000_0000` represents a "null action". We use this when a states has no remaining actions to explore.
 
 ## Board representation (64 bits total)
 
