@@ -140,6 +140,6 @@ The spec describes the Dobutsu Shogi rules we chose to use, the state representa
 
 ## License (MIT)
 
-Copyright (c) 2024 Kyle Lin
+Copyright (c) 2024 Kyle Lin.
 
 This repository is licensed under the MIT license.
