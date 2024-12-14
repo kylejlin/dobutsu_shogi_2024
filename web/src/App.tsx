@@ -234,6 +234,7 @@ export class App extends React.Component<Props, State> {
     this.setState({
       game: newGameState,
       actionHistory: newHistory,
+      squareSelection: { kind: SquareSelectionKind.None },
     });
     this.fetchPacketForGameStateIfNeeded(newGameState);
   }
