@@ -125,14 +125,25 @@ We solve the game in two steps:
    (since there are no more children to explore).
    Thus, we add the parent to the set of states with known outcomes.
 
-## Search node representation (56 bits total)
+## State with stats (56 bits total)
 
-| state   | requiredChildReportCount | bestKnownOutcome |
-| ------- | ------------------------ | ---------------- |
-| 40 bits | 7 bits                   | 9 bits           |
+| stateStats | state   |
+| ---------- | ------- |
+| 16 bits    | 40 bits |
 
+> Note: The leftmost column contains the most significant bit.
+> Going forward, we will use this convention, except when explicitly stated otherwise.
+
+- `stateStats`: see [State stats representation](#state-stats-representation)
 - `state`: see [State representation](#state-representation)
-- `requiredChildReportCount`: This is an unsigned 7-bit integer that represents the number of children that need to report their outcomes before this node's outcome can be calculated.
+
+## State stats representation (16 bits total)
+
+| requiredChildReportCount | bestKnownOutcome |
+| ------------------------ | ---------------- |
+| 7 bits                   | 9 bits           |
+
+- `requiredChildReportCount`: This is an unsigned 7-bit integer that represents the number of children that need to report their outcomes before this state's outcome can be calculated.
 
   When this becomes zero, `bestKnownOutcome` is the true theoretical best outcome.
 
