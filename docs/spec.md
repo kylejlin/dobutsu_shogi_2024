@@ -12,6 +12,7 @@
 8. [Action representation](#action-representation-7-bits-total)
 9. [Board representation](#board-representation-64-bits-total)
 10. [Coordinate set representation](#coordinate-set-representation-16-bits-total)
+11. [Database organization](#database-organization)
 
 ## Official rules
 
@@ -303,3 +304,35 @@ The bit at index `4 * row + column` is set if the square is in the set.
 | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit |
 
 Since there are only 3 columns, for any `n`, the bit for square `(row: n, column: 3)` is always zero.
+
+## Database organization
+
+Conceptually, the database is a sorted list of parent-child pairs.
+The pairs are sorted by their parents.
+Each child state is annotated with its evaluation (Win in `n`, Loss in `n`, or Draw).
+
+The list is too large to practically store in a single file.
+So, we store the list as many smaller files, called _packets_.
+There are too many packets to practically store in a single directory,
+so we split the packets into many directories, each containing at most 1000 packets.
+Thus, we number packets `0/0.dat`, `0/1.dat`, `0/2.dat`, ..., `1/0.dat`, `1/1.dat`, `1/2.dat`, ..., etc.
+
+Additionally, we store a single file called `maximums.dat`.
+This file contains the maximum of the parents of each packet.
+
+### Packet organization
+
+Every 8 bytes represent an annotated child state,
+in little-endian order.
+See [State with state stats representation](#state-with-state-stats-representation-56-bits-total) for details about the format of the annotated child state.
+
+> Note that one of the bytes is unused, since the annotated child state only needs 7 bytes.
+
+The states are stored contiguously in the file, so each packet is at most 8000 bytes (1000 states \* 8 bytes per state).
+
+### `maximums.dat` organization
+
+Each state is stored as a sequence of 5 bytes, in little-endian order.
+See [State representation](#state-representation) for details about the format of the state.
+
+The states are stored contiguously in the file.

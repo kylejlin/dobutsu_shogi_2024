@@ -136,6 +136,7 @@ However, it is quite simple to change the URL to point to your own copy of the d
 
 The database is stored in a custom binary format.
 See [this spec](./docs/spec.md) for more information.
+The spec describes the Dobutsu Shogi rules we chose to use, the state representation, and the database format.
 
 ## License (MIT)
 
