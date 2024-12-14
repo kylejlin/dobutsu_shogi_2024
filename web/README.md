@@ -22,5 +22,32 @@ If you run into this issue, you can either:
 
   I used [this](https://addons.mozilla.org/en-US/firefox/addon/cors-everywhere/) Firefox extension to do this.
 
-- Clone the database (it's just an ordinary Git repository, albeit one with more files than usual) and then change the URLs in `src/App.tsx` to point to your local copy.
+- Clone the database and then change the URLs in `src/App.tsx` to point to your local copy.
+
   If you grep for `kylejlin.github.io`, you should find all the URLs you need to change.
+
+  The database is just a big GitHub repository, so a normal `git clone` should work.
+
+  However, the database is quite large, so it may take a while to clone.
+  If your network is not stable enough to support the clone,
+  you can try building the database from scratch.
+
+  To build the database from scratch, first run
+
+  ```sh
+  cargo run --release
+  ```
+
+  After several hours (or days, depending on your computer's speed), you should see a prompt that says something like
+
+  ```txt
+  Tree inspector ready. Type \"launch\" to launch or \"simpledb\" to create a simple best-child database.
+  Launching will clear the console, so be sure to save any important information.
+  ```
+
+  Once you see this prompt, type `simpledb` and press Enter.
+  This should create a new database in a directory named `db`.
+  It may take several hours (or even days).
+
+  At this point, it's up to you to figure out how to serve the database.
+  You can serve it locally, use GitHub Pages, etc.
