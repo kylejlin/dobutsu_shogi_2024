@@ -22,10 +22,11 @@ The tests should all pass in release mode, however.
 4. [Definition of optimal play](#definition-of-optimal-play)
 5. [Algorithm](#algorithm)
 6. [State with state stats representation](#state-with-state-stats-representation-56-bits-total)
-7. [State representation](#state-representation)
-8. [Action representation](#action-representation)
-9. [Board representation](#board-representation)
-10. [Square set representation](#square-set-representation)
+7. [State representation](#state-representation-40-bits-total)
+8. [Action representation](#action-representation-7-bits-total)
+9. [Board representation](#board-representation-64-bits-total)
+10. [Coordinate set representation](#coordinate-set-representation-16-bits-total)
+11. [License (MIT)](#license-mit)
 
 ## Official rules
 
@@ -205,7 +206,7 @@ The format for each piece's state is:
 
 - `promotion`: The promotion bit is `1` if the piece is promoted, and `0` if the piece is not promoted.
 
-## Action representation
+## Action representation (7 bits total)
 
 An action is represented by 7 bits.
 
@@ -317,3 +318,9 @@ The bit at index `4 * row + column` is set if the square is in the set.
 | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit | 1 bit |
 
 Since there are only 3 columns, for any `n`, the bit for square `(row: n, column: 3)` is always zero.
+
+## License (MIT)
+
+Copyright (c) 2024 Kyle Lin
+
+This repository is licensed under the MIT license.
