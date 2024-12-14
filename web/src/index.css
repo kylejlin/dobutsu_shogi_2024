@@ -105,14 +105,17 @@ body {
 
 .Square--legalHover {
   background-color: #ce7eff;
+  cursor: default;
 }
 
 .Square--illegalHover {
   background-color: #666666;
+  cursor: not-allowed;
 }
 
 .Square--selected {
   background-color: #ce7eff;
+  cursor: default;
 }
 
 .Square--board0 {
